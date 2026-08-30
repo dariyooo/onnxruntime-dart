@@ -40,7 +40,8 @@ void main() {
     ..writeln()
     ..writeln('/// Configuration keys understood by ONNX Runtime.')
     ..writeln('///')
-    ..writeln('/// Most options are set through these rather than through typed')
+    ..writeln(
+        '/// Most options are set through these rather than through typed')
     ..writeln('/// calls, and on the web they are the only mechanism.')
     ..writeln('library;');
 
@@ -111,7 +112,7 @@ String _dartName(String name) {
   return leading.length == 1
       ? name[0].toLowerCase() + name.substring(1)
       : leading.substring(0, leading.length - 1).toLowerCase() +
-            name.substring(leading.length - 1);
+          name.substring(leading.length - 1);
 }
 
 String _repositoryRoot() {
