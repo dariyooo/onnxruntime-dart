@@ -13,7 +13,7 @@ import pathlib
 import sys
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
-DIST = REPO_ROOT / "dist"
+DIST = REPO_ROOT / "dist" / "runtime"
 MANIFEST = (
     REPO_ROOT / "packages" / "onnxruntime_dart" / "lib" / "src" / "hook" / "release.g.dart"
 )

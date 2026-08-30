@@ -40,6 +40,12 @@ NATIVE_ONLY_FLAGS = (
 )
 
 
+# Each component is released separately, so one component's rebuild never
+# disturbs another's assets. The build hook of the matching package pins one tag.
+RUNTIME = "runtime"
+EP_WEBGPU = "ep-webgpu"
+
+
 @dataclasses.dataclass(frozen=True)
 class Config:
     """One row of the build matrix."""
@@ -49,12 +55,18 @@ class Config:
     arch: str
     runner: str
     args: tuple[str, ...]
+    component: str = RUNTIME
     # Set until the configuration has had a green build.
     unproven: bool = False
 
     @property
     def is_native(self) -> bool:
         return self.platform != "web"
+
+    @property
+    def builds_shared_library(self) -> bool:
+        """Whether this produces libonnxruntime rather than a plugin beside it."""
+        return self.component == RUNTIME and self.is_native
 
     def build_args(self) -> tuple[str, ...]:
         base = COMMON_FLAGS + (NATIVE_ONLY_FLAGS if self.is_native else ())
@@ -134,14 +146,14 @@ CONFIGURATIONS: tuple[Config, ...] = (
         platform="linux",
         arch="x86_64",
         runner="ubuntu-24.04",
-        args=("--use_xnnpack", "--use_webgpu"),
+        args=("--use_xnnpack", "--use_webgpu", "shared_lib"),
     ),
     Config(
         id="linux-arm64",
         platform="linux",
         arch="arm64",
         runner="ubuntu-24.04-arm",
-        args=("--use_xnnpack", "--use_webgpu"),
+        args=("--use_xnnpack", "--use_webgpu", "shared_lib"),
     ),
 
     # Windows.
@@ -150,7 +162,7 @@ CONFIGURATIONS: tuple[Config, ...] = (
         platform="windows",
         arch="x86_64",
         runner="windows-2022",
-        args=("--use_xnnpack", "--use_webgpu"),
+        args=("--use_xnnpack", "--use_webgpu", "shared_lib"),
     ),
     Config(
         id="windows-arm64",
@@ -160,7 +172,7 @@ CONFIGURATIONS: tuple[Config, ...] = (
         # No XNNPACK: its fp16 microkernels include arm_fp16.h, which MSVC on
         # ARM64 does not provide. Operator coverage is unaffected because
         # XNNPACK only accelerates kernels the CPU provider already has.
-        args=("--use_webgpu", "--compile_no_warning_as_error"),
+        args=("--use_webgpu", "shared_lib", "--compile_no_warning_as_error"),
     ),
 
     # Web. Threads need cross-origin isolation, which the embedding page may
@@ -223,25 +235,37 @@ class Group:
     id: str
     platform: str
     runner: str
+    component: str
     configs: tuple[Config, ...]
 
 
 def group(configs: list[Config]) -> list[Group]:
-    """Partitions `configs` into one job per platform and runner."""
-    ordered: dict[tuple[str, str], list[Config]] = {}
+    """Partitions `configs` into one job per component, platform and runner."""
+    ordered: dict[tuple[str, str, str], list[Config]] = {}
     for config in configs:
-        ordered.setdefault((config.platform, config.runner), []).append(config)
+        key = (config.component, config.platform, config.runner)
+        ordered.setdefault(key, []).append(config)
 
-    # A platform split across runners keeps the configuration id, so the two
-    # jobs stay distinguishable.
-    platform_counts: dict[str, int] = {}
-    for platform, _ in ordered:
-        platform_counts[platform] = platform_counts.get(platform, 0) + 1
+    # A platform split across runners keeps the configuration id so the two jobs
+    # stay distinguishable.
+    platform_counts: dict[tuple[str, str], int] = {}
+    for component, platform, _ in ordered:
+        key = (component, platform)
+        platform_counts[key] = platform_counts.get(key, 0) + 1
 
     groups = []
-    for (platform, runner), members in ordered.items():
-        name = platform if platform_counts[platform] == 1 else members[0].id
+    for (component, platform, runner), members in ordered.items():
+        one_runner = platform_counts[(component, platform)] == 1
+        name = platform if one_runner else members[0].id
+        if component != RUNTIME:
+            name = f"{component}-{name}" if one_runner else members[0].id
         groups.append(
-            Group(id=name, platform=platform, runner=runner, configs=tuple(members))
+            Group(
+                id=name,
+                platform=platform,
+                runner=runner,
+                component=component,
+                configs=tuple(members),
+            )
         )
     return groups

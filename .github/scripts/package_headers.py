@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Packages the public C headers once per release.
+"""Packages the public C headers once per runtime release.
 
 They come from the pinned submodule and are identical for every configuration,
 so they ship as a single asset rather than inside each platform archive.
@@ -14,7 +14,7 @@ import tarfile
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 HEADERS = REPO_ROOT / "third_party" / "onnxruntime" / "include" / "onnxruntime"
-DIST = REPO_ROOT / "dist"
+DIST = REPO_ROOT / "dist" / "runtime"
 
 
 def main() -> None:
