@@ -1,18 +1,15 @@
 # Builds the base ONNX Runtime shared library for every supported configuration.
 #
-# Three commitments from DESIGN.md §01 shape this file, and none of them are
-# negotiable:
+# Three rules shape this file:
 #
-#   1. COMPLETE builds. Every ai.onnx kernel, every opset, all com.microsoft
-#      contrib ops, on every platform. The flags that would trim any of that are
-#      listed in DENIED_FLAGS below and the build fails if one appears.
-#   2. The source is the pinned submodule, never a downloaded tarball, so a green
-#      build is reproducible from a single commit.
+#   1. Builds are complete. Every operator, every opset, all contrib ops, on
+#      every platform. ort_matrix.py fails the build if a flag would trim them.
+#   2. The source is the pinned submodule, never a downloaded tarball, so a
+#      green build is reproducible from one commit.
 #   3. x86 and arm64 on every platform that has both.
 #
-# Standard runners are free and unlimited on public repositories -- including
-# macOS, Windows and arm64 -- so breadth costs nothing here. Only -large and
-# -xlarge runners are billed, and none are used.
+# Standard runners are free and unlimited on public repositories, so breadth
+# costs nothing. Only -large and -xlarge are billed and none are used.
 name: build-runtime
 
 on:
@@ -171,9 +168,9 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-  # DESIGN.md P11: the release is a fan-in with a strict order. Partial success
-  # ships a package whose build hook 404s on some platforms, so every
-  # configuration must succeed before anything is published.
+  # Releasing is a fan-in. A partial matrix ships a package whose build hook
+  # 404s on the platforms that failed, so every configuration must succeed
+  # before anything is published.
   all-green:
     name: all ${{ needs.plan.outputs.count }} configurations succeeded
     needs: [plan, build]
