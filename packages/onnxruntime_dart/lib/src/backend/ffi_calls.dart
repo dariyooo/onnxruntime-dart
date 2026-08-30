@@ -12,6 +12,7 @@ import 'dart:ffi';
 import 'dart:typed_data';
 
 import 'package:ffi/ffi.dart';
+import 'package:meta/meta.dart';
 
 import '../bindings/api/api.g.dart';
 import '../bindings/api/manual.dart';
@@ -26,6 +27,16 @@ import 'types.dart';
 
 /// Returns the backend for this platform.
 OrtCalls createCalls() => FfiCalls();
+
+/// Where `RunAsync`'s borrowed arrays come from.
+///
+/// Every other allocation here is arena-scoped and freed by leaving the scope.
+/// These are not: they must outlive the call and are freed in the callback, so
+/// this is the one place a missed free costs memory on every run. Injectable so
+/// a test can account for them exactly rather than inferring from process
+/// memory.
+@visibleForTesting
+Allocator asyncArrayAllocator = calloc;
 
 /// `OrtCalls` implemented against the ONNX Runtime C API.
 final class FfiCalls implements OrtCalls, OrtAsyncCalls {
@@ -510,10 +521,15 @@ final class FfiCalls implements OrtCalls, OrtAsyncCalls {
 /// the failure mode of missing one is a leak per call.
 final class _AsyncArrays {
   _AsyncArrays(Map<String, OrtPtr> inputs, List<String> outputNames)
-      : inputNames = _strings(inputs.keys),
-        outputNames = _strings(outputNames),
-        inputs = calloc<Pointer<OrtValue>>(_atLeastOne(inputs.length)),
-        outputs = calloc<Pointer<OrtValue>>(_atLeastOne(outputNames.length)),
+      : _allocator = asyncArrayAllocator,
+        inputNames = _strings(inputs.keys, asyncArrayAllocator),
+        outputNames = _strings(outputNames, asyncArrayAllocator),
+        inputs = asyncArrayAllocator<Pointer<OrtValue>>(
+          _atLeastOne(inputs.length),
+        ),
+        outputs = asyncArrayAllocator<Pointer<OrtValue>>(
+          _atLeastOne(outputNames.length),
+        ),
         _inputCount = inputs.length,
         _outputCount = outputNames.length {
     var i = 0;
@@ -521,6 +537,10 @@ final class _AsyncArrays {
       this.inputs[i++] = _as<OrtValue>(value);
     }
   }
+
+  /// Held so the arrays are freed by whoever allocated them, even if the
+  /// injected allocator has since changed.
+  final Allocator _allocator;
 
   final Pointer<Pointer<Char>> inputNames;
   final Pointer<Pointer<Char>> outputNames;
@@ -535,23 +555,26 @@ final class _AsyncArrays {
     if (_freed) return;
     _freed = true;
     for (var i = 0; i < _inputCount; i++) {
-      calloc.free(inputNames[i]);
+      _allocator.free(inputNames[i]);
     }
     for (var i = 0; i < _outputCount; i++) {
-      calloc.free(outputNames[i]);
+      _allocator.free(outputNames[i]);
     }
-    calloc
+    _allocator
       ..free(inputNames)
       ..free(outputNames)
       ..free(inputs)
       ..free(outputs);
   }
 
-  static Pointer<Pointer<Char>> _strings(Iterable<String> values) {
+  static Pointer<Pointer<Char>> _strings(
+    Iterable<String> values,
+    Allocator allocator,
+  ) {
     final list = values.toList();
-    final array = calloc<Pointer<Char>>(_atLeastOne(list.length));
+    final array = allocator<Pointer<Char>>(_atLeastOne(list.length));
     for (var i = 0; i < list.length; i++) {
-      array[i] = list[i].toNativeUtf8(allocator: calloc).cast();
+      array[i] = list[i].toNativeUtf8(allocator: allocator).cast();
     }
     return array;
   }
