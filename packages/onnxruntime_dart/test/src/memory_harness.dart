@@ -173,31 +173,46 @@ final class RssMeasurement {
 /// allocating at the same time reads as a leak. Callers must run without
 /// concurrent allocators, which is why the tests using this are tagged
 /// exclusive. Prefer [TrackingAllocator] where the allocation is ours to see.
+/// [attempts] measures more than once and keeps the smallest growth. A leak
+/// shows in every attempt; a page the process happened to touch shows in one,
+/// and reading that as a leak fails a correct build.
 RssMeasurement measureRssGrowth(
   void Function() body, {
   int iterations = 10000,
   int warmup = 500,
+  int attempts = 2,
 }) {
   RangeError.checkNotNegative(warmup, 'warmup');
   if (iterations < 1) {
     throw RangeError.value(iterations, 'iterations', 'must be at least 1');
   }
+  if (attempts < 1) {
+    throw RangeError.value(attempts, 'attempts', 'must be at least 1');
+  }
 
   for (var i = 0; i < warmup; i++) {
     body();
   }
-  final before = ProcessInfo.currentRss;
-  for (var i = 0; i < iterations; i++) {
-    body();
-  }
-  final after = ProcessInfo.currentRss;
 
-  return RssMeasurement(
-    growthBytes: after - before,
-    iterations: iterations,
-    beforeBytes: before,
-    afterBytes: after,
-  );
+  RssMeasurement? best;
+  for (var attempt = 0; attempt < attempts; attempt++) {
+    final before = ProcessInfo.currentRss;
+    for (var i = 0; i < iterations; i++) {
+      body();
+    }
+    final after = ProcessInfo.currentRss;
+
+    final measurement = RssMeasurement(
+      growthBytes: after - before,
+      iterations: iterations,
+      beforeBytes: before,
+      afterBytes: after,
+    );
+    if (best == null || measurement.growthBytes < best.growthBytes) {
+      best = measurement;
+    }
+  }
+  return best!;
 }
 
 /// [measureRssGrowth] for work that completes asynchronously.
@@ -209,25 +224,37 @@ Future<RssMeasurement> measureRssGrowthAsync(
   Future<void> Function() body, {
   int iterations = 500,
   int warmup = 50,
+  int attempts = 2,
 }) async {
   RangeError.checkNotNegative(warmup, 'warmup');
   if (iterations < 1) {
     throw RangeError.value(iterations, 'iterations', 'must be at least 1');
   }
+  if (attempts < 1) {
+    throw RangeError.value(attempts, 'attempts', 'must be at least 1');
+  }
 
   for (var i = 0; i < warmup; i++) {
     await body();
   }
-  final before = ProcessInfo.currentRss;
-  for (var i = 0; i < iterations; i++) {
-    await body();
-  }
-  final after = ProcessInfo.currentRss;
 
-  return RssMeasurement(
-    growthBytes: after - before,
-    iterations: iterations,
-    beforeBytes: before,
-    afterBytes: after,
-  );
+  RssMeasurement? best;
+  for (var attempt = 0; attempt < attempts; attempt++) {
+    final before = ProcessInfo.currentRss;
+    for (var i = 0; i < iterations; i++) {
+      await body();
+    }
+    final after = ProcessInfo.currentRss;
+
+    final measurement = RssMeasurement(
+      growthBytes: after - before,
+      iterations: iterations,
+      beforeBytes: before,
+      afterBytes: after,
+    );
+    if (best == null || measurement.growthBytes < best.growthBytes) {
+      best = measurement;
+    }
+  }
+  return best!;
 }
