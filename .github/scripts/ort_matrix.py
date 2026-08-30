@@ -45,6 +45,32 @@ NATIVE_ONLY_FLAGS = (
 RUNTIME = "runtime"
 EP_WEBGPU = "ep-webgpu"
 
+# Two libraries per platform. `base` is the standard runtime with every
+# operator, which is what almost every app wants. `full` adds the capabilities
+# that have to be compiled in because they cannot be loaded, at the cost of
+# size. The build hook picks one, so an app opts in with a line of config.
+BASE = "base"
+FULL = "full"
+
+# Only in `full`, and only what genuinely cannot be loaded at run time.
+#
+# onnxruntime-extensions is deliberately absent: it loads through
+# RegisterCustomOpsLibrary_V2, so it belongs in its own package rather than in
+# every full build.
+FULL_ONLY_FLAGS = (
+    # On-device training: checkpoints, train and optimizer steps, exporting an
+    # inference model. Behind `#ifdef ENABLE_TRAINING_APIS`, so it cannot be a
+    # download. GetTrainingApi returns null in a base build, which makes
+    # availability detectable at run time rather than a crash.
+    "--enable_training_apis",
+    # Provider-bridge compatibility for TensorRT, CUDA, OpenVINO, VitisAI, QNN
+    # and MIGraphX. RegisterExecutionProviderLibrary already loads plugin-style
+    # providers without this; these stubs are what let it also load the older
+    # bridge-style ones, which is the form Microsoft ships CUDA and TensorRT in.
+    # Compiled-in compatibility for loading, so it cannot itself be loaded.
+    "--enable_generic_interface",
+)
+
 
 @dataclasses.dataclass(frozen=True)
 class Config:
@@ -56,6 +82,7 @@ class Config:
     runner: str
     args: tuple[str, ...]
     component: str = RUNTIME
+    variant: str = BASE
     # Set until the configuration has had a green build.
     unproven: bool = False
 
@@ -230,6 +257,21 @@ CONFIGURATIONS: tuple[Config, ...] = (
 )
 
 
+def _full(config: Config) -> Config:
+    """The `full` counterpart of a `base` configuration."""
+    return dataclasses.replace(
+        config,
+        id=f"{config.id}-full",
+        variant=FULL,
+        args=config.args + FULL_ONLY_FLAGS,
+    )
+
+
+def all_configurations() -> list[Config]:
+    """Every configuration, both variants."""
+    return [c for base in CONFIGURATIONS for c in (base, _full(base))]
+
+
 def assert_complete_build(args) -> None:
     """Raises if any flag would produce an incomplete operator set."""
     for denied in DENIED_FLAGS:
@@ -242,17 +284,18 @@ def assert_complete_build(args) -> None:
 
 def select(pattern: str) -> list[Config]:
     """Returns configurations whose id matches `pattern`, or all of them."""
+    every = all_configurations()
     if pattern in ("", "all"):
-        return list(CONFIGURATIONS)
+        return every
     matcher = re.compile(pattern)
-    chosen = [c for c in CONFIGURATIONS if matcher.search(c.id)]
+    chosen = [c for c in every if matcher.search(c.id)]
     if not chosen:
         raise SystemExit(f"no configuration matches {pattern!r}")
     return chosen
 
 
 def by_id(config_id: str) -> Config:
-    for config in CONFIGURATIONS:
+    for config in all_configurations():
         if config.id == config_id:
             return config
     raise SystemExit(f"unknown configuration id {config_id!r}")
@@ -272,6 +315,7 @@ class Group:
     platform: str
     runner: str
     component: str
+    variant: str
     configs: tuple[Config, ...]
 
 
@@ -279,28 +323,31 @@ def group(configs: list[Config]) -> list[Group]:
     """Partitions `configs` into one job per component, platform and runner."""
     ordered: dict[tuple[str, str, str], list[Config]] = {}
     for config in configs:
-        key = (config.component, config.platform, config.runner)
+        key = (config.component, config.variant, config.platform, config.runner)
         ordered.setdefault(key, []).append(config)
 
     # A platform split across runners keeps the configuration id so the two jobs
     # stay distinguishable.
-    platform_counts: dict[tuple[str, str], int] = {}
-    for component, platform, _ in ordered:
-        key = (component, platform)
+    platform_counts: dict[tuple[str, str, str], int] = {}
+    for component, variant, platform, _ in ordered:
+        key = (component, variant, platform)
         platform_counts[key] = platform_counts.get(key, 0) + 1
 
     groups = []
-    for (component, platform, runner), members in ordered.items():
-        one_runner = platform_counts[(component, platform)] == 1
-        name = platform if one_runner else members[0].id
+    for (component, variant, platform, runner), members in ordered.items():
+        one_runner = platform_counts[(component, variant, platform)] == 1
+        name = platform if one_runner else members[0].id.removesuffix("-full")
         if component != RUNTIME:
-            name = f"{component}-{name}" if one_runner else members[0].id
+            name = f"{component}-{name}"
+        if variant != BASE:
+            name = f"{name}-{variant}"
         groups.append(
             Group(
                 id=name,
                 platform=platform,
                 runner=runner,
                 component=component,
+                variant=variant,
                 configs=tuple(members),
             )
         )
