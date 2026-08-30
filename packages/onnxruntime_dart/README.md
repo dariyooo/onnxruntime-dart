@@ -21,34 +21,40 @@ one back per output. A tensor is a flat list plus a shape.
 
 ```dart
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:onnxruntime_dart/onnxruntime_dart.dart';
 
-void main() async {
-  final session = await Session.fromBytes(
-    await File('mnist.onnx').readAsBytes(),
-  );
+void main() {
+  final session = Session.fromBytes(File('mnist.onnx').readAsBytesSync());
 
   // What does this model want? Names and shapes come from the model itself.
   for (final input in session.inputs) {
-    print('${input.name} ${input.shape} ${input.type}');   // Input3 [1, 1, 28, 28] float32
+    print(input);   // Input3 float32 [1, 1, 28, 28]
   }
 
   // 1x1x28x28 means one image, one channel, 28 by 28. 784 floats, flat.
   final pixels = Float32List(1 * 1 * 28 * 28);
+  final input = OrtTensor.fromData(
+    OrtElementType.float32,
+    pixels,
+    [1, 1, 28, 28],
+  );
 
-  final outputs = session.runSync({
-    'Input3': OrtValue.fromList(pixels, [1, 1, 28, 28]),
-  });
-
-  final scores = outputs['Plus214_Output_0']!.toFloat32List();
+  final outputs = session.run({'Input3': input});
+  final scores = outputs['Plus214_Output_0']!.view.float32s;
   print('digit ${_argmax(scores)}');
 
-  session.dispose();
+  input.release();
+  for (final output in outputs.values) {
+    output.release();
+  }
+  session.release();
 }
 ```
 
-`dispose` frees the model. Skipping it leaks about as much memory as the model
-weighs.
+`release` frees a session or a tensor now. Dropping the last reference frees it
+too, whenever the garbage collector gets there, so forgetting costs a delay
+rather than a leak.
 
 ### Shapes
 
@@ -58,16 +64,22 @@ the model decides that dimension at run time, usually batch size.
 
 ### Types
 
-`OrtValue.fromList` takes the typed list and matches the tensor type to it.
+`OrtTensor.fromData` takes the element type, a typed list, and the shape.
+`view` reads one back, and asks for the type you expect rather than
+reinterpreting the bytes.
 
-| Dart | ONNX |
-| --- | --- |
-| `Float32List` | float32 |
-| `Int64List` | int64 |
-| `Int32List` | int32 |
-| `Uint8List` | uint8 |
+| ONNX | write | read |
+| --- | --- | --- |
+| float32 | `Float32List` | `view.float32s` |
+| float64 | `Float64List` | `view.float64s` |
+| int8, int16, int32, int64 | the matching `IntNList` | `view.intNs` |
+| uint8, uint16, uint32, uint64 | the matching `UintNList` | `view.uintNs` |
+| bool | `Uint8List`, one byte each | `view.bools` |
+| float16 | `Uint16List` of raw bits | `view.float16Bits` |
+| string | `OrtTensor.fromStrings` | `tensor.strings` |
 
-Float64, float16, int8, int16, bool and string are supported too.
+`view.data` is the raw bytes if you would rather do it yourself. It borrows the
+tensor's own memory, so copy it if it needs to outlive the tensor.
 
 ## Platforms
 
@@ -87,16 +99,14 @@ Runtime.
 
 ## Web
 
+**Not working yet.** The library compiles for the browser and everything that
+does not touch the runtime works there, but nothing binds the WebAssembly
+exports, so creating a session throws. The builds below exist; the code that
+loads them does not.
+
 A browser cannot open a shared library, so every accelerator is compiled into
 the `.wasm`. There is no provider package and no `register` call: you choose
 accelerators by choosing which build you serve.
-
-Take a build from this repo's releases, serve it with your app, and point the
-package at it:
-
-```dart
-await Ort.initWeb(wasmUrl: '/assets/ort-wasm-webgpu.wasm');
-```
 
 | Build | Accelerators |
 | --- | --- |
@@ -119,15 +129,20 @@ it by path at run time. Any library exporting `CreateEpFactories` works,
 including ones you build or get elsewhere:
 
 ```dart
-Ort.registerProvider(name: 'cuda', path: '/opt/ort/libonnxruntime_providers_cuda.so');
+registerProviderLibrary(
+  name: 'cuda',
+  path: '/opt/ort/libonnxruntime_providers_cuda.so',
+);
 
-final session = await Session.fromBytes(model, options: const SessionOptions(
-  providers: [Provider.named('cuda'), Provider.cpu],   // cuda first, cpu as fallback
+final session = Session.fromBytes(model, options: const SessionOptions(
+  providers: [(name: 'cuda', configuration: {})],
 ));
 ```
 
 Register providers before creating a session. Registration mutates
 process-global state and racing it against session creation crashes.
+
+`availableProviders()` lists what your build has compiled in.
 
 | Provider | Android | iOS | macOS | Linux | Windows | Web |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -140,7 +155,7 @@ process-global state and racing it against session creation crashes.
 | CUDA, TensorRT, OpenVINO, CANN, ROCm | | | | you supply | you supply | |
 
 **built in** costs you nothing and is used automatically. **package** is a
-separate download:
+separate download, and none of those packages exist yet:
 
 ```
 dart pub add onnxruntime_dart_ep_webgpu
@@ -156,35 +171,39 @@ registerWebGpu();   // the same call as above, with the path filled in
 **you supply** means we will not package it: each targets one vendor's hardware,
 and neither we nor Microsoft build those for every platform.
 
-There is also `onnxruntime_dart_extensions`, which adds operators for the work
+`onnxruntime_dart_extensions` is planned too, adding operators for the work
 around a model rather than in it: tokenizers, audio decoding, image resizing.
 
 ## Keeping the UI responsive
 
-`runSync` blocks the thread it is called on. A large model will freeze your UI.
+`run` blocks the thread it is called on. A large model will freeze your UI.
 
 ```dart
-final outputs = await session.run(inputs);     // returns to you immediately
+final outputs = await session.runAsync(inputs);   // returns to you immediately
 ```
 
-`run` hands the work to ONNX Runtime's own threads. Nothing is copied and no
-isolate is spawned.
+`runAsync` hands the work to ONNX Runtime's own threads and completes on your
+event loop. Nothing is copied and no isolate is spawned, so one session can
+have several runs in flight against one copy of the weights.
+
+It needs at least two intra-op threads, since that pool is what it dispatches
+onto. `SessionOptions(intraOpNumThreads: 1)` rules it out, and says so.
 
 To move your own pre- and post-processing off the UI thread too, run the whole
 pipeline in an isolate. Build the session inside it and keep it, because
 creating one optimises the model graph:
 
-```dart
-Isolate.spawn(_worker, [replyPort, modelBytes]);
-```
-
-Do not call `Isolate.run` per inference. That rebuilds the session every time.
+`example/isolates.dart` has both patterns, the short-lived one and the worker.
+Do not call `Isolate.run` per inference: that rebuilds the session every time.
 
 Neither works on the web. Dart has no isolates there and the WebAssembly build
-has no background entry point, so `runSync` blocks and `run` throws. Run the
+has no background entry point, so `run` blocks and `runAsync` throws. Run the
 whole app in a Web Worker instead.
 
 ## On-device training
+
+**Not working yet.** The library with the training APIs builds, but nothing
+binds them.
 
 Training has to be compiled in, so it comes as a second library rather than a
 package. Ask for it once:
@@ -200,9 +219,6 @@ That swaps the bundled engine for one built with the training APIs: checkpoints,
 train and optimizer steps, and exporting an inference model when you are done.
 Everything else is identical, so nothing else in your code changes.
 
-`Ort.trainingAvailable` reports which library you got, rather than failing at the
-first call.
-
 ## Raw C API
 
 The Dart API covers ONNX Runtime's C API. Where the web cannot support a call it
@@ -210,21 +226,27 @@ is marked, and throws there, rather than being left out everywhere:
 
 ```dart
 @NativeOnly('the WebAssembly build exports no asynchronous run')
-Future<Map<String, OrtValue>> run(Map<String, OrtValue> inputs);
+Future<Map<String, OrtTensor>> runAsync(Map<String, OrtTensor> feeds);
 ```
 
 So the limit is in the signature and in the docs, not something you find by
 hitting it. Web supports a smaller C surface than native, and shrinking the API
 to their intersection would make web's limits everyone's.
 
-For interop with other native code, the generated bindings are also exported.
-They are produced from the same headers the libraries are built from, so they
-never lag the engine:
+The whole C API is there when the Dart API does not cover something. Both the
+bindings and a wrapper for each call are generated from the same headers the
+libraries are built from, so neither lags the engine:
 
 ```dart
 import 'package:onnxruntime_dart/native.dart';
 
 final api = ortApi().ref;
+final allocator = api.getAllocatorWithDefaultOptions();
+final name = api.sessionGetInputName(session, 0, allocator);
 ```
+
+Each wrapper takes and returns Dart values, and turns a failed `OrtStatus` into
+an `OrtException`. The raw function pointer is still there for the handful of
+calls a wrapper cannot express, such as ones taking a callback.
 
 Native only, and you own every handle you create.

@@ -21,6 +21,21 @@ String runtimeVersion() => createCalls().runtimeVersion();
 /// still be loaded from a plugin library at run time.
 List<String> availableProviders() => createCalls().availableProviders();
 
+/// Loads an execution provider plugin from [path], under [name].
+///
+/// A plugin is a shared library exporting `CreateEpFactories`, which is how a
+/// provider ships separately from the runtime. [name] then names it in
+/// [SessionOptions.providers].
+///
+/// Call this before creating any session. It mutates process-global state, and
+/// racing it against session creation crashes the runtime rather than failing.
+void registerProviderLibrary({required String name, required String path}) =>
+    createCalls().registerProviderLibrary(name: name, path: path);
+
+/// Unloads the plugin registered under [name].
+void unregisterProviderLibrary(String name) =>
+    createCalls().unregisterProviderLibrary(name);
+
 /// How a session is configured, applied when it is created.
 ///
 /// Only settings that change how a model loads belong here. Everything else is
