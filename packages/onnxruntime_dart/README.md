@@ -76,44 +76,38 @@ Every build carries **every operator**: all of `ai.onnx`, `ai.onnx.ml` and the
 everywhere. All libraries are built in this repo's CI from a pinned ONNX
 Runtime.
 
-| Platform | Architecture | Accelerators |
-| --- | --- | --- |
-| Android | arm64-v8a, armeabi-v7a, x86_64, x86 | XNNPACK |
-| iOS | arm64 device, arm64 simulator, x86_64 simulator | XNNPACK, CoreML |
-| macOS | arm64, x86_64 | XNNPACK, CoreML |
-| Linux | x64, arm64 | XNNPACK |
-| Windows | x64, arm64 | XNNPACK |
-| Web | wasm + SIMD, and a threaded build | XNNPACK |
-
-Everything runs on CPU. The accelerators are compiled in and used
-automatically.
+| Platform | Architectures |
+| --- | --- |
+| Android | arm64-v8a, armeabi-v7a, x86_64, x86 |
+| iOS | arm64 device, arm64 simulator, x86_64 simulator |
+| macOS | arm64, x86_64 |
+| Linux | x64, arm64 |
+| Windows | x64, arm64 |
+| Web | wasm, three accelerator builds |
 
 ## Web
 
-The web works differently, and the difference is worth knowing before you plan
-around it.
-
-Nothing is loaded at run time. A browser cannot open a shared library, so
-everything the engine can do is compiled into the `.wasm` itself. There is no
-provider package for the web and no `register` call. **You choose your
-accelerators by choosing which build you serve.**
+A browser cannot open a shared library, so every accelerator is compiled into
+the `.wasm`. There is no provider package and no `register` call: you choose
+accelerators by choosing which build you serve.
 
 Take a build from this repo's releases, serve it with your app, and point the
 package at it:
 
 ```dart
-await Ort.initWeb(wasmUrl: '/assets/ort-wasm-simd-threaded.wasm');
+await Ort.initWeb(wasmUrl: '/assets/ort-wasm-webgpu.wasm');
 ```
 
-| Build | Runs on |
+| Build | Accelerators |
 | --- | --- |
-| `ort-wasm-simd` | CPU |
-| `ort-wasm-simd-threaded` | CPU, several threads |
+| `ort-wasm` | XNNPACK |
+| `ort-wasm-webgpu` | XNNPACK, WebGPU |
+| `ort-wasm-webgpu-webnn` | XNNPACK, WebGPU, WebNN |
 
-The threaded build falls back to one thread when the page is not cross-origin
-isolated, so serve it unless you have a reason not to. Threads need
-`Cross-Origin-Opener-Policy: same-origin` and
-`Cross-Origin-Embedder-Policy: require-corp` on the page.
+Smaller is faster to download, so take the one you need. All three are threaded
+and fall back to a single thread when the page is not cross-origin isolated. For
+threads, set `Cross-Origin-Opener-Policy: same-origin` and
+`Cross-Origin-Embedder-Policy: require-corp`.
 
 ## Execution providers
 
@@ -135,12 +129,18 @@ final session = await Session.fromBytes(model, options: const SessionOptions(
 Register providers before creating a session. Registration mutates
 process-global state and racing it against session creation crashes.
 
-The common ones are packaged, so you do not fetch or version them yourself:
+| Provider | Android | iOS | macOS | Linux | Windows | Web |
+| --- | --- | --- | --- | --- | --- | --- |
+| CPU | built in | built in | built in | built in | built in | built in |
+| XNNPACK | built in | built in | built in | built in | built in | built in |
+| CoreML | | built in | built in | | | |
+| WebGPU | package | | | package | package | build variant |
+| WebNN | | | | | | build variant |
+| QNN | package, arm64 | | | | | |
+| CUDA, TensorRT, OpenVINO, CANN, ROCm | | | | you supply | you supply | |
 
-| Package | Runs work on | Platforms |
-| --- | --- | --- |
-| `onnxruntime_dart_ep_webgpu` | GPU | Android, Linux, Windows |
-| `onnxruntime_dart_ep_qnn` | Snapdragon NPU | Android arm64 |
+**built in** costs you nothing and is used automatically. **package** is a
+separate download:
 
 ```
 dart pub add onnxruntime_dart_ep_webgpu
@@ -149,12 +149,12 @@ dart pub add onnxruntime_dart_ep_webgpu
 ```dart
 import 'package:onnxruntime_dart_ep_webgpu/onnxruntime_dart_ep_webgpu.dart';
 
-registerWebGpu();   // the same call, with the path filled in for you
+registerWebGpu();   // the same call as above, with the path filled in
 ```
 
-Vendor-specific providers are not packaged and will not be. CANN, ROCm, VitisAI
-and RKNPU each target one vendor's hardware, and building them for every
-platform is not something we or Microsoft do. Load those with the call above.
+**build variant** means the web, where the choice is which `.wasm` you serve.
+**you supply** means we will not package it: each targets one vendor's hardware,
+and neither we nor Microsoft build those for every platform.
 
 There is also `onnxruntime_dart_extensions`, which adds operators for the work
 around a model rather than in it: tokenizers, audio decoding, image resizing.

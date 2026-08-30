@@ -183,17 +183,12 @@ CONFIGURATIONS: tuple[Config, ...] = (
         ),
     ),
 
-    # Web. Threads need cross-origin isolation, which the embedding page may
-    # not have, so the single-threaded build is a required fallback.
+    # Web. A browser cannot load a shared library, so accelerators are compiled
+    # in and chosen by which build the app serves. Threads are always on: the
+    # loader falls back to one when the page is not cross-origin isolated, so a
+    # separate single-threaded build would carry weight for nothing.
     Config(
-        id="web-wasm-simd",
-        platform="web",
-        arch="wasm32",
-        runner="ubuntu-24.04",
-        args=("--build_wasm", "--enable_wasm_simd", "--use_xnnpack"),
-    ),
-    Config(
-        id="web-wasm-simd-threads",
+        id="web-wasm",
         platform="web",
         arch="wasm32",
         runner="ubuntu-24.04",
@@ -202,6 +197,34 @@ CONFIGURATIONS: tuple[Config, ...] = (
             "--enable_wasm_simd",
             "--enable_wasm_threads",
             "--use_xnnpack",
+        ),
+    ),
+    Config(
+        id="web-wasm-webgpu",
+        platform="web",
+        arch="wasm32",
+        runner="ubuntu-24.04",
+        # static_lib is the only WebGPU mode build.py accepts for wasm.
+        args=(
+            "--build_wasm",
+            "--enable_wasm_simd",
+            "--enable_wasm_threads",
+            "--use_xnnpack",
+            "--use_webgpu", "static_lib",
+        ),
+    ),
+    Config(
+        id="web-wasm-webgpu-webnn",
+        platform="web",
+        arch="wasm32",
+        runner="ubuntu-24.04",
+        args=(
+            "--build_wasm",
+            "--enable_wasm_simd",
+            "--enable_wasm_threads",
+            "--use_xnnpack",
+            "--use_webgpu", "static_lib",
+            "--use_webnn",
         ),
     ),
 )
