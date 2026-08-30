@@ -1,0 +1,94 @@
+# onnxruntime_dart
+
+Instructions for agents working in this repository.
+
+Pure-Dart FFI bindings to ONNX Runtime. No Flutter dependency. Runs under `dart test`.
+
+## Commands
+
+Run from the workspace root.
+
+```
+dart pub get
+dart analyze --fatal-infos
+dart test packages/onnxruntime_dart
+dart test packages/onnxruntime_dart -p chrome   # web-safe subset
+python3 .github/scripts/test_matrix.py          # build matrix invariants
+
+cd packages/onnxruntime_dart && dart run ffigen --config ffigen.yaml
+```
+
+Tests resolve paths through `test/src/paths.dart`, so they run from the root or
+from a package directory.
+
+## Layout
+
+A pub workspace. The submodule and CI are shared, so they sit above the members.
+
+| Path | Contents |
+| --- | --- |
+| `packages/onnxruntime_dart/` | Core package. |
+| `packages/*/lib/src/bindings/*.g.dart` | ffigen output. Never edit. |
+| `packages/*/lib/src/backend/` | The FFI and wasm seam. |
+| `third_party/onnxruntime` | Pinned submodule. Source of truth for headers and test models. |
+| `.github/scripts/ort_matrix.py` | Build matrix. |
+| `.agents/` | Agent instructions. `CLAUDE.md` points here. |
+
+Future ecosystem packages (genai, EP plugins, extensions) become workspace
+members. Each gets `resolution: workspace` and shares the one submodule.
+
+## Invariants
+
+Generated files end in `.g.dart` and are excluded from analysis and formatting by
+pattern. Regenerate, never edit.
+
+Bindings come from the submodule, never a downloaded tarball. `dart run ffigen`
+must reproduce the committed output byte for byte.
+
+Version is `X.Y.Z+onnxruntime-<ORT version>`. The suffix matches the submodule
+tag. Enforced by `test/version_test.dart`.
+
+Builds are complete: every operator, every opset, all contrib ops, every
+platform. `ort_matrix.py` rejects flags that trim the operator set.
+
+Reuse ORT's test corpus rather than authoring models. The submodule ships models
+per operator domain, one per element type (`js/node/test/testdata/test_types_*`),
+reference input and output pairs, and edge cases such as free dimensions and
+fp16. Do not duplicate ORT's own test code: it verifies their kernels compute
+correctly, which is their responsibility, not ours.
+
+Tests run against binaries we build, never a published Microsoft release. Theirs
+trims opset coverage and is not what we ship, so a green run against it would
+prove nothing about ours. The same applies to execution provider libraries as
+they are added: build, then test what was built.
+
+Exactly one conditional import, in `lib/src/backend/backend.dart`. Everything
+above the seam is shared between native and web.
+
+Every native handle has one owner and one release. `createTensor` borrows its
+buffer and does not copy. Public APIs copy in. Anything that outlives its
+creating scope gets a `NativeFinalizer`.
+
+Any change to tensor lifetimes must pass the harness in
+`test/src/memory_harness.dart`.
+
+Tests measuring process-global state, such as resident memory, are tagged
+`exclusive` and run with concurrency 1. `dart test` runs files concurrently in
+one process, so a neighbour allocating is indistinguishable from a leak.
+
+Anything that varies by platform gets a test. ORTCHAR_T width, pointer size,
+byte order and shared library naming are all asserted, because the suite runs on
+every platform and that is where such assumptions break. Tests needing `dart:io`
+or `dart:ffi` carry `@TestOn('vm')`.
+
+## Style
+
+Write like a senior engineer. No filler, no restating the obvious.
+
+Comments explain why, not what, in a line or two. A comment that paraphrases the
+code below it is noise. Delete it.
+
+Never cite planning documents, section numbers, or task IDs in committed code.
+Those documents are transient and the references rot. Give the reason directly.
+
+No em dashes. No semicolons in prose. Plain sentences.
