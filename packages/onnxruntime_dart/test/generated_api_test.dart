@@ -91,6 +91,77 @@ void main() {
       );
     });
 
+    test('model metadata comes back as strings the allocator owns', () {
+      final metadata = api.sessionGetModelMetadata(session);
+      addTearDown(() => api.releaseModelMetadata(metadata));
+
+      final allocator = api.getAllocatorWithDefaultOptions();
+      expect(api.modelMetadataGetGraphName(metadata, allocator), isNotEmpty);
+      expect(
+        api.modelMetadataGetProducerName(metadata, allocator),
+        isNotEmpty,
+      );
+      // Domain and description are empty in most models, which is still a
+      // string rather than a null.
+      expect(api.modelMetadataGetDomain(metadata, allocator), isA<String>());
+      expect(api.modelMetadataGetVersion(metadata), isA<int>());
+    });
+
+    test('memory info round-trips its own fields', () {
+      // CreateMemoryInfo takes two enums and a name, so it exercises the
+      // string-in, enum-in path that most option calls use.
+      final info = api.createMemoryInfo(
+        'Cpu',
+        OrtAllocatorType.OrtArenaAllocator.value,
+        0,
+        OrtMemType.OrtMemTypeDefault.value,
+      );
+      addTearDown(() => api.releaseMemoryInfo(info));
+
+      expect(api.memoryInfoGetName(info), 'Cpu');
+      expect(api.memoryInfoGetId(info), 0);
+      expect(
+        api.compareMemoryInfo(info, info),
+        0,
+        reason: 'a memory info equals itself',
+      );
+    });
+
+    test('a type info reports the ONNX type it holds', () {
+      final info = api.sessionGetInputTypeInfo(session, 0);
+      addTearDown(() => api.releaseTypeInfo(info));
+
+      expect(
+        api.getOnnxTypeFromTypeInfo(info),
+        ONNXType.ONNX_TYPE_TENSOR.value,
+      );
+    });
+
+    test('an IO binding accepts and clears what is bound to it', () {
+      // The whole binding group, which nothing else here reaches.
+      final binding = api.createIoBinding(session);
+      addTearDown(() => api.releaseIoBinding(binding));
+
+      final allocator = api.getAllocatorWithDefaultOptions();
+      final tensor = api.createTensorAsOrtValue(
+        allocator,
+        [1, 6],
+        2,
+        OrtElementType.float32.code,
+      );
+      addTearDown(() => api.releaseValue(tensor));
+
+      api.bindInput(binding, 'input_1', tensor);
+
+      final shape = api.getTensorTypeAndShape(tensor);
+      addTearDown(() => api.releaseTensorTypeAndShapeInfo(shape));
+      expect(api.getTensorShapeElementCount(shape), 6);
+
+      api
+        ..clearBoundInputs(binding)
+        ..clearBoundOutputs(binding);
+    });
+
     test('a failure raises rather than returning a status', () {
       // The generated wrapper checks and releases the OrtStatus, so callers
       // never see one.
