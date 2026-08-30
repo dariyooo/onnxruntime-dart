@@ -16,20 +16,22 @@ OrtApi.GetEpDevices: output const OrtEpDevice* const**
 OrtApi.GetKeyValuePairs: output const char* const**, output const char* const**
 OrtApi.GetOpaqueValue: output void*
 OrtApi.GetResizedStringTensorElementBuffer: input char**
-OrtApi.GetSessionConfigEntry: output char*
+OrtApi.GetSessionConfigEntry: output char*, inout size_t*, which is written back or kept
 OrtApi.GetSparseTensorIndices: input enum OrtSparseIndicesFormat
 OrtApi.GetSparseTensorIndicesTypeShape: input enum OrtSparseIndicesFormat
 OrtApi.GetStringTensorContent: output void*
 OrtApi.GetStringTensorElement: output void*
 OrtApi.GetTensorElementTypeAndShapeDataReference: output const int64_t**
 OrtApi.Graph_GetModelPath: output const ORTCHAR_T**
+OrtApi.KernelInfoGetAttributeArray_float: inout size_t*, which is written back or kept
+OrtApi.KernelInfoGetAttributeArray_int64: inout size_t*, which is written back or kept
 OrtApi.KernelInfoGetAttributeArray_string: output char***
-OrtApi.KernelInfoGetAttribute_string: output char*
-OrtApi.KernelInfo_GetInputName: output char*
-OrtApi.KernelInfo_GetNodeName: output char*
-OrtApi.KernelInfo_GetOperatorDomain: output char*
-OrtApi.KernelInfo_GetOperatorType: output char*
-OrtApi.KernelInfo_GetOutputName: output char*
+OrtApi.KernelInfoGetAttribute_string: output char*, inout size_t*, which is written back or kept
+OrtApi.KernelInfo_GetInputName: output char*, inout size_t*, which is written back or kept
+OrtApi.KernelInfo_GetNodeName: output char*, inout size_t*, which is written back or kept
+OrtApi.KernelInfo_GetOperatorDomain: output char*, inout size_t*, which is written back or kept
+OrtApi.KernelInfo_GetOperatorType: output char*, inout size_t*, which is written back or kept
+OrtApi.KernelInfo_GetOutputName: output char*, inout size_t*, which is written back or kept
 OrtApi.ModelMetadataGetCustomMetadataMapKeys: output char***
 OrtApi.ReleaseAvailableProviders: input char**
 OrtApi.RunAsync: input RunAsyncCallbackFn
@@ -40,7 +42,9 @@ OrtApi.Session_GetEpGraphAssignmentInfo: output const OrtEpAssignedSubgraph* con
 OrtApi.SetGlobalCustomCreateThreadFn: input OrtCustomCreateThreadFn
 OrtApi.SetGlobalCustomJoinThreadFn: input OrtCustomJoinThreadFn
 OrtApi.SetUserLoggingFunction: input OrtLoggingFunction
-OrtApi.UseBlockSparseIndices: input int32_t*
+OrtApi.UseBlockSparseIndices: inout int32_t*, which is written back or kept
+OrtApi.UseCooIndices: inout int64_t*, which is written back or kept
+OrtApi.UseCsrIndices: inout int64_t*, which is written back or kept, inout int64_t*, which is written back or kept
 OrtCompileApi.ModelCompilationOptions_SetOutputModelGetInitializerLocationFunc: input OrtGetInitializerLocationFunc
 OrtCompileApi.ModelCompilationOptions_SetOutputModelWriteFunc: input OrtWriteBufferFunc
 OrtModelEditorApi.CreateModel: input const int*

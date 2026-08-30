@@ -133,30 +133,6 @@ extension OrtApiSparseApi on OrtApi {
         return out0.value;
       });
 
-  /// `UseCooIndices`
-  void useCooIndices(
-          Pointer<OrtValue> ortValue, List<int> indicesData, int indicesNum) =>
-      withArena((arena) {
-        checkOrtStatus(this.UseCooIndices.asFunction<
-                Pointer<OrtStatus> Function(
-                    Pointer<OrtValue>, Pointer<Int64>, int)>()(
-            ortValue, nativeInt64s(indicesData, arena), indicesNum));
-      });
-
-  /// `UseCsrIndices`
-  void useCsrIndices(Pointer<OrtValue> ortValue, List<int> innerData,
-          int innerNum, List<int> outerData, int outerNum) =>
-      withArena((arena) {
-        checkOrtStatus(this.UseCsrIndices.asFunction<
-                Pointer<OrtStatus> Function(Pointer<OrtValue>, Pointer<Int64>,
-                    int, Pointer<Int64>, int)>()(
-            ortValue,
-            nativeInt64s(innerData, arena),
-            innerNum,
-            nativeInt64s(outerData, arena),
-            outerNum));
-      });
-
   /// `GetSparseTensorFormat`
   int getSparseTensorFormat(Pointer<OrtValue> ortValue) => withArena((arena) {
         final out0 = arena<UnsignedInt>();
