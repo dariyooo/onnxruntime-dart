@@ -52,9 +52,10 @@ void main() {
 }
 ```
 
-`release` frees a session or a tensor now. Dropping the last reference frees it
-too, whenever the garbage collector gets there, so forgetting costs a delay
-rather than a leak.
+`release` frees a session or a tensor. Call it. A dropped handle is caught by a
+finalizer, but Dart does not promise finalizers ever run, and under a loop they
+do not keep up, so forgetting leaks. It never corrupts: releasing twice, or
+using something released, throws.
 
 ### Shapes
 

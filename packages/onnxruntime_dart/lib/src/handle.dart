@@ -5,8 +5,12 @@
 /// boundary already exposes each `release*` and `Finalizer` is `dart:core`, so
 /// this compiles for the web as well as for native.
 ///
-/// A dropped reference frees rather than leaks, and a forgotten [release] costs
-/// a delay rather than a leak.
+/// [OrtHandle.release] is the contract, not a suggestion. The finalizer is a
+/// backstop for the occasional miss: Dart makes no promise that it ever runs,
+/// and measured against a loop that drops handles it does not keep up, because
+/// the collector sees a small Dart object rather than the memory behind it. So
+/// a dropped handle usually leaks. What it never does is corrupt, which is the
+/// property worth having when the alternative is a use-after-free.
 library;
 
 import 'backend/types.dart';
@@ -61,7 +65,7 @@ final class OrtHandle {
 
   bool get isReleased => _released;
 
-  /// Frees now rather than waiting for collection.
+  /// Frees the handle. Call this: see the note on the library above.
   ///
   /// Not idempotent, deliberately. A second release means two pieces of code
   /// believe they own this, which is worth failing on rather than hiding.
