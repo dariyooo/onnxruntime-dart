@@ -9,6 +9,7 @@ import 'package:onnxruntime_dart/src/bindings/ort_bindings.g.dart';
 import 'package:onnxruntime_dart/src/ffi/runtime.dart';
 import 'package:test/test.dart';
 
+import 'src/ort_library.dart';
 import 'src/paths.dart';
 import 'dart:io';
 
@@ -38,5 +39,5 @@ void main() {
     test('ORT_API_VERSION matches the header the bindings came from', () {
       expect(ORT_API_VERSION, 29);
     });
-  });
+  }, skip: skipWithoutNativeAsset);
 }

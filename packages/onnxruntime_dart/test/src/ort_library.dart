@@ -4,6 +4,8 @@ library;
 import 'dart:ffi';
 import 'dart:io';
 
+import 'package:onnxruntime_dart/src/ffi/runtime.dart';
+
 import 'paths.dart';
 
 /// Explicit override, set by CI once we build our own binaries.
@@ -62,3 +64,21 @@ String? findWebGpuPlugin() {
 String? get skipWithoutWebGpuPlugin => findWebGpuPlugin() == null
     ? 'no WebGPU plugin (ONNXRUNTIME_EP_WEBGPU unset)'
     : null;
+
+/// Whether the build hook supplied a usable native asset.
+///
+/// It supplies none when no release is published and no local build is
+/// configured, which is the normal state of a fresh checkout. Tests that call
+/// into the runtime through the asset skip rather than fail in that case.
+bool get hasNativeAsset {
+  try {
+    runtimeVersion();
+    return true;
+  } on Object {
+    return false;
+  }
+}
+
+/// Reason to skip, or null when the native asset is loadable.
+String? get skipWithoutNativeAsset =>
+    hasNativeAsset ? null : 'the build hook supplied no native library';
