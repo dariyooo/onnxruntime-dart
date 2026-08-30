@@ -42,6 +42,9 @@ abstract interface class OrtCalls {
 
   void addFreeDimensionOverride(OrtPtr options, String name, int dimension);
 
+  /// Threads ONNX Runtime may use within a single operator.
+  void setIntraOpNumThreads(OrtPtr options, int threads);
+
   void releaseSessionOptions(OrtPtr options);
 
   /// Creates a session from a model already in memory.
@@ -113,4 +116,21 @@ abstract interface class OrtCalls {
 
   /// Stops profiling and returns the file it was written to.
   String? endProfiling(OrtPtr session);
+}
+
+/// Running a model without blocking the isolate.
+///
+/// Separate from [OrtCalls] deliberately. The WebAssembly build exports no
+/// asynchronous run, and folding this into the seam would either make it
+/// unimplementable on the web or force the native side to fake it.
+abstract interface class OrtAsyncCalls {
+  /// Runs [session], completing with one tensor per name in [outputNames].
+  ///
+  /// The returned tensors are owned by the caller.
+  Future<List<OrtPtr>> runAsync(
+    OrtPtr session,
+    Map<String, OrtPtr> inputs,
+    List<String> outputNames,
+    OrtPtr runOptions,
+  );
 }
