@@ -94,4 +94,66 @@ final class OrtTensorView {
 
   /// Number of elements implied by [shape]. A scalar has one.
   int get elementCount => shape.fold(1, (a, b) => a * b);
+
+  /// The contents as the list matching [elementType].
+  ///
+  /// Throws [StateError] when the type is not what was asked for, rather than
+  /// reinterpreting the bytes: reading an int64 tensor as float32 produces
+  /// numbers, and none of them mean anything.
+  Float32List get float32s =>
+      _typed(OrtElementType.float32, (b, o, n) => b.asFloat32List(o, n));
+
+  Float64List get float64s =>
+      _typed(OrtElementType.float64, (b, o, n) => b.asFloat64List(o, n));
+
+  Int8List get int8s =>
+      _typed(OrtElementType.int8, (b, o, n) => b.asInt8List(o, n));
+
+  Uint8List get uint8s =>
+      _typed(OrtElementType.uint8, (b, o, n) => b.asUint8List(o, n));
+
+  Int16List get int16s =>
+      _typed(OrtElementType.int16, (b, o, n) => b.asInt16List(o, n));
+
+  Uint16List get uint16s =>
+      _typed(OrtElementType.uint16, (b, o, n) => b.asUint16List(o, n));
+
+  Int32List get int32s =>
+      _typed(OrtElementType.int32, (b, o, n) => b.asInt32List(o, n));
+
+  Uint32List get uint32s =>
+      _typed(OrtElementType.uint32, (b, o, n) => b.asUint32List(o, n));
+
+  Int64List get int64s =>
+      _typed(OrtElementType.int64, (b, o, n) => b.asInt64List(o, n));
+
+  Uint64List get uint64s =>
+      _typed(OrtElementType.uint64, (b, o, n) => b.asUint64List(o, n));
+
+  /// A boolean tensor, which ONNX stores one byte per element.
+  List<bool> get bools => [
+        for (final byte in _typed(
+          OrtElementType.boolean,
+          (b, o, n) => b.asUint8List(o, n),
+        ))
+          byte != 0,
+      ];
+
+  /// The raw bits of a half-float tensor, which Dart has no type for.
+  Uint16List get float16Bits =>
+      _typed(OrtElementType.float16, (b, o, n) => b.asUint16List(o, n));
+
+  /// Checks the type before building the view, so a mismatch reports the type
+  /// rather than a length that only looks wrong.
+  T _typed<T>(
+    OrtElementType expected,
+    T Function(ByteBuffer buffer, int offset, int length) view,
+  ) {
+    if (elementType != expected) {
+      throw StateError(
+        'this is a ${elementType.name} tensor, not ${expected.name}',
+      );
+    }
+    return view(data.buffer, data.offsetInBytes, elementCount);
+  }
 }

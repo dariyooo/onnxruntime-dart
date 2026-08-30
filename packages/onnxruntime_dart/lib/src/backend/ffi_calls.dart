@@ -18,6 +18,7 @@ import '../bindings/api/manual.dart';
 import '../bindings/api/support.dart';
 import '../bindings/ort_bindings.g.dart';
 import '../ffi/environment.dart';
+import '../ffi/execution_provider.dart';
 import '../ffi/runtime.dart' as ffi;
 import '../ffi/status.dart';
 import 'interface.dart';
@@ -55,6 +56,26 @@ final class FfiCalls implements OrtCalls, OrtAsyncCalls {
 
   @override
   List<String> availableProviders() => _api.availableProviders();
+
+  @override
+  void registerProviderLibrary({
+    required String name,
+    required String path,
+  }) =>
+      registerExecutionProviderLibrary(
+        _api,
+        _environment.handle,
+        name: name,
+        path: path,
+      );
+
+  @override
+  void unregisterProviderLibrary(String name) =>
+      unregisterExecutionProviderLibrary(
+        _api,
+        _environment.handle,
+        name: name,
+      );
 
   @override
   OrtPtr createSessionOptions() => _ptr(_api.createSessionOptions());

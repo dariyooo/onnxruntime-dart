@@ -131,6 +131,31 @@ void main() {
       expect(output.strings, values);
     });
 
+    test('reading a tensor as the wrong type names both', () {
+      final session = _load('float');
+      addTearDown(session.release);
+
+      final shape = _shapeOf(session.inputs.single);
+      final tensor = OrtTensor.fromData(
+        OrtElementType.float32,
+        Float32List(shape.fold(1, (a, b) => a * b)),
+        shape,
+      );
+      addTearDown(tensor.release);
+
+      expect(() => tensor.view.float32s, returnsNormally);
+      expect(
+        () => tensor.view.int64s,
+        throwsA(
+          isA<StateError>().having(
+            (e) => e.message,
+            'message',
+            allOf(contains('float32'), contains('int64')),
+          ),
+        ),
+      );
+    });
+
     test('reading a string tensor as bytes says to use strings', () {
       final session = _load('string');
       addTearDown(session.release);

@@ -33,6 +33,15 @@ abstract interface class OrtCalls {
   /// The execution providers this build was compiled with.
   List<String> availableProviders();
 
+  /// Loads an execution provider plugin from [path], under [name].
+  ///
+  /// Must happen before any session exists: this mutates process-global state,
+  /// and racing it against session creation crashes the runtime.
+  void registerProviderLibrary({required String name, required String path});
+
+  /// Unloads the plugin registered under [name].
+  void unregisterProviderLibrary(String name);
+
   OrtPtr createSessionOptions();
 
   void appendExecutionProvider(
