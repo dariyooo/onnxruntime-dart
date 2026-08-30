@@ -48,3 +48,17 @@ DynamicLibrary openOrtLibrary() {
 String? get skipWithoutOrt => findOrtLibrary() == null
     ? 'no ONNX Runtime library ($_envVar unset)'
     : null;
+
+/// Path to our WebGPU execution provider plugin, or null if it was not built.
+///
+/// Only platforms built with `--use_webgpu shared_lib` produce one, and no
+/// published Microsoft release ships it, so CI sets this from our own artifacts.
+String? findWebGpuPlugin() {
+  final path = Platform.environment['ONNXRUNTIME_EP_WEBGPU'];
+  return path != null && File(path).existsSync() ? path : null;
+}
+
+/// Reason to skip, or null when the WebGPU plugin is available.
+String? get skipWithoutWebGpuPlugin => findWebGpuPlugin() == null
+    ? 'no WebGPU plugin (ONNXRUNTIME_EP_WEBGPU unset)'
+    : null;
