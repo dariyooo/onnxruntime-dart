@@ -13,21 +13,36 @@ import 'package:test/test.dart';
 
 import 'src/paths.dart';
 
-/// Everything that has to compile for dart2js and dart2wasm.
-const _shared = [
-  'lib/src/backend/types.dart',
-  'lib/src/backend/interface.dart',
-  'lib/src/handle.dart',
-  'lib/src/annotations.dart',
-  'lib/onnxruntime_dart.dart',
+/// The files allowed to reach for `dart:ffi`.
+///
+/// Listed rather than derived, and everything else in `lib/` is shared by
+/// default. That way a new file is covered without anyone remembering to add
+/// it, and making one native is a deliberate edit here.
+const _nativeOnly = [
+  'lib/native.dart',
+  'lib/src/ffi/',
+  // Not all of lib/src/bindings: config_keys.g.dart is generated constants
+  // with no imports at all, and the shared library exports it.
+  'lib/src/bindings/ort_bindings.g.dart',
+  'lib/src/bindings/api/',
+  'lib/src/backend/ffi_calls.dart',
 ];
 
-/// Libraries that exist precisely to be native.
-const _native = [
-  'lib/native.dart',
-  'lib/src/bindings/ort_bindings.g.dart',
-  'lib/src/ffi/runtime.dart',
-];
+bool _isNative(String path) => _nativeOnly.any(path.startsWith);
+
+/// The one sanctioned bridge: a conditional export picking a backend, which is
+/// resolved at compile time so neither side is loaded on the other's platform.
+const _bridge = 'lib/src/backend/calls.dart';
+
+/// Every Dart file under `lib/`, repository-relative.
+List<String> _libraryFiles() => [
+      for (final file in Directory(fromPackage('lib'))
+          .listSync(recursive: true)
+          .whereType<File>())
+        if (file.path.endsWith('.dart'))
+          'lib/${file.path.split('${Platform.pathSeparator}lib${Platform.pathSeparator}').last}'
+              .replaceAll(Platform.pathSeparator, '/'),
+    ]..sort();
 
 Iterable<String> _importsOf(String path) sync* {
   final source = File(fromPackage(path)).readAsStringSync();
@@ -42,28 +57,37 @@ Iterable<String> _importsOf(String path) sync* {
 }
 
 void main() {
+  final shared = _libraryFiles().where((p) => !_isNative(p)).toList();
+
   group('shared code', () {
-    for (final path in _shared) {
+    for (final path in shared) {
       test('$path imports nothing native', () {
-        final native = _importsOf(
-          path,
-        ).where((i) => i == 'dart:ffi' || i.startsWith('package:ffi'));
+        final imports = _importsOf(path);
 
         expect(
-          native,
+          imports.where((i) => i == 'dart:ffi' || i.startsWith('package:ffi')),
           isEmpty,
           reason: '$path must compile for the web. Move anything needing '
               'dart:ffi below the backend boundary.',
         );
+
+        // Reaching a native file transitively is the same breakage, one step
+        // removed. Only the backend bridge may, and only conditionally.
+        if (path == _bridge) return;
+        expect(
+          imports.where((i) => _isNative(_resolve(path, i))),
+          isEmpty,
+          reason: '$path pulls in native code. Reach it through $_bridge.',
+        );
       });
     }
 
-    test('the list is not silently empty', () {
+    test('the sweep found the files it is meant to check', () {
       // A rule that checks nothing passes forever.
-      expect(_shared, isNotEmpty);
-      for (final path in _shared) {
-        expect(File(fromPackage(path)).existsSync(), isTrue, reason: path);
-      }
+      expect(shared, contains('lib/onnxruntime_dart.dart'));
+      expect(shared, contains('lib/src/session.dart'));
+      expect(shared, contains('lib/src/handle.dart'));
+      expect(shared.length, greaterThan(5));
     });
 
     test('imports are actually being found', () {
@@ -74,21 +98,43 @@ void main() {
 
   group('native code', () {
     test('is honest about being native', () {
-      // The counterpart: these are meant to be unusable on the web, and if one
-      // stopped importing dart:ffi it has probably moved layer.
-      for (final path in _native) {
+      // The counterpart: a file listed as native that reaches for nothing
+      // native has probably moved layer, and the list is now wrong.
+      for (final path in _libraryFiles().where(_isNative)) {
         expect(
           _importsOf(path).any(
             (i) =>
                 i == 'dart:ffi' ||
                 i.startsWith('package:ffi') ||
-                i.contains('bindings/') ||
-                i.contains('ffi/'),
+                _isNative(_resolve(path, i)),
           ),
           isTrue,
-          reason: '$path is listed as native but imports nothing native',
+          reason: '$path is treated as native but imports nothing native',
         );
       }
     });
   });
+}
+
+/// Resolves a relative import against the importing file, so it can be
+/// compared with the native list. Package and dart: imports pass through.
+String _resolve(String from, String import) {
+  if (import.startsWith('dart:')) return import;
+  if (import.startsWith('package:onnxruntime_dart/')) {
+    return 'lib/${import.substring('package:onnxruntime_dart/'.length)}';
+  }
+  if (import.startsWith('package:')) return import;
+
+  final directory = from.substring(0, from.lastIndexOf('/'));
+  final parts = <String>[...directory.split('/'), ...import.split('/')];
+  final resolved = <String>[];
+  for (final part in parts) {
+    if (part == '.') continue;
+    if (part == '..') {
+      if (resolved.isNotEmpty) resolved.removeLast();
+      continue;
+    }
+    resolved.add(part);
+  }
+  return resolved.join('/');
 }
