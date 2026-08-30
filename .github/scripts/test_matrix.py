@@ -100,103 +100,25 @@ class ArchitectureCoverage(unittest.TestCase):
                     self.assertNotIn("shared_lib", config.args)
 
 
-class Grouping(unittest.TestCase):
-    """One job per component, platform and runner. Never two platforms in one."""
+class Parallelism(unittest.TestCase):
+    """One job per configuration.
 
-    def setUp(self):
-        self.groups = m.group(m.all_configurations())
+    They were grouped by platform to share a toolchain and a dependency cache,
+    until the four Android ABIs linked each other's libcpuinfo.a. Each needs its
+    own dependency build directory, so a shared job only serialises work that
+    could run in parallel, and runners are free on a public repository.
+    """
 
-    def test_every_configuration_is_built_exactly_once(self):
-        built = [c.id for g in self.groups for c in g.configs]
-        self.assertEqual(
-            sorted(built), sorted(c.id for c in m.all_configurations())
-        )
-        self.assertEqual(len(built), len(set(built)))
-
-    def test_a_job_never_mixes_platforms(self):
-        for g in self.groups:
-            with self.subTest(g.id):
-                self.assertEqual({c.platform for c in g.configs}, {g.platform})
-
-    def test_a_job_never_mixes_runners(self):
-        # Grouping exists to share a toolchain and dependency cache, which only
-        # works on one machine.
-        for g in self.groups:
-            with self.subTest(g.id):
-                self.assertEqual({c.runner for c in g.configs}, {g.runner})
-
-    def test_group_ids_are_unique(self):
-        ids = [g.id for g in self.groups]
+    def test_every_configuration_is_its_own_job(self):
+        ids = [c.id for c in m.all_configurations()]
         self.assertEqual(len(ids), len(set(ids)))
 
-    def test_platforms_sharing_a_runner_are_one_job(self):
-        # Counted per variant, since base and full are always separate jobs.
-        by_platform = {}
-        for g in self.groups:
-            if g.variant != m.BASE:
-                continue
-            by_platform.setdefault(g.platform, []).append(g)
-        # Android, iOS and web cross-compile from one host each.
-        for platform in ("android", "ios", "web"):
-            self.assertEqual(len(by_platform[platform]), 1, platform)
-        # These need a different machine per architecture.
-        for platform in ("linux", "windows", "macos"):
-            self.assertEqual(len(by_platform[platform]), 2, platform)
-
-    def test_single_configuration_groups_keep_the_configuration_id(self):
-        # Test jobs download artifacts by these names.
-        for g in self.groups:
-            if len(g.configs) == 1:
-                with self.subTest(g.id):
-                    self.assertEqual(g.id, g.configs[0].id)
-
-
-class Variants(unittest.TestCase):
-    """Two libraries per platform: the standard one, and one with the
-    capabilities that cannot be loaded at run time."""
-
-    def test_every_base_configuration_has_a_full_counterpart(self):
-        every = m.all_configurations()
-        base = {c.id for c in every if c.variant == m.BASE}
-        full = {c.id.removesuffix("-full") for c in every if c.variant == m.FULL}
-        self.assertEqual(base, full)
-
-    def test_full_adds_only_what_cannot_be_loaded(self):
-        # Training is behind an #ifdef, extensions compiles in as a static
-        # library, and the EP interfaces are linked into the core. None of the
-        # three can be a separate download.
+    def test_ids_survive_a_round_trip(self):
+        # The workflow addresses jobs by id, and the test jobs download
+        # artifacts named after them.
         for config in m.all_configurations():
-            if config.variant != m.FULL:
-                continue
             with self.subTest(config.id):
-                for flag in m.FULL_ONLY_FLAGS:
-                    self.assertIn(flag, config.args)
-
-    def test_base_carries_none_of_them(self):
-        for config in m.all_configurations():
-            if config.variant != m.BASE:
-                continue
-            with self.subTest(config.id):
-                for flag in m.FULL_ONLY_FLAGS:
-                    self.assertNotIn(flag, config.args)
-
-    def test_full_is_a_superset_of_its_base(self):
-        # Same platform, same providers, same operators. Only additions.
-        for base in m.CONFIGURATIONS:
-            full = m.by_id(f"{base.id}-full")
-            with self.subTest(base.id):
-                self.assertEqual(full.platform, base.platform)
-                self.assertEqual(full.arch, base.arch)
-                self.assertEqual(full.runner, base.runner)
-                for flag in base.args:
-                    self.assertIn(flag, full.args)
-
-    def test_a_job_never_mixes_variants(self):
-        # Building both in one job would double its wall clock for no shared
-        # work: the flags differ, so nothing is reused.
-        for g in m.group(m.all_configurations()):
-            with self.subTest(g.id):
-                self.assertEqual({c.variant for c in g.configs}, {g.variant})
+                self.assertEqual(m.by_id(config.id).id, config.id)
 
 
 class MatrixHygiene(unittest.TestCase):

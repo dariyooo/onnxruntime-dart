@@ -33,8 +33,7 @@ DEPS_CACHE = (
 
 
 def main() -> None:
-    for config_id in os.environ["MATRIX_IDS"].split():
-        build(ort_matrix.by_id(config_id))
+    build(ort_matrix.by_id(os.environ["MATRIX_ID"]))
 
 
 def build(config: ort_matrix.Config) -> None:

@@ -100,8 +100,7 @@ def sha256(path: pathlib.Path) -> str:
 
 def main() -> None:
     DIST.mkdir(parents=True, exist_ok=True)
-    for config_id in os.environ["MATRIX_IDS"].split():
-        package(ort_matrix.by_id(config_id))
+    package(ort_matrix.by_id(os.environ["MATRIX_ID"]))
 
 
 def package(config: ort_matrix.Config) -> None:

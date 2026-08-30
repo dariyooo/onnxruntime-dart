@@ -15,16 +15,18 @@ import ort_matrix  # noqa: E402
 
 def main() -> None:
     configs = ort_matrix.select(os.environ.get("FILTER", "all"))
-    groups = ort_matrix.group(configs)
 
+    # One job per configuration. They share nothing worth sharing: each needs
+    # its own dependency build directory, so a shared job only serialises work
+    # that could run in parallel. Runners are free on a public repository.
     include = [
         {
-            "group": g.id,
-            "platform": g.platform,
-            "runner": g.runner,
-            "ids": " ".join(c.id for c in g.configs),
+            "id": c.id,
+            "platform": c.platform,
+            "runner": c.runner,
+            "variant": c.variant,
         }
-        for g in groups
+        for c in configs
     ]
 
     print(f"matrix={json.dumps({'include': include}, separators=(',', ':'))}")
@@ -33,15 +35,13 @@ def main() -> None:
     summary = os.environ.get("GITHUB_STEP_SUMMARY")
     if summary:
         with open(summary, "a", encoding="utf-8") as handle:
-            handle.write(
-                f"### Building {len(configs)} configurations in {len(groups)} jobs\n\n"
-            )
-            handle.write("| job | runner | configurations |\n|---|---|---|\n")
-            for g in groups:
-                ids = ", ".join(
-                    f"`{c.id}`" + (" ⚠️" if c.unproven else "") for c in g.configs
+            handle.write(f"### Building {len(configs)} configurations\n\n")
+            handle.write("| configuration | runner | flags |\n|---|---|---|\n")
+            for c in configs:
+                note = " ⚠️ unproven" if c.unproven else ""
+                handle.write(
+                    f"| `{c.id}`{note} | `{c.runner}` | `{' '.join(c.args)}` |\n"
                 )
-                handle.write(f"| `{g.id}` | `{g.runner}` | {ids} |\n")
 
 
 if __name__ == "__main__":
