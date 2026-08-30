@@ -1,0 +1,4 @@
+# Dart source is LF everywhere. The generator writes LF, and the test that
+# compares its output against what is checked in reads bytes, so a CRLF
+# checkout on Windows would report every generated file as stale.
+* text=auto eol=lf
