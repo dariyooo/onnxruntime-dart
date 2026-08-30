@@ -5,13 +5,14 @@
 /// produce a usable asset, which is the whole point of it.
 library;
 
+import 'dart:io';
+
 import 'package:onnxruntime_dart/src/bindings/ort_bindings.g.dart';
 import 'package:onnxruntime_dart/src/ffi/runtime.dart';
 import 'package:test/test.dart';
 
 import 'src/ort_library.dart';
 import 'src/paths.dart';
-import 'dart:io';
 
 void main() {
   group('code asset', () {
