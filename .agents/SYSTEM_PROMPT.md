@@ -72,6 +72,20 @@ creating scope gets a `NativeFinalizer`.
 Any change to tensor lifetimes must pass the harness in
 `test/src/memory_harness.dart`.
 
+`CreateEnv` returns a refcounted process-wide singleton. Never release it: doing
+so from one place tears down the environment every other isolate is using, and
+the symptom is `Attempt to use DefaultLogger but none has been registered`
+followed by a native crash.
+
+Registering an execution provider library mutates process-global state. Doing it
+while another thread creates a session crashes the runtime with an alignment
+fault rather than failing cleanly, so register before any session exists. Tests
+that register are tagged `exclusive`.
+
+The native library reaches Dart as a code asset from `hook/build.dart`, resolved
+by `@Native(assetId:)`. Nothing opens it by path except the test helpers that
+deliberately exercise an explicit path.
+
 Tests measuring process-global state, such as resident memory, are tagged
 `exclusive` and run with concurrency 1. `dart test` runs files concurrently in
 one process, so a neighbour allocating is indistinguishable from a leak.
