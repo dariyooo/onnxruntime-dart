@@ -24,6 +24,93 @@ extension OrtApiOptionsApi on OrtApi {
         return out0.value;
       });
 
+  /// `EnableTelemetryEvents`
+  void enableTelemetryEvents(Pointer<OrtEnv> env) => withArena((arena) {
+        checkOrtStatus(this
+            .EnableTelemetryEvents
+            .asFunction<Pointer<OrtStatus> Function(Pointer<OrtEnv>)>()(env));
+      });
+
+  /// `DisableTelemetryEvents`
+  void disableTelemetryEvents(Pointer<OrtEnv> env) => withArena((arena) {
+        checkOrtStatus(this
+            .DisableTelemetryEvents
+            .asFunction<Pointer<OrtStatus> Function(Pointer<OrtEnv>)>()(env));
+      });
+
+  /// `SetOptimizedModelFilePath`
+  void setOptimizedModelFilePath(
+          Pointer<OrtSessionOptions> options, String optimizedModelFilepath) =>
+      withArena((arena) {
+        checkOrtStatus(this.SetOptimizedModelFilePath.asFunction<
+                Pointer<OrtStatus> Function(
+                    Pointer<OrtSessionOptions>, Pointer<Char>)>()(
+            options, allocateOrtPath(optimizedModelFilepath, arena)));
+      });
+
+  /// `SetSessionExecutionMode`
+  void setSessionExecutionMode(
+          Pointer<OrtSessionOptions> options, int executionMode) =>
+      withArena((arena) {
+        checkOrtStatus(this.SetSessionExecutionMode.asFunction<
+            Pointer<OrtStatus> Function(
+                Pointer<OrtSessionOptions>, int)>()(options, executionMode));
+      });
+
+  /// `SetSessionLogId`
+  void setSessionLogId(Pointer<OrtSessionOptions> options, String logid) =>
+      withArena((arena) {
+        checkOrtStatus(this.SetSessionLogId.asFunction<
+                Pointer<OrtStatus> Function(
+                    Pointer<OrtSessionOptions>, Pointer<Char>)>()(
+            options, logid.toNativeUtf8(allocator: arena).cast()));
+      });
+
+  /// `SetSessionLogVerbosityLevel`
+  void setSessionLogVerbosityLevel(
+          Pointer<OrtSessionOptions> options, int sessionLogVerbosityLevel) =>
+      withArena((arena) {
+        checkOrtStatus(this.SetSessionLogVerbosityLevel.asFunction<
+                Pointer<OrtStatus> Function(Pointer<OrtSessionOptions>, int)>()(
+            options, sessionLogVerbosityLevel));
+      });
+
+  /// `SetSessionLogSeverityLevel`
+  void setSessionLogSeverityLevel(
+          Pointer<OrtSessionOptions> options, int sessionLogSeverityLevel) =>
+      withArena((arena) {
+        checkOrtStatus(this.SetSessionLogSeverityLevel.asFunction<
+                Pointer<OrtStatus> Function(Pointer<OrtSessionOptions>, int)>()(
+            options, sessionLogSeverityLevel));
+      });
+
+  /// `SetSessionGraphOptimizationLevel`
+  void setSessionGraphOptimizationLevel(
+          Pointer<OrtSessionOptions> options, int graphOptimizationLevel) =>
+      withArena((arena) {
+        checkOrtStatus(this.SetSessionGraphOptimizationLevel.asFunction<
+                Pointer<OrtStatus> Function(Pointer<OrtSessionOptions>, int)>()(
+            options, graphOptimizationLevel));
+      });
+
+  /// `SetIntraOpNumThreads`
+  void setIntraOpNumThreads(
+          Pointer<OrtSessionOptions> options, int intraOpNumThreads) =>
+      withArena((arena) {
+        checkOrtStatus(this.SetIntraOpNumThreads.asFunction<
+                Pointer<OrtStatus> Function(Pointer<OrtSessionOptions>, int)>()(
+            options, intraOpNumThreads));
+      });
+
+  /// `SetInterOpNumThreads`
+  void setInterOpNumThreads(
+          Pointer<OrtSessionOptions> options, int interOpNumThreads) =>
+      withArena((arena) {
+        checkOrtStatus(this.SetInterOpNumThreads.asFunction<
+                Pointer<OrtStatus> Function(Pointer<OrtSessionOptions>, int)>()(
+            options, interOpNumThreads));
+      });
+
   /// `CreateRunOptions`
   Pointer<OrtRunOptions> createRunOptions() => withArena((arena) {
         final out0 = arena<Pointer<OrtRunOptions>>();
@@ -104,6 +191,16 @@ extension OrtApiOptionsApi on OrtApi {
             Pointer<OrtStatus> Function(Pointer<OrtRunOptions>)>()(options));
       });
 
+  /// `AddFreeDimensionOverride`
+  void addFreeDimensionOverride(Pointer<OrtSessionOptions> options,
+          String dimDenotation, int dimValue) =>
+      withArena((arena) {
+        checkOrtStatus(this.AddFreeDimensionOverride.asFunction<
+                Pointer<OrtStatus> Function(
+                    Pointer<OrtSessionOptions>, Pointer<Char>, int)>()(options,
+            dimDenotation.toNativeUtf8(allocator: arena).cast(), dimValue));
+      });
+
   /// `CreateEnvWithGlobalThreadPools`
   Pointer<OrtEnv> createEnvWithGlobalThreadPools(int logSeverityLevel,
           String logid, Pointer<OrtThreadingOptions> tpOptions) =>
@@ -119,6 +216,14 @@ extension OrtApiOptionsApi on OrtApi {
         return out0.value;
       });
 
+  /// `DisablePerSessionThreads`
+  void disablePerSessionThreads(Pointer<OrtSessionOptions> options) =>
+      withArena((arena) {
+        checkOrtStatus(this.DisablePerSessionThreads.asFunction<
+            Pointer<OrtStatus> Function(
+                Pointer<OrtSessionOptions>)>()(options));
+      });
+
   /// `CreateThreadingOptions`
   Pointer<OrtThreadingOptions> createThreadingOptions() => withArena((arena) {
         final out0 = arena<Pointer<OrtThreadingOptions>>();
@@ -126,6 +231,36 @@ extension OrtApiOptionsApi on OrtApi {
             Pointer<OrtStatus> Function(
                 Pointer<Pointer<OrtThreadingOptions>>)>()(out0));
         return out0.value;
+      });
+
+  /// `AddFreeDimensionOverrideByName`
+  void addFreeDimensionOverrideByName(
+          Pointer<OrtSessionOptions> options, String dimName, int dimValue) =>
+      withArena((arena) {
+        checkOrtStatus(this.AddFreeDimensionOverrideByName.asFunction<
+                Pointer<OrtStatus> Function(
+                    Pointer<OrtSessionOptions>, Pointer<Char>, int)>()(
+            options, dimName.toNativeUtf8(allocator: arena).cast(), dimValue));
+      });
+
+  /// `AddSessionConfigEntry`
+  void addSessionConfigEntry(Pointer<OrtSessionOptions> options,
+          String configKey, String configValue) =>
+      withArena((arena) {
+        checkOrtStatus(this.AddSessionConfigEntry.asFunction<
+                Pointer<OrtStatus> Function(Pointer<OrtSessionOptions>,
+                    Pointer<Char>, Pointer<Char>)>()(
+            options,
+            configKey.toNativeUtf8(allocator: arena).cast(),
+            configValue.toNativeUtf8(allocator: arena).cast()));
+      });
+
+  /// `SetLanguageProjection`
+  void setLanguageProjection(Pointer<OrtEnv> ortEnv, int projection) =>
+      withArena((arena) {
+        checkOrtStatus(this.SetLanguageProjection.asFunction<
+            Pointer<OrtStatus> Function(
+                Pointer<OrtEnv>, int)>()(ortEnv, projection));
       });
 
   /// `SetGlobalIntraOpNumThreads`
@@ -163,35 +298,23 @@ extension OrtApiOptionsApi on OrtApi {
                 Pointer<OrtThreadingOptions>)>()(tpOptions));
       });
 
-  /// `CreateArenaCfg`
-  Pointer<OrtArenaCfg> createArenaCfg(int maxMem, int arenaExtendStrategy,
-          int initialChunkSizeBytes, int maxDeadBytesPerChunk) =>
-      withArena((arena) {
-        final out0 = arena<Pointer<OrtArenaCfg>>();
-        checkOrtStatus(this.CreateArenaCfg.asFunction<
-                Pointer<OrtStatus> Function(
-                    int, int, int, int, Pointer<Pointer<OrtArenaCfg>>)>()(
-            maxMem,
-            arenaExtendStrategy,
-            initialChunkSizeBytes,
-            maxDeadBytesPerChunk,
-            out0));
-        return out0.value;
+  /// `SetCurrentGpuDeviceId`
+  void setCurrentGpuDeviceId(int deviceId) => withArena((arena) {
+        checkOrtStatus(this
+            .SetCurrentGpuDeviceId
+            .asFunction<Pointer<OrtStatus> Function(int)>()(deviceId));
       });
 
-  /// `CreateArenaCfgV2`
-  Pointer<OrtArenaCfg> createArenaCfgV2(List<String> arenaConfigKeys,
-          List<int> arenaConfigValues, int numKeys) =>
+  /// `AddRunConfigEntry`
+  void addRunConfigEntry(Pointer<OrtRunOptions> options, String configKey,
+          String configValue) =>
       withArena((arena) {
-        final out0 = arena<Pointer<OrtArenaCfg>>();
-        checkOrtStatus(this.CreateArenaCfgV2.asFunction<
-                Pointer<OrtStatus> Function(Pointer<Pointer<Char>>,
-                    Pointer<Size>, int, Pointer<Pointer<OrtArenaCfg>>)>()(
-            nativeStrings(arenaConfigKeys, arena),
-            nativeSizes(arenaConfigValues, arena),
-            numKeys,
-            out0));
-        return out0.value;
+        checkOrtStatus(this.AddRunConfigEntry.asFunction<
+                Pointer<OrtStatus> Function(
+                    Pointer<OrtRunOptions>, Pointer<Char>, Pointer<Char>)>()(
+            options,
+            configKey.toNativeUtf8(allocator: arena).cast(),
+            configValue.toNativeUtf8(allocator: arena).cast()));
       });
 
   /// `SetGlobalCustomThreadCreationOptions`
@@ -204,6 +327,15 @@ extension OrtApiOptionsApi on OrtApi {
                 Pointer<Void>)>()(tpOptions, ortCustomThreadCreationOptions));
       });
 
+  /// `UpdateEnvWithCustomLogLevel`
+  void updateEnvWithCustomLogLevel(
+          Pointer<OrtEnv> ortEnv, int logSeverityLevel) =>
+      withArena((arena) {
+        checkOrtStatus(this.UpdateEnvWithCustomLogLevel.asFunction<
+            Pointer<OrtStatus> Function(
+                Pointer<OrtEnv>, int)>()(ortEnv, logSeverityLevel));
+      });
+
   /// `SetGlobalIntraOpThreadAffinity`
   void setGlobalIntraOpThreadAffinity(
           Pointer<OrtThreadingOptions> tpOptions, String affinityString) =>
@@ -214,13 +346,38 @@ extension OrtApiOptionsApi on OrtApi {
             tpOptions, affinityString.toNativeUtf8(allocator: arena).cast()));
       });
 
-  /// `RunOptionsAddActiveLoraAdapter`
-  void runOptionsAddActiveLoraAdapter(
-          Pointer<OrtRunOptions> options, Pointer<OrtLoraAdapter> adapter) =>
+  /// `HasSessionConfigEntry`
+  int hasSessionConfigEntry(
+          Pointer<OrtSessionOptions> options, String configKey) =>
       withArena((arena) {
-        checkOrtStatus(this.RunOptionsAddActiveLoraAdapter.asFunction<
-            Pointer<OrtStatus> Function(Pointer<OrtRunOptions>,
-                Pointer<OrtLoraAdapter>)>()(options, adapter));
+        final out0 = arena<Int>();
+        checkOrtStatus(this.HasSessionConfigEntry.asFunction<
+                Pointer<OrtStatus> Function(
+                    Pointer<OrtSessionOptions>, Pointer<Char>, Pointer<Int>)>()(
+            options, configKey.toNativeUtf8(allocator: arena).cast(), out0));
+        return out0.value;
+      });
+
+  /// `SetDeterministicCompute`
+  void setDeterministicCompute(
+          Pointer<OrtSessionOptions> options, bool value) =>
+      withArena((arena) {
+        checkOrtStatus(this.SetDeterministicCompute.asFunction<
+            Pointer<OrtStatus> Function(
+                Pointer<OrtSessionOptions>, bool)>()(options, value));
+      });
+
+  /// `SetEpDynamicOptions`
+  void setEpDynamicOptions(Pointer<OrtSession> sess, List<String> keys,
+          List<String> values, int kvLen) =>
+      withArena((arena) {
+        checkOrtStatus(this.SetEpDynamicOptions.asFunction<
+                Pointer<OrtStatus> Function(Pointer<OrtSession>,
+                    Pointer<Pointer<Char>>, Pointer<Pointer<Char>>, int)>()(
+            sess,
+            nativeStrings(keys, arena),
+            nativeStrings(values, arena),
+            kvLen));
       });
 
   /// `GetSessionOptionsConfigEntries`
@@ -245,6 +402,25 @@ extension OrtApiOptionsApi on OrtApi {
         return out0.value;
       });
 
+  /// `SetPerSessionThreadPoolCallbacks`
+  void setPerSessionThreadPoolCallbacks(
+          Pointer<OrtEnv> env, Pointer<OrtThreadPoolCallbacksConfig> config) =>
+      withArena((arena) {
+        checkOrtStatus(this.SetPerSessionThreadPoolCallbacks.asFunction<
+            Pointer<OrtStatus> Function(Pointer<OrtEnv>,
+                Pointer<OrtThreadPoolCallbacksConfig>)>()(env, config));
+      });
+
+  /// `GetSessionExecutionMode`
+  int getSessionExecutionMode(Pointer<OrtSessionOptions> options) =>
+      withArena((arena) {
+        final out0 = arena<UnsignedInt>();
+        checkOrtStatus(this.GetSessionExecutionMode.asFunction<
+            Pointer<OrtStatus> Function(Pointer<OrtSessionOptions>,
+                Pointer<UnsignedInt>)>()(options, out0));
+        return out0.value;
+      });
+
   /// `ReleaseEnv`
   void releaseEnv(Pointer<OrtEnv> input) =>
       this.ReleaseEnv.asFunction<void Function(Pointer<OrtEnv>)>()(input);
@@ -258,9 +434,4 @@ extension OrtApiOptionsApi on OrtApi {
   void releaseThreadingOptions(Pointer<OrtThreadingOptions> input) => this
       .ReleaseThreadingOptions
       .asFunction<void Function(Pointer<OrtThreadingOptions>)>()(input);
-
-  /// `ReleaseArenaCfg`
-  void releaseArenaCfg(Pointer<OrtArenaCfg> input) => this
-      .ReleaseArenaCfg
-      .asFunction<void Function(Pointer<OrtArenaCfg>)>()(input);
 }

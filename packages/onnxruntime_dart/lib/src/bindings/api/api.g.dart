@@ -6,14 +6,26 @@
 library;
 
 export 'binding.g.dart';
+export 'ep.g.dart';
+export 'graph.g.dart';
+export 'kernel.g.dart';
 export 'memory.g.dart';
 export 'model.g.dart';
 export 'options.g.dart';
+export 'ort_compile_api_graph.g.dart';
+export 'ort_compile_api_model.g.dart';
 export 'ort_compile_api_options.g.dart';
-export 'ort_interop_api_provider.g.dart';
+export 'ort_interop_api_core.g.dart';
+export 'ort_interop_api_ep.g.dart';
 export 'ort_interop_api_tensor.g.dart';
+export 'ort_model_editor_api_core.g.dart';
+export 'ort_model_editor_api_graph.g.dart';
 export 'ort_model_editor_api_session.g.dart';
+export 'ort_model_editor_api_sparse.g.dart';
 export 'ort_model_editor_api_tensor.g.dart';
 export 'provider.g.dart';
 export 'session.g.dart';
+export 'sparse.g.dart';
+export 'status.g.dart';
 export 'tensor.g.dart';
+export 'training.g.dart';

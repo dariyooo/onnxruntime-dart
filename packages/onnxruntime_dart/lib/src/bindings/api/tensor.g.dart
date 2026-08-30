@@ -280,6 +280,15 @@ extension OrtApiTensorApi on OrtApi {
         return out0.value;
       });
 
+  /// `GetMapKeyType`
+  int getMapKeyType(Pointer<OrtMapTypeInfo> mapTypeInfo) => withArena((arena) {
+        final out0 = arena<UnsignedInt>();
+        checkOrtStatus(this.GetMapKeyType.asFunction<
+            Pointer<OrtStatus> Function(Pointer<OrtMapTypeInfo>,
+                Pointer<UnsignedInt>)>()(mapTypeInfo, out0));
+        return out0.value;
+      });
+
   /// `GetMapValueType`
   Pointer<OrtTypeInfo> getMapValueType(Pointer<OrtMapTypeInfo> mapTypeInfo) =>
       withArena((arena) {
@@ -287,6 +296,17 @@ extension OrtApiTensorApi on OrtApi {
         checkOrtStatus(this.GetMapValueType.asFunction<
             Pointer<OrtStatus> Function(Pointer<OrtMapTypeInfo>,
                 Pointer<Pointer<OrtTypeInfo>>)>()(mapTypeInfo, out0));
+        return out0.value;
+      });
+
+  /// `GetSequenceElementType`
+  Pointer<OrtTypeInfo> getSequenceElementType(
+          Pointer<OrtSequenceTypeInfo> sequenceTypeInfo) =>
+      withArena((arena) {
+        final out0 = arena<Pointer<OrtTypeInfo>>();
+        checkOrtStatus(this.GetSequenceElementType.asFunction<
+            Pointer<OrtStatus> Function(Pointer<OrtSequenceTypeInfo>,
+                Pointer<Pointer<OrtTypeInfo>>)>()(sequenceTypeInfo, out0));
         return out0.value;
       });
 
@@ -363,187 +383,12 @@ extension OrtApiTensorApi on OrtApi {
         return takeAllocatedString(out0);
       });
 
-  /// `IsSparseTensor`
-  int isSparseTensor(Pointer<OrtValue> value) => withArena((arena) {
-        final out0 = arena<Int>();
-        checkOrtStatus(this.IsSparseTensor.asFunction<
-            Pointer<OrtStatus> Function(
-                Pointer<OrtValue>, Pointer<Int>)>()(value, out0));
-        return out0.value;
-      });
-
-  /// `CreateSparseTensorAsOrtValue`
-  Pointer<OrtValue> createSparseTensorAsOrtValue(
-          Pointer<OrtAllocator> allocator,
-          List<int> denseShape,
-          int denseShapeLen,
-          int type) =>
-      withArena((arena) {
-        final out0 = arena<Pointer<OrtValue>>();
-        checkOrtStatus(this.CreateSparseTensorAsOrtValue.asFunction<
-                Pointer<OrtStatus> Function(Pointer<OrtAllocator>,
-                    Pointer<Int64>, int, int, Pointer<Pointer<OrtValue>>)>()(
-            allocator,
-            nativeInt64s(denseShape, arena),
-            denseShapeLen,
-            type,
-            out0));
-        return out0.value;
-      });
-
-  /// `FillSparseTensorCoo`
-  void fillSparseTensorCoo(
-          Pointer<OrtValue> ortValue,
-          Pointer<OrtMemoryInfo> dataMemInfo,
-          List<int> valuesShape,
-          int valuesShapeLen,
-          Pointer<Void> values,
-          List<int> indicesData,
-          int indicesNum) =>
-      withArena((arena) {
-        checkOrtStatus(this.FillSparseTensorCoo.asFunction<
-                Pointer<OrtStatus> Function(
-                    Pointer<OrtValue>,
-                    Pointer<OrtMemoryInfo>,
-                    Pointer<Int64>,
-                    int,
-                    Pointer<Void>,
-                    Pointer<Int64>,
-                    int)>()(
-            ortValue,
-            dataMemInfo,
-            nativeInt64s(valuesShape, arena),
-            valuesShapeLen,
-            values,
-            nativeInt64s(indicesData, arena),
-            indicesNum));
-      });
-
-  /// `FillSparseTensorCsr`
-  void fillSparseTensorCsr(
-          Pointer<OrtValue> ortValue,
-          Pointer<OrtMemoryInfo> dataMemInfo,
-          List<int> valuesShape,
-          int valuesShapeLen,
-          Pointer<Void> values,
-          List<int> innerIndicesData,
-          int innerIndicesNum,
-          List<int> outerIndicesData,
-          int outerIndicesNum) =>
-      withArena((arena) {
-        checkOrtStatus(this.FillSparseTensorCsr.asFunction<
-                Pointer<OrtStatus> Function(
-                    Pointer<OrtValue>,
-                    Pointer<OrtMemoryInfo>,
-                    Pointer<Int64>,
-                    int,
-                    Pointer<Void>,
-                    Pointer<Int64>,
-                    int,
-                    Pointer<Int64>,
-                    int)>()(
-            ortValue,
-            dataMemInfo,
-            nativeInt64s(valuesShape, arena),
-            valuesShapeLen,
-            values,
-            nativeInt64s(innerIndicesData, arena),
-            innerIndicesNum,
-            nativeInt64s(outerIndicesData, arena),
-            outerIndicesNum));
-      });
-
-  /// `CreateSparseTensorWithValuesAsOrtValue`
-  Pointer<OrtValue> createSparseTensorWithValuesAsOrtValue(
-          Pointer<OrtMemoryInfo> info,
-          Pointer<Void> pData,
-          List<int> denseShape,
-          int denseShapeLen,
-          List<int> valuesShape,
-          int valuesShapeLen,
-          int type) =>
-      withArena((arena) {
-        final out0 = arena<Pointer<OrtValue>>();
-        checkOrtStatus(this.CreateSparseTensorWithValuesAsOrtValue.asFunction<
-                Pointer<OrtStatus> Function(
-                    Pointer<OrtMemoryInfo>,
-                    Pointer<Void>,
-                    Pointer<Int64>,
-                    int,
-                    Pointer<Int64>,
-                    int,
-                    int,
-                    Pointer<Pointer<OrtValue>>)>()(
-            info,
-            pData,
-            nativeInt64s(denseShape, arena),
-            denseShapeLen,
-            nativeInt64s(valuesShape, arena),
-            valuesShapeLen,
-            type,
-            out0));
-        return out0.value;
-      });
-
-  /// `GetSparseTensorFormat`
-  int getSparseTensorFormat(Pointer<OrtValue> ortValue) => withArena((arena) {
-        final out0 = arena<UnsignedInt>();
-        checkOrtStatus(this.GetSparseTensorFormat.asFunction<
-            Pointer<OrtStatus> Function(
-                Pointer<OrtValue>, Pointer<UnsignedInt>)>()(ortValue, out0));
-        return out0.value;
-      });
-
-  /// `GetSparseTensorValuesTypeAndShape`
-  Pointer<OrtTensorTypeAndShapeInfo> getSparseTensorValuesTypeAndShape(
-          Pointer<OrtValue> ortValue) =>
-      withArena((arena) {
-        final out0 = arena<Pointer<OrtTensorTypeAndShapeInfo>>();
-        checkOrtStatus(this.GetSparseTensorValuesTypeAndShape.asFunction<
-                Pointer<OrtStatus> Function(Pointer<OrtValue>,
-                    Pointer<Pointer<OrtTensorTypeAndShapeInfo>>)>()(
-            ortValue, out0));
-        return out0.value;
-      });
-
   /// `HasValue`
   int hasValue(Pointer<OrtValue> value) => withArena((arena) {
         final out0 = arena<Int>();
         checkOrtStatus(this.HasValue.asFunction<
             Pointer<OrtStatus> Function(
                 Pointer<OrtValue>, Pointer<Int>)>()(value, out0));
-        return out0.value;
-      });
-
-  /// `GetTensorMemoryInfo`
-  Pointer<OrtMemoryInfo> getTensorMemoryInfo(Pointer<OrtValue> value) =>
-      withArena((arena) {
-        final out0 = arena<Pointer<OrtMemoryInfo>>();
-        checkOrtStatus(this.GetTensorMemoryInfo.asFunction<
-            Pointer<OrtStatus> Function(Pointer<OrtValue>,
-                Pointer<Pointer<OrtMemoryInfo>>)>()(value, out0));
-        return out0.value;
-      });
-
-  /// `KernelInfo_GetInputTypeInfo`
-  Pointer<OrtTypeInfo> kernelInfo_GetInputTypeInfo(
-          Pointer<OrtKernelInfo> info, int index) =>
-      withArena((arena) {
-        final out0 = arena<Pointer<OrtTypeInfo>>();
-        checkOrtStatus(this.KernelInfo_GetInputTypeInfo.asFunction<
-            Pointer<OrtStatus> Function(Pointer<OrtKernelInfo>, int,
-                Pointer<Pointer<OrtTypeInfo>>)>()(info, index, out0));
-        return out0.value;
-      });
-
-  /// `KernelInfo_GetOutputTypeInfo`
-  Pointer<OrtTypeInfo> kernelInfo_GetOutputTypeInfo(
-          Pointer<OrtKernelInfo> info, int index) =>
-      withArena((arena) {
-        final out0 = arena<Pointer<OrtTypeInfo>>();
-        checkOrtStatus(this.KernelInfo_GetOutputTypeInfo.asFunction<
-            Pointer<OrtStatus> Function(Pointer<OrtKernelInfo>, int,
-                Pointer<Pointer<OrtTypeInfo>>)>()(info, index, out0));
         return out0.value;
       });
 
@@ -609,26 +454,6 @@ extension OrtApiTensorApi on OrtApi {
             cudaOptions, key.toNativeUtf8(allocator: arena).cast(), value));
       });
 
-  /// `GetValueInfoName`
-  String getValueInfoName(Pointer<OrtValueInfo> valueInfo) =>
-      withArena((arena) {
-        final out0 = arena<Pointer<Char>>();
-        checkOrtStatus(this.GetValueInfoName.asFunction<
-            Pointer<OrtStatus> Function(Pointer<OrtValueInfo>,
-                Pointer<Pointer<Char>>)>()(valueInfo, out0));
-        return out0.value.cast<Utf8>().toDartString();
-      });
-
-  /// `GetValueInfoTypeInfo`
-  Pointer<OrtTypeInfo> getValueInfoTypeInfo(Pointer<OrtValueInfo> valueInfo) =>
-      withArena((arena) {
-        final out0 = arena<Pointer<OrtTypeInfo>>();
-        checkOrtStatus(this.GetValueInfoTypeInfo.asFunction<
-            Pointer<OrtStatus> Function(Pointer<OrtValueInfo>,
-                Pointer<Pointer<OrtTypeInfo>>)>()(valueInfo, out0));
-        return out0.value;
-      });
-
   /// `CreateTensorWithDataAndDeleterAsOrtValue`
   Pointer<OrtValue> createTensorWithDataAndDeleterAsOrtValue(
           Pointer<OrtAllocator> deleter,
@@ -658,131 +483,6 @@ extension OrtApiTensorApi on OrtApi {
         checkOrtStatus(this.GetTensorSizeInBytes.asFunction<
             Pointer<OrtStatus> Function(
                 Pointer<OrtValue>, Pointer<Size>)>()(ortValue, out0));
-        return out0.value;
-      });
-
-  /// `ValueInfo_GetValueProducer`
-  (
-    Pointer<OrtNode> producerNode,
-    int producerOutputIndex
-  ) valueInfo_GetValueProducer(Pointer<OrtValueInfo> valueInfo) =>
-      withArena((arena) {
-        final out0 = arena<Pointer<OrtNode>>();
-        final out1 = arena<Size>();
-        checkOrtStatus(this.ValueInfo_GetValueProducer.asFunction<
-            Pointer<OrtStatus> Function(
-                Pointer<OrtValueInfo>,
-                Pointer<Pointer<OrtNode>>,
-                Pointer<Size>)>()(valueInfo, out0, out1));
-        return (out0.value, out1.value);
-      });
-
-  /// `ValueInfo_GetValueNumConsumers`
-  int valueInfo_GetValueNumConsumers(Pointer<OrtValueInfo> valueInfo) =>
-      withArena((arena) {
-        final out0 = arena<Size>();
-        checkOrtStatus(this.ValueInfo_GetValueNumConsumers.asFunction<
-            Pointer<OrtStatus> Function(
-                Pointer<OrtValueInfo>, Pointer<Size>)>()(valueInfo, out0));
-        return out0.value;
-      });
-
-  /// `ValueInfo_GetValueConsumers`
-  (Pointer<OrtNode> nodes, int inputIndices) valueInfo_GetValueConsumers(
-          Pointer<OrtValueInfo> valueInfo, int numConsumers) =>
-      withArena((arena) {
-        final out0 = arena<Pointer<OrtNode>>();
-        final out1 = arena<Int64>();
-        checkOrtStatus(this.ValueInfo_GetValueConsumers.asFunction<
-            Pointer<OrtStatus> Function(
-                Pointer<OrtValueInfo>,
-                Pointer<Pointer<OrtNode>>,
-                Pointer<Int64>,
-                int)>()(valueInfo, out0, out1, numConsumers));
-        return (out0.value, out1.value);
-      });
-
-  /// `ValueInfo_GetInitializerValue`
-  Pointer<OrtValue> valueInfo_GetInitializerValue(
-          Pointer<OrtValueInfo> valueInfo) =>
-      withArena((arena) {
-        final out0 = arena<Pointer<OrtValue>>();
-        checkOrtStatus(this.ValueInfo_GetInitializerValue.asFunction<
-            Pointer<OrtStatus> Function(Pointer<OrtValueInfo>,
-                Pointer<Pointer<OrtValue>>)>()(valueInfo, out0));
-        return out0.value;
-      });
-
-  /// `ValueInfo_GetExternalInitializerInfo`
-  Pointer<OrtExternalInitializerInfo> valueInfo_GetExternalInitializerInfo(
-          Pointer<OrtValueInfo> valueInfo) =>
-      withArena((arena) {
-        final out0 = arena<Pointer<OrtExternalInitializerInfo>>();
-        checkOrtStatus(this.ValueInfo_GetExternalInitializerInfo.asFunction<
-                Pointer<OrtStatus> Function(Pointer<OrtValueInfo>,
-                    Pointer<Pointer<OrtExternalInitializerInfo>>)>()(
-            valueInfo, out0));
-        return out0.value;
-      });
-
-  /// `ValueInfo_IsRequiredGraphInput`
-  bool valueInfo_IsRequiredGraphInput(Pointer<OrtValueInfo> valueInfo) =>
-      withArena((arena) {
-        final out0 = arena<Bool>();
-        checkOrtStatus(this.ValueInfo_IsRequiredGraphInput.asFunction<
-            Pointer<OrtStatus> Function(
-                Pointer<OrtValueInfo>, Pointer<Bool>)>()(valueInfo, out0));
-        return out0.value;
-      });
-
-  /// `ValueInfo_IsOptionalGraphInput`
-  bool valueInfo_IsOptionalGraphInput(Pointer<OrtValueInfo> valueInfo) =>
-      withArena((arena) {
-        final out0 = arena<Bool>();
-        checkOrtStatus(this.ValueInfo_IsOptionalGraphInput.asFunction<
-            Pointer<OrtStatus> Function(
-                Pointer<OrtValueInfo>, Pointer<Bool>)>()(valueInfo, out0));
-        return out0.value;
-      });
-
-  /// `ValueInfo_IsGraphOutput`
-  bool valueInfo_IsGraphOutput(Pointer<OrtValueInfo> valueInfo) =>
-      withArena((arena) {
-        final out0 = arena<Bool>();
-        checkOrtStatus(this.ValueInfo_IsGraphOutput.asFunction<
-            Pointer<OrtStatus> Function(
-                Pointer<OrtValueInfo>, Pointer<Bool>)>()(valueInfo, out0));
-        return out0.value;
-      });
-
-  /// `ValueInfo_IsConstantInitializer`
-  bool valueInfo_IsConstantInitializer(Pointer<OrtValueInfo> valueInfo) =>
-      withArena((arena) {
-        final out0 = arena<Bool>();
-        checkOrtStatus(this.ValueInfo_IsConstantInitializer.asFunction<
-            Pointer<OrtStatus> Function(
-                Pointer<OrtValueInfo>, Pointer<Bool>)>()(valueInfo, out0));
-        return out0.value;
-      });
-
-  /// `ValueInfo_IsFromOuterScope`
-  bool valueInfo_IsFromOuterScope(Pointer<OrtValueInfo> valueInfo) =>
-      withArena((arena) {
-        final out0 = arena<Bool>();
-        checkOrtStatus(this.ValueInfo_IsFromOuterScope.asFunction<
-            Pointer<OrtStatus> Function(
-                Pointer<OrtValueInfo>, Pointer<Bool>)>()(valueInfo, out0));
-        return out0.value;
-      });
-
-  /// `OpAttr_GetTensorAttributeAsOrtValue`
-  Pointer<OrtValue> opAttr_GetTensorAttributeAsOrtValue(
-          Pointer<OrtOpAttr> attribute) =>
-      withArena((arena) {
-        final out0 = arena<Pointer<OrtValue>>();
-        checkOrtStatus(this.OpAttr_GetTensorAttributeAsOrtValue.asFunction<
-            Pointer<OrtStatus> Function(Pointer<OrtOpAttr>,
-                Pointer<Pointer<OrtValue>>)>()(attribute, out0));
         return out0.value;
       });
 
@@ -830,11 +530,6 @@ extension OrtApiTensorApi on OrtApi {
   void releaseSequenceTypeInfo(Pointer<OrtSequenceTypeInfo> input) => this
       .ReleaseSequenceTypeInfo
       .asFunction<void Function(Pointer<OrtSequenceTypeInfo>)>()(input);
-
-  /// `ReleaseValueInfo`
-  void releaseValueInfo(Pointer<OrtValueInfo> input) => this
-      .ReleaseValueInfo
-      .asFunction<void Function(Pointer<OrtValueInfo>)>()(input);
 
   /// `ReleaseKeyValuePairs`
   void releaseKeyValuePairs(Pointer<OrtKeyValuePairs> input) => this

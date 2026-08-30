@@ -12,22 +12,50 @@ import 'ffigen_api.dart';
 import 'types.dart';
 
 /// Groups functions into files, most specific pattern first.
+///
+/// Filing only. Every function that can be wrapped is wrapped, so a name none
+/// of these match lands in [_fallbackGroup] rather than being dropped.
 const groups = <String, String>{
+  'kernel': r'Kernel|CustomOp|ShapeInfer|^Op$|^Op[A-Z]|OpAttr|^InvokeOp',
+  'graph': r'^Graph$|^Graph_|^Node$|^Node_|ValueInfo|^Model_|^OpaqueValue|'
+      r'Initializer',
+  'ep': r'^Ep[A-Z_]|EpFactory|EpGraph|EpDevice|NodeCompute|HardwareDevice|'
+      r'DeviceEp|SyncStream|^RegisterExecutionProvider|^UnregisterExecutionProvider',
+  'training': r'Training|Lora|Adapter',
+  'sparse': r'Sparse|DLPack|TuningResult|^Use(Coo|Csr|Block)',
+  'binding': r'IoBinding|^Bind|^ClearBound|^GetBound|^SynchronizeBound',
+  'memory': r'MemoryInfo|Allocator|Arena|MemPattern|^CreateAndRegister|'
+      r'PrepackedWeights',
   'session':
       r'^(Create|Release|Clone)?Session|^Run$|RunAsync|RunWithBinding|Profiling',
   'options':
-      r'SessionOptions|RunOptions|ThreadingOptions|ArenaCfg|SetGlobal|Env$|^CreateEnv|^ReleaseEnv',
-  'tensor':
-      r'Tensor|Value|Dimensions|^GetOnnxTypeFromTypeInfo|TypeInfo|MapType|SequenceType',
-  'binding': r'IoBinding|^Bind',
-  'memory': r'MemoryInfo|Allocator',
-  'provider': r'Provider|EpDevice|ExecutionProvider|GetAvailable',
-  'training': r'Training',
-  'model': r'ModelMetadata|Metadata',
+      r'SessionOptions|RunOptions|ThreadingOptions|SetGlobal|ConfigEntry|'
+          r'FreeDimensionOverride|Env$|^CreateEnv|^ReleaseEnv|^Enable|^Disable|'
+          r'^SetSession|^SetInter|^SetIntra|^SetDeterministic|^SetOptimized|'
+          r'^SetLanguageProjection|^SetGlobal|^SetEp|^SetLoad|^SetCurrentGpu|'
+          r'^UpdateEnv|PerSessionThreadPool|SessionExecutionMode',
+  'tensor': r'Tensor|Value|Dimensions|Symbolic|TypeInfo|MapType|MapKeyType|'
+      r'SequenceType|SequenceElementType|OnnxType',
+  'provider': r'Provider|ExecutionProvider|GetAvailable|Compat',
+  'model': r'ModelMetadata|Metadata|^Compile|^Model',
+  'status': r'^GetErrorCode|^GetErrorMessage|^CreateStatus|^ReleaseStatus|'
+      r'Logger|^Log$|Telemetry',
 };
 
-/// The file a function belongs in, or null to leave it out.
-String? groupOf(String name) {
+/// Where a function lands when no pattern claims it.
+const _fallbackGroup = 'core';
+
+/// The file a function belongs in.
+///
+/// A release files with the type it releases, so `ReleaseGraph` sits next to
+/// the graph calls rather than wherever its own name happens to match.
+String groupOf(String name) {
+  final released = RegExp(r'^Release(\w+)$').firstMatch(name)?.group(1);
+  return _match(released) ?? _match(name) ?? _fallbackGroup;
+}
+
+String? _match(String? name) {
+  if (name == null) return null;
   for (final entry in groups.entries) {
     if (RegExp(entry.value).hasMatch(name)) return entry.key;
   }
@@ -160,18 +188,42 @@ String _dartParam(String name) {
 String _out(int index) => 'out$index';
 
 /// The Dart-side spelling of an FFI type, for the `asFunction` signature.
-String _callType(String ffiType) => switch (ffiType) {
-      'Size' ||
-      'Int' ||
-      'Int32' ||
-      'UnsignedInt' ||
-      'Int64' ||
-      'Uint64' =>
-        'int',
-      'Float' || 'Double' => 'double',
-      'Bool' => 'bool',
-      _ => ffiType,
-    };
+///
+/// Listed rather than inferred, and unknown types throw: a width guessed wrong
+/// here produces Dart that analyzes cleanly and fails to compile, so failing at
+/// generation time is the cheaper place to find out.
+String _callType(String ffiType) {
+  if (ffiType.startsWith('Pointer<')) return ffiType;
+  return switch (ffiType) {
+    'Int8' ||
+    'Int16' ||
+    'Int32' ||
+    'Int64' ||
+    'Uint8' ||
+    'Uint16' ||
+    'Uint32' ||
+    'Uint64' ||
+    'IntPtr' ||
+    'UintPtr' ||
+    'Char' ||
+    'SignedChar' ||
+    'UnsignedChar' ||
+    'Short' ||
+    'UnsignedShort' ||
+    'Int' ||
+    'UnsignedInt' ||
+    'Long' ||
+    'UnsignedLong' ||
+    'LongLong' ||
+    'UnsignedLongLong' ||
+    'Size' ||
+    'WChar' =>
+      'int',
+    'Float' || 'Double' => 'double',
+    'Bool' => 'bool',
+    _ => throw StateError('no Dart type for the FFI type $ffiType'),
+  };
+}
 
 /// `X` from `Pointer<X>`.
 String _pointee(String type) {

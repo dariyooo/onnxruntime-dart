@@ -9,8 +9,8 @@ import 'package:ffi/ffi.dart';
 import '../ort_bindings.g.dart';
 import 'support.dart';
 
-/// Provider calls on `OrtInteropApi`.
-extension OrtInteropApiProviderApi on OrtInteropApi {
+/// Ep calls on `OrtInteropApi`.
+extension OrtInteropApiEpApi on OrtInteropApi {
   /// `InitGraphicsInteropForEpDevice`
   void initGraphicsInteropForEpDevice(Pointer<OrtEpDevice> epDevice,
           Pointer<OrtGraphicsInteropConfig> config) =>

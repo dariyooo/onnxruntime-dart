@@ -132,16 +132,6 @@ extension OrtApiSessionApi on OrtApi {
         return out0.value;
       });
 
-  /// `SessionGetOverridableInitializerCount`
-  int sessionGetOverridableInitializerCount(Pointer<OrtSession> session) =>
-      withArena((arena) {
-        final out0 = arena<Size>();
-        checkOrtStatus(this.SessionGetOverridableInitializerCount.asFunction<
-            Pointer<OrtStatus> Function(
-                Pointer<OrtSession>, Pointer<Size>)>()(session, out0));
-        return out0.value;
-      });
-
   /// `SessionGetInputTypeInfo`
   Pointer<OrtTypeInfo> sessionGetInputTypeInfo(
           Pointer<OrtSession> session, int index) =>
@@ -159,17 +149,6 @@ extension OrtApiSessionApi on OrtApi {
       withArena((arena) {
         final out0 = arena<Pointer<OrtTypeInfo>>();
         checkOrtStatus(this.SessionGetOutputTypeInfo.asFunction<
-            Pointer<OrtStatus> Function(Pointer<OrtSession>, int,
-                Pointer<Pointer<OrtTypeInfo>>)>()(session, index, out0));
-        return out0.value;
-      });
-
-  /// `SessionGetOverridableInitializerTypeInfo`
-  Pointer<OrtTypeInfo> sessionGetOverridableInitializerTypeInfo(
-          Pointer<OrtSession> session, int index) =>
-      withArena((arena) {
-        final out0 = arena<Pointer<OrtTypeInfo>>();
-        checkOrtStatus(this.SessionGetOverridableInitializerTypeInfo.asFunction<
             Pointer<OrtStatus> Function(Pointer<OrtSession>, int,
                 Pointer<Pointer<OrtTypeInfo>>)>()(session, index, out0));
         return out0.value;
@@ -195,20 +174,6 @@ extension OrtApiSessionApi on OrtApi {
       withArena((arena) {
         final out0 = arena<Pointer<Char>>();
         checkOrtStatus(this.SessionGetOutputName.asFunction<
-            Pointer<OrtStatus> Function(
-                Pointer<OrtSession>,
-                int,
-                Pointer<OrtAllocator>,
-                Pointer<Pointer<Char>>)>()(session, index, allocator, out0));
-        return takeAllocatedString(out0);
-      });
-
-  /// `SessionGetOverridableInitializerName`
-  String sessionGetOverridableInitializerName(Pointer<OrtSession> session,
-          int index, Pointer<OrtAllocator> allocator) =>
-      withArena((arena) {
-        final out0 = arena<Pointer<Char>>();
-        checkOrtStatus(this.SessionGetOverridableInitializerName.asFunction<
             Pointer<OrtStatus> Function(
                 Pointer<OrtSession>,
                 int,
@@ -312,54 +277,6 @@ extension OrtApiSessionApi on OrtApi {
                     Pointer<OrtStatus> Function(Pointer<OrtSessionOptions>,
                         Pointer<OrtTensorRTProviderOptions>)>()(
             options, tensorrtOptions));
-      });
-
-  /// `CreateSessionWithPrepackedWeightsContainer`
-  Pointer<OrtSession> createSessionWithPrepackedWeightsContainer(
-          Pointer<OrtEnv> env,
-          String modelPath,
-          Pointer<OrtSessionOptions> options,
-          Pointer<OrtPrepackedWeightsContainer> prepackedWeightsContainer) =>
-      withArena((arena) {
-        final out0 = arena<Pointer<OrtSession>>();
-        checkOrtStatus(this
-                .CreateSessionWithPrepackedWeightsContainer
-                .asFunction<
-                    Pointer<OrtStatus> Function(
-                        Pointer<OrtEnv>,
-                        Pointer<Char>,
-                        Pointer<OrtSessionOptions>,
-                        Pointer<OrtPrepackedWeightsContainer>,
-                        Pointer<Pointer<OrtSession>>)>()(
-            env,
-            allocateOrtPath(modelPath, arena),
-            options,
-            prepackedWeightsContainer,
-            out0));
-        return out0.value;
-      });
-
-  /// `CreateSessionFromArrayWithPrepackedWeightsContainer`
-  Pointer<OrtSession> createSessionFromArrayWithPrepackedWeightsContainer(
-          Pointer<OrtEnv> env,
-          Pointer<Void> modelData,
-          int modelDataLength,
-          Pointer<OrtSessionOptions> options,
-          Pointer<OrtPrepackedWeightsContainer> prepackedWeightsContainer) =>
-      withArena((arena) {
-        final out0 = arena<Pointer<OrtSession>>();
-        checkOrtStatus(this
-                .CreateSessionFromArrayWithPrepackedWeightsContainer
-                .asFunction<
-                    Pointer<OrtStatus> Function(
-                        Pointer<OrtEnv>,
-                        Pointer<Void>,
-                        int,
-                        Pointer<OrtSessionOptions>,
-                        Pointer<OrtPrepackedWeightsContainer>,
-                        Pointer<Pointer<OrtSession>>)>()(env, modelData,
-            modelDataLength, options, prepackedWeightsContainer, out0));
-        return out0.value;
       });
 
   /// `SessionOptionsAppendExecutionProvider_TensorRT_V2`
@@ -539,58 +456,6 @@ extension OrtApiSessionApi on OrtApi {
         checkOrtStatus(this.SessionOptionsSetEpSelectionPolicy.asFunction<
             Pointer<OrtStatus> Function(
                 Pointer<OrtSessionOptions>, int)>()(sessionOptions, policy));
-      });
-
-  /// `SessionGetMemoryInfoForInputs`
-  Pointer<OrtMemoryInfo> sessionGetMemoryInfoForInputs(
-          Pointer<OrtSession> session, int numInputs) =>
-      withArena((arena) {
-        final out0 = arena<Pointer<OrtMemoryInfo>>();
-        checkOrtStatus(this.SessionGetMemoryInfoForInputs.asFunction<
-            Pointer<OrtStatus> Function(
-                Pointer<OrtSession>,
-                Pointer<Pointer<OrtMemoryInfo>>,
-                int)>()(session, out0, numInputs));
-        return out0.value;
-      });
-
-  /// `SessionGetMemoryInfoForOutputs`
-  Pointer<OrtMemoryInfo> sessionGetMemoryInfoForOutputs(
-          Pointer<OrtSession> session, int numOutputs) =>
-      withArena((arena) {
-        final out0 = arena<Pointer<OrtMemoryInfo>>();
-        checkOrtStatus(this.SessionGetMemoryInfoForOutputs.asFunction<
-            Pointer<OrtStatus> Function(
-                Pointer<OrtSession>,
-                Pointer<Pointer<OrtMemoryInfo>>,
-                int)>()(session, out0, numOutputs));
-        return out0.value;
-      });
-
-  /// `SessionGetEpDeviceForInputs`
-  Pointer<OrtEpDevice> sessionGetEpDeviceForInputs(
-          Pointer<OrtSession> session, int numInputs) =>
-      withArena((arena) {
-        final out0 = arena<Pointer<OrtEpDevice>>();
-        checkOrtStatus(this.SessionGetEpDeviceForInputs.asFunction<
-            Pointer<OrtStatus> Function(
-                Pointer<OrtSession>,
-                Pointer<Pointer<OrtEpDevice>>,
-                int)>()(session, out0, numInputs));
-        return out0.value;
-      });
-
-  /// `SessionGetEpDeviceForOutputs`
-  Pointer<OrtEpDevice> sessionGetEpDeviceForOutputs(
-          Pointer<OrtSession> session, int numOutputs) =>
-      withArena((arena) {
-        final out0 = arena<Pointer<OrtEpDevice>>();
-        checkOrtStatus(this.SessionGetEpDeviceForOutputs.asFunction<
-            Pointer<OrtStatus> Function(
-                Pointer<OrtSession>,
-                Pointer<Pointer<OrtEpDevice>>,
-                int)>()(session, out0, numOutputs));
-        return out0.value;
       });
 
   /// `RunOptionsEnableProfiling`

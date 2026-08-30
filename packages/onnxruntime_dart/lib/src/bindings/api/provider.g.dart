@@ -183,39 +183,37 @@ extension OrtApiProviderApi on OrtApi {
         return out0.value;
       });
 
-  /// `RegisterExecutionProviderLibrary`
-  void registerExecutionProviderLibrary(
-          Pointer<OrtEnv> env, String registrationName, String path) =>
+  /// `GetCompatibilityInfoFromModel`
+  String getCompatibilityInfoFromModel(
+          String modelPath, String epType, Pointer<OrtAllocator> allocator) =>
       withArena((arena) {
-        checkOrtStatus(this.RegisterExecutionProviderLibrary.asFunction<
-                Pointer<OrtStatus> Function(
-                    Pointer<OrtEnv>, Pointer<Char>, Pointer<Char>)>()(
-            env,
-            registrationName.toNativeUtf8(allocator: arena).cast(),
-            allocateOrtPath(path, arena)));
+        final out0 = arena<Pointer<Char>>();
+        checkOrtStatus(this.GetCompatibilityInfoFromModel.asFunction<
+                Pointer<OrtStatus> Function(Pointer<Char>, Pointer<Char>,
+                    Pointer<OrtAllocator>, Pointer<Pointer<Char>>)>()(
+            allocateOrtPath(modelPath, arena),
+            epType.toNativeUtf8(allocator: arena).cast(),
+            allocator,
+            out0));
+        return takeAllocatedString(out0);
       });
 
-  /// `UnregisterExecutionProviderLibrary`
-  void unregisterExecutionProviderLibrary(
-          Pointer<OrtEnv> env, String registrationName) =>
+  /// `GetCompatibilityInfoFromModelBytes`
+  String getCompatibilityInfoFromModelBytes(
+          Pointer<Void> modelData,
+          int modelDataLength,
+          String epType,
+          Pointer<OrtAllocator> allocator) =>
       withArena((arena) {
-        checkOrtStatus(this.UnregisterExecutionProviderLibrary.asFunction<
-                Pointer<OrtStatus> Function(Pointer<OrtEnv>, Pointer<Char>)>()(
-            env, registrationName.toNativeUtf8(allocator: arena).cast()));
-      });
-
-  /// `CreateSyncStreamForEpDevice`
-  Pointer<OrtSyncStream> createSyncStreamForEpDevice(
-          Pointer<OrtEpDevice> epDevice,
-          Pointer<OrtKeyValuePairs> streamOptions) =>
-      withArena((arena) {
-        final out0 = arena<Pointer<OrtSyncStream>>();
-        checkOrtStatus(this.CreateSyncStreamForEpDevice.asFunction<
-                Pointer<OrtStatus> Function(
-                    Pointer<OrtEpDevice>,
-                    Pointer<OrtKeyValuePairs>,
-                    Pointer<Pointer<OrtSyncStream>>)>()(
-            epDevice, streamOptions, out0));
-        return out0.value;
+        final out0 = arena<Pointer<Char>>();
+        checkOrtStatus(this.GetCompatibilityInfoFromModelBytes.asFunction<
+                Pointer<OrtStatus> Function(Pointer<Void>, int, Pointer<Char>,
+                    Pointer<OrtAllocator>, Pointer<Pointer<Char>>)>()(
+            modelData,
+            modelDataLength,
+            epType.toNativeUtf8(allocator: arena).cast(),
+            allocator,
+            out0));
+        return takeAllocatedString(out0);
       });
 }
