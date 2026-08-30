@@ -98,7 +98,12 @@ jobs:
         uses: nttld/setup-ndk@v1
         with:
           ndk-version: r27c
-          local-cache: true
+          # Never restore the NDK from the Actions cache. The cache does not
+          # preserve its symlinks and executable bits, so a restored copy is
+          # missing the clang binaries and CMake fails to find a compiler. The
+          # first run works and every later one breaks. Downloading is ~1 minute
+          # and is paid once now that all four ABIs share this job.
+          local-cache: false
 
       - name: Set up Emscripten
         if: matrix.platform == 'web'
