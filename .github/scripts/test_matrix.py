@@ -75,16 +75,33 @@ class ArchitectureCoverage(unittest.TestCase):
         ids = {c.id for c in m.CONFIGURATIONS if c.platform == "ios"}
         self.assertEqual(ids, {"ios-device-arm64", "ios-sim-arm64", "ios-sim-x86_64"})
 
-    def test_web_ships_threaded_and_unthreaded(self):
-        web = [c for c in m.CONFIGURATIONS if c.platform == "web"]
-        threaded = [c for c in web if "--enable_wasm_threads" in c.args]
-        # The single-threaded build is a required fallback, not an option.
-        self.assertEqual(len(threaded), 1)
-        self.assertEqual(len(web) - len(threaded), 1)
+    def test_web_builds_are_all_threaded(self):
+        # The loader drops to one thread when the page is not cross-origin
+        # isolated, so a single-threaded build would carry weight for nothing.
+        for config in m.CONFIGURATIONS:
+            if config.platform == "web":
+                with self.subTest(config.id):
+                    self.assertIn("--enable_wasm_threads", config.args)
+
+    def test_web_offers_an_accelerator_choice(self):
+        # A browser cannot load a provider, so the only choice is which build
+        # the app serves.
+        web = {c.id for c in m.CONFIGURATIONS if c.platform == "web"}
+        self.assertEqual(
+            web, {"web-wasm", "web-wasm-webgpu", "web-wasm-webgpu-webnn"}
+        )
+
+    def test_web_webgpu_is_compiled_in_not_loadable(self):
+        # build.py raises BuildError for shared_lib together with build_wasm.
+        for config in m.CONFIGURATIONS:
+            if config.platform == "web" and "--use_webgpu" in config.args:
+                with self.subTest(config.id):
+                    self.assertIn("static_lib", config.args)
+                    self.assertNotIn("shared_lib", config.args)
 
 
 class Grouping(unittest.TestCase):
-    """One job per platform and runner. Never two platforms in one job."""
+    """One job per component, platform and runner. Never two platforms in one."""
 
     def setUp(self):
         self.groups = m.group(list(m.CONFIGURATIONS))
@@ -114,11 +131,10 @@ class Grouping(unittest.TestCase):
         by_platform = {}
         for g in self.groups:
             by_platform.setdefault(g.platform, []).append(g)
-        # Android and web cross-compile from one host, so each is a single job.
-        self.assertEqual(len(by_platform["android"]), 1)
-        self.assertEqual(len(by_platform["web"]), 1)
-        self.assertEqual(len(by_platform["ios"]), 1)
-        # These need different machines per architecture.
+        # Android, iOS and web cross-compile from one host each.
+        for platform in ("android", "ios", "web"):
+            self.assertEqual(len(by_platform[platform]), 1)
+        # These need a different machine per architecture.
         for platform in ("linux", "windows", "macos"):
             self.assertEqual(len(by_platform[platform]), 2)
 
