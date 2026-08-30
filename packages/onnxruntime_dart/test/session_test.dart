@@ -115,6 +115,14 @@ void main() {
       );
     });
 
+    test('the reported signature cannot be mutated by a caller', () {
+      expect(
+        () => session.inputs.add(session.inputs.first),
+        throwsUnsupportedError,
+      );
+      expect(() => session.outputs.clear(), throwsUnsupportedError);
+    });
+
     test('a released session cannot be used again', () {
       final other = Session.fromBytes(voiceCommands.model())..release();
       expect(other.endProfiling, throwsStateError);

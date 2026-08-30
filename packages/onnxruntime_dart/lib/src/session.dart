@@ -198,20 +198,27 @@ final class Session {
 
       final session = calls.createSession(model, optionsPtr);
       final handle = OrtHandle(session, calls.releaseSession, 'OrtSession');
-      final (inputCount, outputCount) = calls.inputOutputCount(session);
-      return Session._(
-        calls,
-        handle,
-        options.intraOpNumThreads,
-        [
-          for (var i = 0; i < inputCount; i++)
-            calls.inputOutputMetadata(session, i, input: true),
-        ],
-        [
-          for (var i = 0; i < outputCount; i++)
-            calls.inputOutputMetadata(session, i, input: false),
-        ],
-      );
+      try {
+        final (inputCount, outputCount) = calls.inputOutputCount(session);
+        return Session._(
+          calls,
+          handle,
+          options.intraOpNumThreads,
+          List.unmodifiable([
+            for (var i = 0; i < inputCount; i++)
+              calls.inputOutputMetadata(session, i, input: true),
+          ]),
+          List.unmodifiable([
+            for (var i = 0; i < outputCount; i++)
+              calls.inputOutputMetadata(session, i, input: false),
+          ]),
+        );
+      } on Object {
+        // Reading the signature can fail on a model the runtime accepted.
+        // Nothing owns the session yet, and the finalizer is not a plan.
+        handle.release();
+        rethrow;
+      }
     } finally {
       // The session holds its own copy of everything it needed from these.
       calls.releaseSessionOptions(optionsPtr);
@@ -222,10 +229,10 @@ final class Session {
   final OrtHandle _handle;
   final int? _intraOpNumThreads;
 
-  /// What the model expects, in order.
+  /// What the model expects, in order. Unmodifiable.
   final List<OrtTensorMeta> inputs;
 
-  /// What the model produces, in order.
+  /// What the model produces, in order. Unmodifiable.
   final List<OrtTensorMeta> outputs;
 
   /// Runs the model.
