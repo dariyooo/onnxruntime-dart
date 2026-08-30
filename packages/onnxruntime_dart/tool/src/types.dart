@@ -95,7 +95,28 @@ Mapping map(CParameter parameter) {
   return _mapInput(type, parameter);
 }
 
+/// A pointer to a scalar, such as `int64_t*` or `size_t*`.
+final _scalarPointer = RegExp(r'^(?:const\s+)?(\w+)\s*\*$');
+
 Mapping _mapInput(String type, CParameter parameter) {
+  // `_Inout_` on a scalar pointer means one of two things the header does not
+  // distinguish, and both break if it is marshalled as a plain input.
+  //
+  // Either the call writes the value back, as `_Inout_ size_t* size` does in
+  // the ask-then-fill pattern, and an arena copy discards the answer. Or the
+  // runtime keeps the buffer: `UseCooIndices` says "the life spans of the
+  // buffers should eclipse the life span of this OrtValue", and an arena frees
+  // it as the call returns, leaving the tensor pointing at freed memory.
+  //
+  // Which one it is has to be read per function, so these are reported rather
+  // than guessed at.
+  if (parameter.direction == Direction.inout) {
+    final pointee = _scalarPointer.firstMatch(type)?.group(1);
+    if (pointee != null && _scalars.contains(pointee)) {
+      return Unmapped('inout $type, which is written back or kept');
+    }
+  }
+
   // Paths are ORTCHAR_T, which is UTF-16 on Windows.
   if (type.contains('ORTCHAR_T')) {
     return InputMapping('String', (n) => 'allocateOrtPath($n, arena)');

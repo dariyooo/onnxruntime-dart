@@ -186,6 +186,33 @@ void main() {
       expect(map(parameter('OrtLoggingFunction', Direction.input)),
           isA<Unmapped>());
     });
+
+    test('an inout scalar pointer is refused rather than copied', () {
+      // UseCooIndices takes a buffer the runtime keeps: the header says its
+      // life span must eclipse the tensor's. Marshalling it into a call-scoped
+      // arena compiles, runs, and leaves the tensor pointing at freed memory.
+      expect(
+        map(parameter('int64_t*', Direction.inout)),
+        isA<Unmapped>(),
+      );
+      expect(
+        map(parameter('size_t*', Direction.inout)),
+        isA<Unmapped>(),
+      );
+    });
+
+    test('an inout handle is still an ordinary input', () {
+      // Most inout parameters are handles the call mutates in place, which is
+      // the common case and must keep working.
+      expect(
+        map(parameter('OrtSessionOptions*', Direction.inout)),
+        isA<InputMapping>(),
+      );
+      expect(
+        map(parameter('void*', Direction.inout)),
+        isA<InputMapping>(),
+      );
+    });
   });
 
   group('emitting', () {

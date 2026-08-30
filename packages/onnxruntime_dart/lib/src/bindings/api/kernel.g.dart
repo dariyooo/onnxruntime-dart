@@ -114,36 +114,6 @@ extension OrtApiKernelApi on OrtApi {
         return out0.value;
       });
 
-  /// `KernelInfoGetAttributeArray_float`
-  double kernelInfoGetAttributeArray_float(
-          Pointer<OrtKernelInfo> info, String name, List<int> size) =>
-      withArena((arena) {
-        final out0 = arena<Float>();
-        checkOrtStatus(this.KernelInfoGetAttributeArray_float.asFunction<
-                Pointer<OrtStatus> Function(Pointer<OrtKernelInfo>,
-                    Pointer<Char>, Pointer<Float>, Pointer<Size>)>()(
-            info,
-            name.toNativeUtf8(allocator: arena).cast(),
-            out0,
-            nativeSizes(size, arena)));
-        return out0.value;
-      });
-
-  /// `KernelInfoGetAttributeArray_int64`
-  int kernelInfoGetAttributeArray_int64(
-          Pointer<OrtKernelInfo> info, String name, List<int> size) =>
-      withArena((arena) {
-        final out0 = arena<Int64>();
-        checkOrtStatus(this.KernelInfoGetAttributeArray_int64.asFunction<
-                Pointer<OrtStatus> Function(Pointer<OrtKernelInfo>,
-                    Pointer<Char>, Pointer<Int64>, Pointer<Size>)>()(
-            info,
-            name.toNativeUtf8(allocator: arena).cast(),
-            out0,
-            nativeSizes(size, arena)));
-        return out0.value;
-      });
-
   /// `EnableOrtCustomOps`
   void enableOrtCustomOps(Pointer<OrtSessionOptions> options) =>
       checkOrtStatus(this.EnableOrtCustomOps.asFunction<
