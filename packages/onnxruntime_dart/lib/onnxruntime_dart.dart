@@ -12,6 +12,5 @@ library;
 export 'src/annotations.dart' show NativeOnly, unsupportedOnWeb;
 export 'src/backend/types.dart' show OrtElementType, OrtTensorMeta;
 export 'src/bindings/config_keys.g.dart';
-export 'src/session.dart' show Session, SessionOptions;
 export 'src/ffi/runtime.dart' show OrtAbiMismatch, runtimeVersion;
 export 'src/ffi/status.dart' show OrtException;
