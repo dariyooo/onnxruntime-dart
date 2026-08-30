@@ -61,13 +61,18 @@ Future<File?> _resolveLibrary(BuildInput input, String target, OS os) async {
   final override = input.userDefines.path('local_build');
   if (override != null) {
     final file = File.fromUri(_asDirectory(override).resolve(fileName));
-    if (!file.existsSync()) {
-      throw StateError(
+    if (file.existsSync()) return file;
+
+    // A configured override that does not exist is a mistake worth failing on,
+    // but only once there is a published alternative. Before then the override
+    // is the only way to get a library at all, and a developer without one
+    // still needs the pure-Dart tests to run.
+    final message =
         'onnxruntime_dart: local_build points at $override, which holds no '
-        '$fileName. Expected a directory containing the shared library.',
-      );
-    }
-    return file;
+        '$fileName. Expected a directory containing the shared library.';
+    if (releaseTag.isNotEmpty) throw StateError(message);
+    stderr.writeln('$message\nContinuing without a native library.');
+    return null;
   }
 
   final cached = File.fromUri(

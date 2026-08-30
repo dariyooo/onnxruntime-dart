@@ -27,7 +27,7 @@ void main() {
     test('exposes a usable api', () {
       expect(OrtEnvironment.instance().handle.address, isNot(0));
     });
-  });
+  }, skip: skipWithoutNativeAsset);
 
   group('execution provider plugins', () {
     late final OrtEnvironment env;
@@ -75,7 +75,7 @@ void main() {
       expect(executionProviderDeviceCount(env.api, env.handle),
           greaterThanOrEqualTo(1));
     });
-  });
+  }, skip: skipWithoutNativeAsset);
 
   group('the WebGPU plugin we build', () {
     late final OrtEnvironment env;
@@ -131,5 +131,5 @@ void main() {
         throwsA(isA<OrtException>()),
       );
     });
-  }, skip: skipWithoutWebGpuPlugin);
+  }, skip: skipWithoutWebGpuPlugin ?? skipWithoutNativeAsset);
 }
