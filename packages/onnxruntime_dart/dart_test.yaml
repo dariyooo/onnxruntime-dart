@@ -1,0 +1,5 @@
+tags:
+  # Measures process-global resident memory, so nothing else may allocate
+  # concurrently. Run with --tags exclusive --concurrency 1.
+  exclusive:
+    timeout: 2x
