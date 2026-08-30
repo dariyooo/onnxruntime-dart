@@ -1,0 +1,186 @@
+# Builds the base ONNX Runtime shared library for every supported configuration.
+#
+# Three commitments from DESIGN.md §01 shape this file, and none of them are
+# negotiable:
+#
+#   1. COMPLETE builds. Every ai.onnx kernel, every opset, all com.microsoft
+#      contrib ops, on every platform. The flags that would trim any of that are
+#      listed in DENIED_FLAGS below and the build fails if one appears.
+#   2. The source is the pinned submodule, never a downloaded tarball, so a green
+#      build is reproducible from a single commit.
+#   3. x86 and arm64 on every platform that has both.
+#
+# Standard runners are free and unlimited on public repositories -- including
+# macOS, Windows and arm64 -- so breadth costs nothing here. Only -large and
+# -xlarge runners are billed, and none are used.
+name: build-runtime
+
+on:
+  workflow_call:
+    inputs:
+      configurations:
+        description: 'Subset to build (regex over the id field), or "all"'
+        type: string
+        default: all
+  workflow_dispatch:
+    inputs:
+      configurations:
+        description: 'Subset to build (regex over the id field), or "all"'
+        type: string
+        default: all
+  push:
+    tags: ['v*']
+  pull_request:
+    # A Dart-only change cannot break the native build, so do not spend an hour
+    # proving it. Anything that can break it does run the full matrix.
+    paths:
+      - '.github/workflows/build-runtime.yml'
+      - '.gitmodules'
+      - 'third_party/onnxruntime'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-runtime-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  ORT_BUILD_CONFIG: Release
+
+jobs:
+  # Resolves the matrix once so the same list drives both the build and the
+  # release fan-in, and a subset can be requested without editing the file.
+  plan:
+    name: plan
+    runs-on: ubuntu-24.04
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+      count: ${{ steps.plan.outputs.count }}
+    steps:
+      - uses: actions/checkout@v5
+      - id: plan
+        env:
+          FILTER: ${{ inputs.configurations || 'all' }}
+        run: python3 .github/scripts/plan_matrix.py >> "$GITHUB_OUTPUT"
+
+  build:
+    name: ${{ matrix.id }}
+    needs: plan
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 180
+    strategy:
+      # One platform failing must not hide the state of the other thirteen.
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          submodules: true
+
+      - name: Report the exact source commit
+        shell: bash
+        run: |
+          cd third_party/onnxruntime
+          echo "ORT $(cat VERSION_NUMBER) at $(git rev-parse HEAD)" | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Set up JDK
+        if: matrix.platform == 'android'
+        uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '17' }
+
+      - name: Set up Android NDK
+        if: matrix.platform == 'android'
+        id: ndk
+        uses: nttld/setup-ndk@v1
+        with:
+          ndk-version: r27c
+          local-cache: true
+
+      - name: Set up Emscripten
+        if: matrix.platform == 'web'
+        uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: 3.1.74
+          actions-cache-folder: emsdk-cache
+
+      - name: Select Xcode
+        if: runner.os == 'macOS'
+        run: sudo xcode-select -switch /Applications/Xcode.app
+
+      - name: Install Linux build dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build libgles2-mesa-dev
+
+      # cmake/deps.txt vendors ~40 dependencies. Caching them is for latency, not
+      # cost -- a cold fetch adds several minutes to every job in the matrix.
+      - name: Cache ORT dependencies
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.os == 'Windows' && 'C:\deps' || '~/.onnxruntime_deps' }}
+          key: ortdeps-${{ matrix.id }}-${{ hashFiles('third_party/onnxruntime/cmake/deps.txt') }}
+          restore-keys: ortdeps-${{ matrix.id }}-
+
+      - name: Key the artifact cache on the exact source and flags
+        id: key
+        shell: bash
+        run: |
+          ort=$(git -C third_party/onnxruntime rev-parse HEAD)
+          flags=$(python3 -c "
+          import sys; sys.path.insert(0, '.github/scripts')
+          import ort_matrix, hashlib
+          args = ' '.join(ort_matrix.by_id('${{ matrix.id }}').build_args())
+          print(hashlib.sha256(args.encode()).hexdigest()[:16])
+          ")
+          echo "value=ort-${{ matrix.id }}-${ort:0:12}-$flags" >> "$GITHUB_OUTPUT"
+
+      - name: Restore a previous build of this exact source
+        id: cached
+        uses: actions/cache@v4
+        with:
+          path: dist
+          key: ${{ steps.key.outputs.value }}
+
+      - name: Build
+        if: steps.cached.outputs.cache-hit != 'true'
+        shell: bash
+        env:
+          MATRIX_ID: ${{ matrix.id }}
+          ANDROID_NDK_HOME: ${{ steps.ndk.outputs.ndk-path }}
+        run: python3 .github/scripts/build_runtime.py
+
+      - name: Collect artifacts and SHA-256 sidecars
+        if: steps.cached.outputs.cache-hit != 'true'
+        shell: bash
+        run: python3 .github/scripts/package_artifact.py
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: onnxruntime-${{ matrix.id }}
+          path: dist/
+          if-no-files-found: error
+          retention-days: 14
+
+  # DESIGN.md P11: the release is a fan-in with a strict order. Partial success
+  # ships a package whose build hook 404s on some platforms, so every
+  # configuration must succeed before anything is published.
+  all-green:
+    name: all ${{ needs.plan.outputs.count }} configurations succeeded
+    needs: [plan, build]
+    if: always()
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Require every build to have succeeded
+        run: |
+          result='${{ needs.build.result }}'
+          echo "build matrix result: $result"
+          if [ "$result" != "success" ]; then
+            echo "::error::Not every configuration built. A partial matrix must never be released."
+            exit 1
+          fi

@@ -1,0 +1,188 @@
+# The pipeline.
+#
+# Two stages, because they answer different questions and cost different amounts.
+#
+#   1. Platform-independent checks and the pure-Dart suite. Fast, and covers the
+#      assumptions that vary by platform: ORTCHAR_T width, pointer size on
+#      32-bit Android ABIs, byte order, resident-memory reporting.
+#   2. Build our own ONNX Runtime, then run the suite against it. The ABI tests
+#      only mean something against the binary we ship. A published Microsoft
+#      build would test an artifact we do not distribute, and would stay green
+#      even if our own build were broken.
+#
+# Stage 2 caches each artifact by ORT commit and build flags, so it rebuilds
+# only when the source or the flags actually change.
+name: ci
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  static:
+    name: format, analyze, matrix
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with: { submodules: true }
+      - uses: dart-lang/setup-dart@v1
+        with: { sdk: stable }
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - run: dart pub get
+
+      # dart format ignores analysis_options' formatter.exclude, so generated
+      # files are filtered here. A check that examines nothing passes
+      # vacuously, so fail when the glob finds none.
+      - name: Format
+        shell: bash
+        run: |
+          set -euo pipefail
+          files=$(find packages -name '*.dart' -not -name '*.g.dart')
+          if [ -z "$files" ]; then
+            echo "::error::found no Dart files to format-check"
+            exit 1
+          fi
+          dart format --output=none --set-exit-if-changed $files
+
+      - run: dart analyze --fatal-infos
+      - run: python3 .github/scripts/test_matrix.py
+
+  bindings-are-current:
+    name: bindings match the submodule
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with: { submodules: true }
+      - uses: dart-lang/setup-dart@v1
+        with: { sdk: stable }
+      - run: dart pub get
+      - run: sudo apt-get update && sudo apt-get install -y libclang-dev
+      - working-directory: packages/onnxruntime_dart
+        run: dart run ffigen --config ffigen.yaml
+      - name: Bindings must be unchanged
+        run: |
+          if ! git diff --exit-code --stat -- packages/*/lib/src/bindings/; then
+            echo "::error::Committed bindings differ from a fresh ffigen run."
+            echo "Run: cd packages/onnxruntime_dart && dart run ffigen --config ffigen.yaml"
+            exit 1
+          fi
+
+  # Stage 1. No native library, so the ABI tests skip. Everything else runs.
+  test:
+    name: test · ${{ matrix.name }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: linux-x64,     runner: ubuntu-24.04 }
+          - { name: linux-arm64,   runner: ubuntu-24.04-arm }
+          - { name: macos-arm64,   runner: macos-15 }
+          - { name: macos-x64,     runner: macos-15-intel }
+          - { name: windows-x64,   runner: windows-2025 }
+          - { name: windows-arm64, runner: windows-11-arm }
+    steps:
+      - uses: actions/checkout@v5
+        with: { submodules: true }
+      - uses: dart-lang/setup-dart@v1
+        with: { sdk: stable }
+      - run: dart pub get
+      - name: Test
+        run: dart test packages/onnxruntime_dart --exclude-tags exclusive --reporter expanded
+
+      # Resident-memory tests measure the whole process, so nothing else may
+      # allocate while they run.
+      - name: Test (exclusive)
+        run: dart test packages/onnxruntime_dart --tags exclusive --concurrency 1 --reporter expanded
+
+  # dart2js and dart2wasm. Only tests avoiding dart:io and dart:ffi compile
+  # here, which is the same boundary the wasm backend will sit behind.
+  test-web:
+    name: test · web · ${{ matrix.browser }}
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chrome, firefox]
+    steps:
+      - uses: actions/checkout@v5
+        with: { submodules: true }
+      - uses: dart-lang/setup-dart@v1
+        with: { sdk: stable }
+      - run: dart pub get
+      - run: dart test packages/onnxruntime_dart -p ${{ matrix.browser }} --reporter expanded
+
+  # Stage 2a. Our binaries, built from the pinned submodule.
+  build-runtime:
+    name: build
+    needs: static
+    uses: ./.github/workflows/build-runtime.yml
+
+  # Stage 2b. The suite again, this time against the library we actually ship,
+  # so the ABI and operator-coverage tests run instead of skipping.
+  #
+  # The corpus sweep loads all 876 models in the submodule and takes under a
+  # second, so it runs here every time. The expensive half is the build, which
+  # is cached on the ORT commit and build flags, so a full rebuild and full
+  # verification happen exactly when the submodule pin moves.
+  test-against-our-build:
+    name: test · ${{ matrix.name }} · our build
+    needs: build-runtime
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: linux-x64,     runner: ubuntu-24.04,     artifact: linux-x64 }
+          - { name: linux-arm64,   runner: ubuntu-24.04-arm, artifact: linux-arm64 }
+          - { name: macos-arm64,   runner: macos-15,         artifact: macos-arm64 }
+          - { name: macos-x64,     runner: macos-15-intel,   artifact: macos-x86_64 }
+          - { name: windows-x64,   runner: windows-2025,     artifact: windows-x64 }
+          - { name: windows-arm64, runner: windows-11-arm,   artifact: windows-arm64 }
+    steps:
+      - uses: actions/checkout@v5
+        with: { submodules: true }
+      - uses: dart-lang/setup-dart@v1
+        with: { sdk: stable }
+      - run: dart pub get
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: onnxruntime-${{ matrix.artifact }}
+          path: .local/ort/${{ matrix.artifact }}
+
+      - name: Point the suite at our library
+        shell: bash
+        run: python3 .github/scripts/locate_library.py "${{ matrix.artifact }}"
+
+      - name: Test
+        shell: bash
+        run: dart test packages/onnxruntime_dart --exclude-tags exclusive --reporter expanded
+
+      - name: Test (exclusive)
+        shell: bash
+        run: dart test packages/onnxruntime_dart --tags exclusive --concurrency 1 --reporter expanded
+
+      # The ABI tests skip silently when no library is found, which would make
+      # this whole job pass while proving nothing.
+      - name: The ABI tests must have run
+        shell: bash
+        run: |
+          set -euo pipefail
+          out=$(dart test packages/onnxruntime_dart/test/bindings_test.dart --reporter expanded)
+          echo "$out"
+          if echo "$out" | grep -qi 'skip'; then
+            echo "::error::bindings_test skipped. Our build was not found."
+            exit 1
+          fi
