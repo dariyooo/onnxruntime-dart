@@ -24,6 +24,9 @@ extension OrtModelEditorApiGraphApi on OrtModelEditorApi {
       });
 
   /// `AddInitializerToGraph`
+  ///
+  /// Borrows, does not copy: the graph keeps `tensor` rather than copying it,
+  /// so it must outlive the graph.
   void addInitializerToGraph(Pointer<OrtGraph> graph, String name,
           Pointer<OrtValue> tensor, bool dataIsExternal) =>
       withArena((arena) {

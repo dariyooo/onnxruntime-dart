@@ -102,6 +102,9 @@ extension OrtApiSparseApi on OrtApi {
       });
 
   /// `CreateSparseTensorWithValuesAsOrtValue`
+  ///
+  /// Borrows, does not copy: the tensor is a view over `pData` and does not
+  /// copy it, so that allocation must outlive the tensor.
   Pointer<OrtValue> createSparseTensorWithValuesAsOrtValue(
           Pointer<OrtMemoryInfo> info,
           Pointer<Void> pData,
