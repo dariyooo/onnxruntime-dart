@@ -172,10 +172,15 @@ CONFIGURATIONS: tuple[Config, ...] = (
         platform="windows",
         arch="arm64",
         runner="windows-11-arm",
-        # No XNNPACK: its fp16 microkernels include arm_fp16.h, which MSVC on
-        # ARM64 does not provide. Operator coverage is unaffected because
-        # XNNPACK only accelerates kernels the CPU provider already has.
-        args=("--use_webgpu", "shared_lib", "--compile_no_warning_as_error"),
+        args=(
+            "--use_xnnpack",
+            "--use_webgpu", "shared_lib",
+            "--compile_no_warning_as_error",
+            # XNNPACK's scalar fp16 microkernels include arm_fp16.h, which MSVC
+            # does not ship. Disabling that one family keeps the rest of
+            # XNNPACK, the same way ORT disables ARM BF16 on armeabi-v7a.
+            "--cmake_extra_defines", "XNNPACK_ENABLE_ARM_FP16_SCALAR=OFF",
+        ),
     ),
 
     # Web. Threads need cross-origin isolation, which the embedding page may
@@ -185,14 +190,19 @@ CONFIGURATIONS: tuple[Config, ...] = (
         platform="web",
         arch="wasm32",
         runner="ubuntu-24.04",
-        args=("--build_wasm", "--enable_wasm_simd"),
+        args=("--build_wasm", "--enable_wasm_simd", "--use_xnnpack"),
     ),
     Config(
         id="web-wasm-simd-threads",
         platform="web",
         arch="wasm32",
         runner="ubuntu-24.04",
-        args=("--build_wasm", "--enable_wasm_simd", "--enable_wasm_threads"),
+        args=(
+            "--build_wasm",
+            "--enable_wasm_simd",
+            "--enable_wasm_threads",
+            "--use_xnnpack",
+        ),
     ),
 )
 
