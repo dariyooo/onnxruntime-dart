@@ -8,8 +8,8 @@ description: >-
 # and MUST match the tag of the third_party/onnxruntime submodule. Enforced by
 # test/version_test.dart.
 version: 0.1.0+onnxruntime-1.29.0
-repository: https://github.com/CaptainDario/onnx-runtime-dart
-issue_tracker: https://github.com/CaptainDario/onnx-runtime-dart/issues
+repository: https://github.com/dariyooo/onnxruntime-dart
+issue_tracker: https://github.com/dariyooo/onnxruntime-dart/issues
 
 environment:
   sdk: ^3.6.0
