@@ -121,7 +121,11 @@ jobs:
       - uses: dart-lang/setup-dart@v1
         with: { sdk: stable }
       - run: dart pub get
-      - run: dart test packages/onnxruntime_dart -p ${{ matrix.browser }} --reporter expanded
+      # Browser tests must run from inside the package. package:test generates
+      # HTML that resolves packages/test/dart.js relative to the test file, and
+      # invoking dart test with a subdirectory path serves it as text/plain.
+      - working-directory: packages/onnxruntime_dart
+        run: dart test -p ${{ matrix.browser }} --reporter expanded
 
   # Stage 2a. Our binaries, built from the pinned submodule.
   build-runtime:
