@@ -51,6 +51,20 @@ extension OrtApiBindingApi on OrtApi {
             name.toNativeUtf8(allocator: arena).cast(), memInfoPtr));
       });
 
+  /// `SynchronizeBoundInputs`
+  void synchronizeBoundInputs(Pointer<OrtIoBinding> bindingPtr) =>
+      withArena((arena) {
+        checkOrtStatus(this.SynchronizeBoundInputs.asFunction<
+            Pointer<OrtStatus> Function(Pointer<OrtIoBinding>)>()(bindingPtr));
+      });
+
+  /// `SynchronizeBoundOutputs`
+  void synchronizeBoundOutputs(Pointer<OrtIoBinding> bindingPtr) =>
+      withArena((arena) {
+        checkOrtStatus(this.SynchronizeBoundOutputs.asFunction<
+            Pointer<OrtStatus> Function(Pointer<OrtIoBinding>)>()(bindingPtr));
+      });
+
   /// `ReleaseIoBinding`
   void releaseIoBinding(Pointer<OrtIoBinding> input) => this
       .ReleaseIoBinding

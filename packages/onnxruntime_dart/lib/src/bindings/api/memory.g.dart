@@ -11,6 +11,38 @@ import 'support.dart';
 
 /// Memory calls on `OrtApi`.
 extension OrtApiMemoryApi on OrtApi {
+  /// `EnableMemPattern`
+  void enableMemPattern(Pointer<OrtSessionOptions> options) =>
+      withArena((arena) {
+        checkOrtStatus(this.EnableMemPattern.asFunction<
+            Pointer<OrtStatus> Function(
+                Pointer<OrtSessionOptions>)>()(options));
+      });
+
+  /// `DisableMemPattern`
+  void disableMemPattern(Pointer<OrtSessionOptions> options) =>
+      withArena((arena) {
+        checkOrtStatus(this.DisableMemPattern.asFunction<
+            Pointer<OrtStatus> Function(
+                Pointer<OrtSessionOptions>)>()(options));
+      });
+
+  /// `EnableCpuMemArena`
+  void enableCpuMemArena(Pointer<OrtSessionOptions> options) =>
+      withArena((arena) {
+        checkOrtStatus(this.EnableCpuMemArena.asFunction<
+            Pointer<OrtStatus> Function(
+                Pointer<OrtSessionOptions>)>()(options));
+      });
+
+  /// `DisableCpuMemArena`
+  void disableCpuMemArena(Pointer<OrtSessionOptions> options) =>
+      withArena((arena) {
+        checkOrtStatus(this.DisableCpuMemArena.asFunction<
+            Pointer<OrtStatus> Function(
+                Pointer<OrtSessionOptions>)>()(options));
+      });
+
   /// `CreateMemoryInfo`
   Pointer<OrtMemoryInfo> createMemoryInfo(
           String name, int type, int id, int memType) =>
@@ -143,6 +175,95 @@ extension OrtApiMemoryApi on OrtApi {
                 Pointer<OrtArenaCfg>)>()(env, memInfo, arenaCfg));
       });
 
+  /// `CreateArenaCfg`
+  Pointer<OrtArenaCfg> createArenaCfg(int maxMem, int arenaExtendStrategy,
+          int initialChunkSizeBytes, int maxDeadBytesPerChunk) =>
+      withArena((arena) {
+        final out0 = arena<Pointer<OrtArenaCfg>>();
+        checkOrtStatus(this.CreateArenaCfg.asFunction<
+                Pointer<OrtStatus> Function(
+                    int, int, int, int, Pointer<Pointer<OrtArenaCfg>>)>()(
+            maxMem,
+            arenaExtendStrategy,
+            initialChunkSizeBytes,
+            maxDeadBytesPerChunk,
+            out0));
+        return out0.value;
+      });
+
+  /// `CreateArenaCfgV2`
+  Pointer<OrtArenaCfg> createArenaCfgV2(List<String> arenaConfigKeys,
+          List<int> arenaConfigValues, int numKeys) =>
+      withArena((arena) {
+        final out0 = arena<Pointer<OrtArenaCfg>>();
+        checkOrtStatus(this.CreateArenaCfgV2.asFunction<
+                Pointer<OrtStatus> Function(Pointer<Pointer<Char>>,
+                    Pointer<Size>, int, Pointer<Pointer<OrtArenaCfg>>)>()(
+            nativeStrings(arenaConfigKeys, arena),
+            nativeSizes(arenaConfigValues, arena),
+            numKeys,
+            out0));
+        return out0.value;
+      });
+
+  /// `CreatePrepackedWeightsContainer`
+  Pointer<OrtPrepackedWeightsContainer> createPrepackedWeightsContainer() =>
+      withArena((arena) {
+        final out0 = arena<Pointer<OrtPrepackedWeightsContainer>>();
+        checkOrtStatus(this.CreatePrepackedWeightsContainer.asFunction<
+            Pointer<OrtStatus> Function(
+                Pointer<Pointer<OrtPrepackedWeightsContainer>>)>()(out0));
+        return out0.value;
+      });
+
+  /// `CreateSessionWithPrepackedWeightsContainer`
+  Pointer<OrtSession> createSessionWithPrepackedWeightsContainer(
+          Pointer<OrtEnv> env,
+          String modelPath,
+          Pointer<OrtSessionOptions> options,
+          Pointer<OrtPrepackedWeightsContainer> prepackedWeightsContainer) =>
+      withArena((arena) {
+        final out0 = arena<Pointer<OrtSession>>();
+        checkOrtStatus(this
+                .CreateSessionWithPrepackedWeightsContainer
+                .asFunction<
+                    Pointer<OrtStatus> Function(
+                        Pointer<OrtEnv>,
+                        Pointer<Char>,
+                        Pointer<OrtSessionOptions>,
+                        Pointer<OrtPrepackedWeightsContainer>,
+                        Pointer<Pointer<OrtSession>>)>()(
+            env,
+            allocateOrtPath(modelPath, arena),
+            options,
+            prepackedWeightsContainer,
+            out0));
+        return out0.value;
+      });
+
+  /// `CreateSessionFromArrayWithPrepackedWeightsContainer`
+  Pointer<OrtSession> createSessionFromArrayWithPrepackedWeightsContainer(
+          Pointer<OrtEnv> env,
+          Pointer<Void> modelData,
+          int modelDataLength,
+          Pointer<OrtSessionOptions> options,
+          Pointer<OrtPrepackedWeightsContainer> prepackedWeightsContainer) =>
+      withArena((arena) {
+        final out0 = arena<Pointer<OrtSession>>();
+        checkOrtStatus(this
+                .CreateSessionFromArrayWithPrepackedWeightsContainer
+                .asFunction<
+                    Pointer<OrtStatus> Function(
+                        Pointer<OrtEnv>,
+                        Pointer<Void>,
+                        int,
+                        Pointer<OrtSessionOptions>,
+                        Pointer<OrtPrepackedWeightsContainer>,
+                        Pointer<Pointer<OrtSession>>)>()(env, modelData,
+            modelDataLength, options, prepackedWeightsContainer, out0));
+        return out0.value;
+      });
+
   /// `RegisterAllocator`
   void registerAllocator(
           Pointer<OrtEnv> env, Pointer<OrtAllocator> allocator) =>
@@ -161,16 +282,13 @@ extension OrtApiMemoryApi on OrtApi {
                 Pointer<OrtEnv>, Pointer<OrtMemoryInfo>)>()(env, memInfo));
       });
 
-  /// `KernelContext_GetAllocator`
-  Pointer<OrtAllocator> kernelContext_GetAllocator(
-          Pointer<OrtKernelContext> context, Pointer<OrtMemoryInfo> memInfo) =>
+  /// `GetTensorMemoryInfo`
+  Pointer<OrtMemoryInfo> getTensorMemoryInfo(Pointer<OrtValue> value) =>
       withArena((arena) {
-        final out0 = arena<Pointer<OrtAllocator>>();
-        checkOrtStatus(this.KernelContext_GetAllocator.asFunction<
-            Pointer<OrtStatus> Function(
-                Pointer<OrtKernelContext>,
-                Pointer<OrtMemoryInfo>,
-                Pointer<Pointer<OrtAllocator>>)>()(context, memInfo, out0));
+        final out0 = arena<Pointer<OrtMemoryInfo>>();
+        checkOrtStatus(this.GetTensorMemoryInfo.asFunction<
+            Pointer<OrtStatus> Function(Pointer<OrtValue>,
+                Pointer<Pointer<OrtMemoryInfo>>)>()(value, out0));
         return out0.value;
       });
 
@@ -200,17 +318,6 @@ extension OrtApiMemoryApi on OrtApi {
             nativeStrings(providerOptionsKeys, arena),
             nativeStrings(providerOptionsValues, arena),
             numKeys));
-      });
-
-  /// `KernelInfoGetAllocator`
-  Pointer<OrtAllocator> kernelInfoGetAllocator(
-          Pointer<OrtKernelInfo> info, int memType) =>
-      withArena((arena) {
-        final out0 = arena<Pointer<OrtAllocator>>();
-        checkOrtStatus(this.KernelInfoGetAllocator.asFunction<
-            Pointer<OrtStatus> Function(Pointer<OrtKernelInfo>, int,
-                Pointer<Pointer<OrtAllocator>>)>()(info, memType, out0));
-        return out0.value;
       });
 
   /// `AllocatorGetStats`
@@ -265,6 +372,42 @@ extension OrtApiMemoryApi on OrtApi {
                 int)>()(env, epDevice, memType));
       });
 
+  /// `SessionGetMemoryInfoForInputs`
+  Pointer<OrtMemoryInfo> sessionGetMemoryInfoForInputs(
+          Pointer<OrtSession> session, int numInputs) =>
+      withArena((arena) {
+        final out0 = arena<Pointer<OrtMemoryInfo>>();
+        checkOrtStatus(this.SessionGetMemoryInfoForInputs.asFunction<
+            Pointer<OrtStatus> Function(
+                Pointer<OrtSession>,
+                Pointer<Pointer<OrtMemoryInfo>>,
+                int)>()(session, out0, numInputs));
+        return out0.value;
+      });
+
+  /// `SessionGetMemoryInfoForOutputs`
+  Pointer<OrtMemoryInfo> sessionGetMemoryInfoForOutputs(
+          Pointer<OrtSession> session, int numOutputs) =>
+      withArena((arena) {
+        final out0 = arena<Pointer<OrtMemoryInfo>>();
+        checkOrtStatus(this.SessionGetMemoryInfoForOutputs.asFunction<
+            Pointer<OrtStatus> Function(
+                Pointer<OrtSession>,
+                Pointer<Pointer<OrtMemoryInfo>>,
+                int)>()(session, out0, numOutputs));
+        return out0.value;
+      });
+
+  /// `GetMemPatternEnabled`
+  int getMemPatternEnabled(Pointer<OrtSessionOptions> options) =>
+      withArena((arena) {
+        final out0 = arena<Int>();
+        checkOrtStatus(this.GetMemPatternEnabled.asFunction<
+            Pointer<OrtStatus> Function(
+                Pointer<OrtSessionOptions>, Pointer<Int>)>()(options, out0));
+        return out0.value;
+      });
+
   /// `ReleaseMemoryInfo`
   void releaseMemoryInfo(Pointer<OrtMemoryInfo> input) => this
       .ReleaseMemoryInfo
@@ -274,4 +417,15 @@ extension OrtApiMemoryApi on OrtApi {
   void releaseAllocator(Pointer<OrtAllocator> input) => this
       .ReleaseAllocator
       .asFunction<void Function(Pointer<OrtAllocator>)>()(input);
+
+  /// `ReleaseArenaCfg`
+  void releaseArenaCfg(Pointer<OrtArenaCfg> input) => this
+      .ReleaseArenaCfg
+      .asFunction<void Function(Pointer<OrtArenaCfg>)>()(input);
+
+  /// `ReleasePrepackedWeightsContainer`
+  void releasePrepackedWeightsContainer(
+          Pointer<OrtPrepackedWeightsContainer> input) =>
+      this.ReleasePrepackedWeightsContainer.asFunction<
+          void Function(Pointer<OrtPrepackedWeightsContainer>)>()(input);
 }

@@ -104,18 +104,12 @@ extension OrtApiModelApi on OrtApi {
         return takeAllocatedString(out0);
       });
 
-  /// `Graph_GetModelMetadata`
-  Pointer<OrtModelMetadata> graph_GetModelMetadata(Pointer<OrtGraph> graph) =>
-      withArena((arena) {
-        final out0 = arena<Pointer<OrtModelMetadata>>();
-        checkOrtStatus(this.Graph_GetModelMetadata.asFunction<
-            Pointer<OrtStatus> Function(Pointer<OrtGraph>,
-                Pointer<Pointer<OrtModelMetadata>>)>()(graph, out0));
-        return out0.value;
-      });
-
   /// `ReleaseModelMetadata`
   void releaseModelMetadata(Pointer<OrtModelMetadata> input) => this
       .ReleaseModelMetadata
       .asFunction<void Function(Pointer<OrtModelMetadata>)>()(input);
+
+  /// `ReleaseModel`
+  void releaseModel(Pointer<OrtModel> input) =>
+      this.ReleaseModel.asFunction<void Function(Pointer<OrtModel>)>()(input);
 }

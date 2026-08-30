@@ -50,6 +50,39 @@ void main() {
       }
     });
 
+    test('wraps every function it can map', () {
+      // Grouping decides which file a wrapper lands in. It once decided
+      // whether one was emitted at all, which silently dropped 165 functions.
+      final apis = parseApis(header.readAsStringSync());
+      final signatures = readApiSignatures(bindings);
+      final emitted = generated.files.values
+          .expand((source) => RegExp(r'/// `(\w+)`').allMatches(source))
+          .map((m) => m.group(1))
+          .toSet();
+
+      for (final api in apis.entries) {
+        final members = signatures[api.key];
+        if (members == null) continue;
+        for (final function in api.value) {
+          if (members[function.name] == null) continue;
+          if (!isFullyMapped(function)) continue;
+          expect(
+            emitted,
+            contains(function.name),
+            reason: '${api.key}.${function.name} maps but was not emitted',
+          );
+        }
+      }
+    });
+
+    test('every function is either wrapped or explained', () {
+      final apis = parseApis(header.readAsStringSync());
+      final total = apis.entries
+          .where((e) => readApiSignatures(bindings).containsKey(e.key))
+          .fold(0, (n, e) => n + e.value.length);
+      expect(generated.wrappers + generated.skipped.length, total);
+    });
+
     test('leaves nothing generated behind', () {
       final onDisk = Directory(fromPackage('lib/src/bindings/api'))
           .listSync()

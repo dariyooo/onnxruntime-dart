@@ -22,17 +22,6 @@ extension OrtModelEditorApiTensorApi on OrtModelEditorApi {
         return out0.value;
       });
 
-  /// `CreateSparseTensorTypeInfo`
-  Pointer<OrtTypeInfo> createSparseTensorTypeInfo(
-          Pointer<OrtTensorTypeAndShapeInfo> tensorInfo) =>
-      withArena((arena) {
-        final out0 = arena<Pointer<OrtTypeInfo>>();
-        checkOrtStatus(this.CreateSparseTensorTypeInfo.asFunction<
-            Pointer<OrtStatus> Function(Pointer<OrtTensorTypeAndShapeInfo>,
-                Pointer<Pointer<OrtTypeInfo>>)>()(tensorInfo, out0));
-        return out0.value;
-      });
-
   /// `CreateMapTypeInfo`
   Pointer<OrtTypeInfo> createMapTypeInfo(
           int mapKeyType, Pointer<OrtTypeInfo> mapValueType) =>
@@ -64,18 +53,6 @@ extension OrtModelEditorApiTensorApi on OrtModelEditorApi {
         checkOrtStatus(this.CreateOptionalTypeInfo.asFunction<
             Pointer<OrtStatus> Function(Pointer<OrtTypeInfo>,
                 Pointer<Pointer<OrtTypeInfo>>)>()(containedType, out0));
-        return out0.value;
-      });
-
-  /// `CreateValueInfo`
-  Pointer<OrtValueInfo> createValueInfo(
-          String name, Pointer<OrtTypeInfo> typeInfo) =>
-      withArena((arena) {
-        final out0 = arena<Pointer<OrtValueInfo>>();
-        checkOrtStatus(this.CreateValueInfo.asFunction<
-                Pointer<OrtStatus> Function(Pointer<Char>, Pointer<OrtTypeInfo>,
-                    Pointer<Pointer<OrtValueInfo>>)>()(
-            name.toNativeUtf8(allocator: arena).cast(), typeInfo, out0));
         return out0.value;
       });
 }

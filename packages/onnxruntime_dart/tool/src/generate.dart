@@ -53,8 +53,6 @@ Generated generate({required File header, required File bindings}) {
 
     for (final function in api.value) {
       final group = groupOf(function.name);
-      if (group == null) continue;
-
       final name = '${api.key}.${function.name}';
       final signature = members[function.name];
       if (signature == null) {
