@@ -307,35 +307,6 @@ def by_id(config_id: str) -> Config:
     raise SystemExit(f"unknown configuration id {config_id!r}")
 
 
-def assert_complete_build(args) -> None:
-    """Raises if any flag would produce an incomplete operator set."""
-    for denied in DENIED_FLAGS:
-        if denied in args:
-            raise SystemExit(
-                f"refusing to build: {denied} produces an incomplete operator "
-                f"set. See DENIED_FLAGS."
-            )
-
-
-def select(pattern: str) -> list[Config]:
-    """Returns configurations whose id matches `pattern`, or all of them."""
-    every = all_configurations()
-    if pattern in ("", "all"):
-        return every
-    matcher = re.compile(pattern)
-    chosen = [c for c in every if matcher.search(c.id)]
-    if not chosen:
-        raise SystemExit(f"no configuration matches {pattern!r}")
-    return chosen
-
-
-def by_id(config_id: str) -> Config:
-    for config in all_configurations():
-        if config.id == config_id:
-            return config
-    raise SystemExit(f"unknown configuration id {config_id!r}")
-
-
 @dataclasses.dataclass(frozen=True)
 class Group:
     """Configurations sharing a runner, built by one job.

@@ -7,6 +7,7 @@ on a user's device. Cheap to catch here, expensive to catch in the field.
 
 from __future__ import annotations
 
+import fnmatch
 import os
 import sys
 import unittest
@@ -14,6 +15,7 @@ import unittest
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import ort_matrix as m
+import package_artifact
 
 
 class CompleteBuilds(unittest.TestCase):
@@ -98,6 +100,41 @@ class ArchitectureCoverage(unittest.TestCase):
                 with self.subTest(config.id):
                     self.assertIn("static_lib", config.args)
                     self.assertNotIn("shared_lib", config.args)
+
+
+class Packaging(unittest.TestCase):
+    """The globs that decide what ends up in an archive."""
+
+    def _web_patterns(self) -> list[str]:
+        return package_artifact.ARTIFACT_PATTERNS["web"][m.RUNTIME]["*"]
+
+    def _matches(self, name: str) -> bool:
+        return any(fnmatch.fnmatch(name, p) for p in self._web_patterns())
+
+    def test_web_patterns_match_the_plain_build(self):
+        self.assertTrue(self._matches("ort-wasm-simd-threaded.wasm"))
+        self.assertTrue(self._matches("ort-wasm-simd-threaded.mjs"))
+
+    def test_web_patterns_match_the_training_build(self):
+        # The full variant enables the training APIs, which ORT puts in the
+        # file name. A glob anchored on "ort-wasm" silently matches nothing,
+        # and the job fails only after an hour of building.
+        self.assertTrue(self._matches("ort-training-wasm-simd-threaded.wasm"))
+        self.assertTrue(self._matches("ort-training-wasm-simd-threaded.mjs"))
+
+    def test_web_patterns_do_not_match_a_native_library(self):
+        self.assertFalse(self._matches("libonnxruntime.so"))
+        self.assertFalse(self._matches("onnxruntime.dll"))
+
+    def test_every_web_configuration_has_a_runtime_pattern(self):
+        for config in m.all_configurations():
+            if config.platform != "web":
+                continue
+            self.assertIn(
+                m.RUNTIME,
+                package_artifact.ARTIFACT_PATTERNS[config.platform],
+                config.id,
+            )
 
 
 class Parallelism(unittest.TestCase):
