@@ -75,6 +75,10 @@ Execution providers load by path, so users can supply their own. We build two.
 Everything else, CUDA and TensorRT and OpenVINO among them, is theirs to
 provide, as it is with Microsoft's own distribution.
 
+Shared code imports nothing native. One `dart:ffi` above the backend boundary
+breaks the package on the web, and the failure lands in a consumer's build
+rather than ours. `test/web_safety_test.dart` enforces it.
+
 Two public libraries. `native.dart` exports the generated C API, so every
 `OrtApi` function is reachable by construction rather than by effort.
 `onnxruntime_dart.dart` is the ergonomic layer, built on it, covering the common
