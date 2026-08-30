@@ -11,7 +11,10 @@ library;
 
 import 'dart:typed_data';
 
+import 'package:ffi/ffi.dart';
+
 import 'package:onnxruntime_dart/onnxruntime_dart.dart';
+import 'package:onnxruntime_dart/src/backend/ffi_calls.dart';
 import 'package:test/test.dart';
 
 import 'src/memory_harness.dart';
@@ -76,6 +79,48 @@ void main() {
 
     test('a missing input is rejected before the runtime sees it', () {
       expect(session.runAsync({}), throwsArgumentError);
+    });
+
+    test('frees every array it borrowed, exactly', () async {
+      // Resident memory is a heuristic. This is not: the allocator accounts
+      // for each of the five arrays a run borrows, and names the site of any
+      // that outlive the callback that should have freed them.
+      final tracking = TrackingAllocator();
+      asyncArrayAllocator = tracking;
+      addTearDown(() => asyncArrayAllocator = calloc);
+
+      for (var i = 0; i < 20; i++) {
+        final tensor = feed();
+        final results = await session.runAsync({'input_1': tensor});
+        results.values.single.release();
+        tensor.release();
+      }
+
+      final report = tracking.report;
+      expect(report.totalAllocations, greaterThan(0),
+          reason: 'nothing was '
+              'allocated through the tracking allocator, so this proved nothing');
+      expect(report.isClean, isTrue, reason: '$report');
+    });
+
+    test('frees what it borrowed even when the run fails', () async {
+      final tracking = TrackingAllocator();
+      asyncArrayAllocator = tracking;
+      addTearDown(() => asyncArrayAllocator = calloc);
+
+      final wrong = OrtTensor.fromData(
+        OrtElementType.float32,
+        Float32List(6),
+        [6],
+      );
+      addTearDown(wrong.release);
+
+      await expectLater(
+        session.runAsync({'input_1': wrong}),
+        throwsA(isA<OrtException>()),
+      );
+
+      expect(tracking.report.isClean, isTrue, reason: '${tracking.report}');
     });
 
     test('holds memory flat over many runs', () async {
