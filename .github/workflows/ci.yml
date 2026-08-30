@@ -115,6 +115,10 @@ jobs:
       fail-fast: false
       matrix:
         browser: [chrome, firefox]
+    env:
+      # Firefox does not go headless on its own and the runner has no display.
+      # Chrome ignores this.
+      MOZ_HEADLESS: 1
     steps:
       - uses: actions/checkout@v5
         with: { submodules: true }
