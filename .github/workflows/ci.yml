@@ -136,6 +136,11 @@ jobs:
     name: build
     needs: static
     uses: ./.github/workflows/build-runtime.yml
+    # A called workflow cannot request more than its caller grants, and its
+    # release job needs to create a release. Without this the whole run is
+    # rejected before any job starts.
+    permissions:
+      contents: write
 
   # Stage 2b. The suite again, this time against the library we actually ship,
   # so the ABI and operator-coverage tests run instead of skipping.
