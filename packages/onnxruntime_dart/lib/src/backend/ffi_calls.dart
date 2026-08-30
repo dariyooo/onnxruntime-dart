@@ -14,6 +14,7 @@ import 'dart:typed_data';
 import 'package:ffi/ffi.dart';
 
 import '../bindings/api/api.g.dart';
+import '../bindings/api/manual.dart';
 import '../bindings/api/support.dart';
 import '../bindings/ort_bindings.g.dart';
 import '../ffi/environment.dart';
@@ -51,6 +52,9 @@ final class FfiCalls implements OrtCalls, OrtAsyncCalls {
 
   @override
   String runtimeVersion() => ffi.runtimeVersion();
+
+  @override
+  List<String> availableProviders() => _api.availableProviders();
 
   @override
   OrtPtr createSessionOptions() => _ptr(_api.createSessionOptions());
@@ -224,35 +228,16 @@ final class FfiCalls implements OrtCalls, OrtAsyncCalls {
     final count = _api.getTensorShapeElementCount(info);
     _api.releaseTensorTypeAndShapeInfo(info);
 
-    // The contents are one concatenated buffer plus the offset of each element.
-    // `GetStringTensorContent` writes into a caller-provided buffer, which the
-    // generated wrappers do not express.
     final bytes = _api.getStringTensorDataLength(handle);
-    return withArena((arena) {
-      final buffer = arena<Uint8>(bytes == 0 ? 1 : bytes);
-      final offsets = arena<Size>(count == 0 ? 1 : count);
-      checkStatus(
-        _api,
-        _api.GetStringTensorContent.asFunction<
-            Pointer<OrtStatus> Function(
-              Pointer<OrtValue>,
-              Pointer<Void>,
-              int,
-              Pointer<Size>,
-              int,
-            )>()(handle, buffer.cast(), bytes, offsets, count),
-      );
+    final (content, offsets) = _api.stringTensorContent(handle, bytes, count);
 
-      // The offsets say where each element starts; the last one runs to the
-      // end of the buffer.
-      final content = buffer.asTypedList(bytes);
-      return [
-        for (var i = 0; i < count; i++)
-          utf8.decode(
-            content.sublist(offsets[i], i + 1 < count ? offsets[i + 1] : bytes),
-          ),
-      ];
-    });
+    // The offsets say where each element starts; the last runs to the end.
+    return [
+      for (var i = 0; i < count; i++)
+        utf8.decode(
+          content.sublist(offsets[i], i + 1 < count ? offsets[i + 1] : bytes),
+        ),
+    ];
   }
 
   @override
@@ -276,48 +261,16 @@ final class FfiCalls implements OrtCalls, OrtAsyncCalls {
     List<String> outputNames,
     OrtPtr runOptions,
   ) =>
-      withArena((arena) {
-        // `Run` takes its outputs as an `_Inout_` array it writes into, so the
-        // array has to outlive the call to be read. The generated wrapper
-        // allocates one per call and drops it, which is why this is by hand.
-        final outputs = arena<Pointer<OrtValue>>(
-          outputNames.isEmpty ? 1 : outputNames.length,
-        );
-        for (var i = 0; i < outputNames.length; i++) {
-          outputs[i] = nullptr;
-        }
-
-        checkStatus(
-          _api,
-          _api.Run.asFunction<
-              Pointer<OrtStatus> Function(
-                Pointer<OrtSession>,
-                Pointer<OrtRunOptions>,
-                Pointer<Pointer<Char>>,
-                Pointer<Pointer<OrtValue>>,
-                int,
-                Pointer<Pointer<Char>>,
-                int,
-                Pointer<Pointer<OrtValue>>,
-              )>()(
-            _as<OrtSession>(session),
-            _as<OrtRunOptions>(runOptions),
-            nativeStrings(inputs.keys.toList(), arena),
-            nativePointers(
-              [for (final v in inputs.values) _as<OrtValue>(v)],
-              arena,
-            ),
-            inputs.length,
-            nativeStrings(outputNames, arena),
-            outputNames.length,
-            outputs,
-          ),
-        );
-
-        return [
-          for (var i = 0; i < outputNames.length; i++) _ptr(outputs[i]),
-        ];
-      });
+      [
+        for (final output in _api.runAndTakeOutputs(
+          _as<OrtSession>(session),
+          _as<OrtRunOptions>(runOptions),
+          inputs.keys.toList(),
+          [for (final value in inputs.values) _as<OrtValue>(value)],
+          outputNames,
+        ))
+          _ptr(output),
+      ];
 
   @override
   Future<List<OrtPtr>> runAsync(

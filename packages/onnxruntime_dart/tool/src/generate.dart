@@ -110,8 +110,9 @@ ${files.map((f) => "export '$f';").join('\n')}
 ''';
 
 String _unmapped(List<String> skipped) =>
-    'Functions in these groups that the generator does not handle.\n'
-    'Each needs a hand-written wrapper, or a rule in tool/src/types.dart.\n\n'
+    'Functions the generator does not handle.\n'
+    'Each needs a rule in tool/src/types.dart, or a wrapper written by hand\n'
+    'in lib/src/bindings/api/manual.dart.\n\n'
     '${([...skipped]..sort()).join('\n')}\n';
 
 String _source(String struct, String group, List<String> methods) => '''

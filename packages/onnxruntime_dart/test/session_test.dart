@@ -105,6 +105,17 @@ void main() {
     });
   }, skip: skipWithoutOrt ?? skipWithoutNativeAsset);
 
+  group('the build', () {
+    test('reports the providers it was compiled with', () {
+      // CPU is always present; anything else depends on the build flags.
+      expect(availableProviders(), contains('CPUExecutionProvider'));
+    });
+
+    test('reports the runtime version', () {
+      expect(runtimeVersion(), matches(RegExp(r'^\d+\.\d+\.\d+')));
+    });
+  }, skip: skipWithoutOrt ?? skipWithoutNativeAsset);
+
   group('OrtTensor', () {
     test('rejects data that does not match the shape', () {
       expect(

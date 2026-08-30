@@ -15,6 +15,12 @@ import 'handle.dart';
 /// The version of ONNX Runtime that is loaded, such as `1.29.0`.
 String runtimeVersion() => createCalls().runtimeVersion();
 
+/// The execution providers this build was compiled with.
+///
+/// A provider not in this list cannot be requested by name, though one can
+/// still be loaded from a plugin library at run time.
+List<String> availableProviders() => createCalls().availableProviders();
+
 /// How a session is configured, applied when it is created.
 ///
 /// Only settings that change how a model loads belong here. Everything else is
