@@ -184,6 +184,25 @@ Neither works on the web. Dart has no isolates there and the WebAssembly build
 has no background entry point, so `runSync` blocks and `run` throws. Run the
 whole app in a Web Worker instead.
 
+## On-device training
+
+Training has to be compiled in, so it comes as a second library rather than a
+package. Ask for it once:
+
+```yaml
+hooks:
+  user_defines:
+    onnxruntime_dart:
+      variant: full
+```
+
+That swaps the bundled engine for one built with the training APIs: checkpoints,
+train and optimizer steps, and exporting an inference model when you are done.
+Everything else is identical, so nothing else in your code changes.
+
+`Ort.trainingAvailable` reports which library you got, rather than failing at the
+first call.
+
 ## Raw C API
 
 The Dart API covers ONNX Runtime's C API. Where the web cannot support a call it
