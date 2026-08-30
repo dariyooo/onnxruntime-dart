@@ -12,9 +12,10 @@ workspace:
   - packages/onnxruntime_dart
 
 # Development only, and never published: this file is the workspace root, not a
-# package. Points the build hook at a locally extracted ONNX Runtime so the
-# package can be worked on before any binaries are released.
+# package. Points the build hook at a local ONNX Runtime so the package can be
+# worked on before any binaries are released. This is our own CI build, not a
+# published Microsoft one, so the operator coverage tests mean what they claim.
 hooks:
   user_defines:
     onnxruntime_dart:
-      local_build: .local/ort/onnxruntime-osx-arm64-1.29.0/lib
+      local_build: .local/ort/ours-macos-arm64/lib

@@ -26,30 +26,67 @@ import ort_matrix  # noqa: E402
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 DIST = REPO_ROOT / "dist"
 
-# What each platform's build produces, and which release each artifact belongs
-# to. A WebGPU shared_lib build emits the plugin alongside libonnxruntime, so one
-# build feeds two release streams.
+# Canonical archive member -> the patterns that may match it on disk.
 #
-# Windows also emits an import library, which downstream builds need to link.
+# Builds emit versioned files with an unversioned symlink beside them, and the
+# symlink is not always present in what CMake leaves behind. Archives therefore
+# carry the real bytes under the unversioned name the loader asks for, which is
+# also the name the build hook looks up.
 ARTIFACT_PATTERNS = {
     "android": {
-        ort_matrix.RUNTIME: ["libonnxruntime.so"],
-        ort_matrix.EP_WEBGPU: ["libonnxruntime_providers_webgpu.so"],
+        ort_matrix.RUNTIME: {
+            "libonnxruntime.so": ["libonnxruntime.so", "libonnxruntime.so.*"],
+        },
+        ort_matrix.EP_WEBGPU: {
+            "libonnxruntime_providers_webgpu.so": [
+                "libonnxruntime_providers_webgpu.so",
+                "libonnxruntime_providers_webgpu.so.*",
+            ],
+        },
     },
-    "ios": {ort_matrix.RUNTIME: ["libonnxruntime.dylib"]},
+    "ios": {
+        ort_matrix.RUNTIME: {
+            "libonnxruntime.dylib": ["libonnxruntime.dylib", "libonnxruntime.*.dylib"],
+        },
+    },
     "macos": {
-        ort_matrix.RUNTIME: ["libonnxruntime.dylib"],
-        ort_matrix.EP_WEBGPU: ["libonnxruntime_providers_webgpu.dylib"],
+        ort_matrix.RUNTIME: {
+            "libonnxruntime.dylib": ["libonnxruntime.dylib", "libonnxruntime.*.dylib"],
+        },
+        ort_matrix.EP_WEBGPU: {
+            "libonnxruntime_providers_webgpu.dylib": [
+                "libonnxruntime_providers_webgpu.dylib",
+                "libonnxruntime_providers_webgpu.*.dylib",
+            ],
+        },
     },
     "linux": {
-        ort_matrix.RUNTIME: ["libonnxruntime.so"],
-        ort_matrix.EP_WEBGPU: ["libonnxruntime_providers_webgpu.so"],
+        ort_matrix.RUNTIME: {
+            "libonnxruntime.so": ["libonnxruntime.so", "libonnxruntime.so.*"],
+        },
+        ort_matrix.EP_WEBGPU: {
+            "libonnxruntime_providers_webgpu.so": [
+                "libonnxruntime_providers_webgpu.so",
+                "libonnxruntime_providers_webgpu.so.*",
+            ],
+        },
     },
+    # Windows does not version file names. The import library is needed by
+    # downstream builds that link against us.
     "windows": {
-        ort_matrix.RUNTIME: ["onnxruntime.dll", "onnxruntime.lib"],
-        ort_matrix.EP_WEBGPU: ["onnxruntime_providers_webgpu.dll"],
+        ort_matrix.RUNTIME: {
+            "onnxruntime.dll": ["onnxruntime.dll"],
+            "onnxruntime.lib": ["onnxruntime.lib"],
+        },
+        ort_matrix.EP_WEBGPU: {
+            "onnxruntime_providers_webgpu.dll": ["onnxruntime_providers_webgpu.dll"],
+        },
     },
-    "web": {ort_matrix.RUNTIME: ["ort-wasm*.wasm", "ort-wasm*.mjs"]},
+    "web": {
+        ort_matrix.RUNTIME: {
+            "*": ["ort-wasm*.wasm", "ort-wasm*.mjs"],
+        },
+    },
 }
 
 
@@ -73,27 +110,35 @@ def package(config: ort_matrix.Config) -> None:
     if not build_dir.is_dir():
         raise SystemExit(f"{build_dir} does not exist; the build produced nothing")
 
-    components = ARTIFACT_PATTERNS[config.platform]
-    for component, patterns in components.items():
-        found = _find(build_dir, patterns)
+    for component, members in ARTIFACT_PATTERNS[config.platform].items():
+        found = _find(build_dir, members)
         if not found:
             if component == ort_matrix.RUNTIME:
                 raise SystemExit(
-                    f"no artifact matching {patterns} under {build_dir}"
+                    f"no artifact matching {members} under {build_dir}"
                 )
             # An optional component simply was not built for this configuration.
             continue
         _archive(config, component, found)
 
 
-def _find(build_dir: pathlib.Path, patterns: list[str]) -> dict[str, pathlib.Path]:
+def _find(
+    build_dir: pathlib.Path,
+    members: dict[str, list[str]],
+) -> dict[str, pathlib.Path]:
+    """Maps each canonical archive name to the real file that provides it."""
     found: dict[str, pathlib.Path] = {}
-    for pattern in patterns:
-        for source in sorted(build_dir.rglob(pattern)):
-            # Skip CMake's intermediate copies and version symlinks.
-            if "CMakeFiles" in source.parts or source.is_symlink():
-                continue
-            found.setdefault(source.name, source)
+    for canonical, patterns in members.items():
+        for pattern in patterns:
+            for source in sorted(build_dir.rglob(pattern)):
+                # Skip CMake's intermediate copies and the unversioned symlinks
+                # pointing at the file we are already taking.
+                if "CMakeFiles" in source.parts or source.is_symlink():
+                    continue
+                # A literal "*" means keep whatever names the build produced,
+                # which is how the wasm outputs are shipped.
+                name = source.name if canonical == "*" else canonical
+                found.setdefault(name, source)
     return found
 
 
