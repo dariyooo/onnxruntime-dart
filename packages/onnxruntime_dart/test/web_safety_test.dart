@@ -34,15 +34,22 @@ bool _isNative(String path) => _nativeOnly.any(path.startsWith);
 /// resolved at compile time so neither side is loaded on the other's platform.
 const _bridge = 'lib/src/backend/calls.dart';
 
-/// Every Dart file under `lib/`, repository-relative.
-List<String> _libraryFiles() => [
-      for (final file in Directory(fromPackage('lib'))
-          .listSync(recursive: true)
-          .whereType<File>())
-        if (file.path.endsWith('.dart'))
-          'lib/${file.path.split('${Platform.pathSeparator}lib${Platform.pathSeparator}').last}'
-              .replaceAll(Platform.pathSeparator, '/'),
-    ]..sort();
+/// Every Dart file under `lib/`, as a package-relative path with forward
+/// slashes.
+///
+/// Derived by stripping the directory we were handed rather than by splitting
+/// on a separator: Windows accepts both, and `fromPackage` returns forward
+/// slashes there, so looking for the platform separator finds nothing and every
+/// path comes back absolute.
+List<String> _libraryFiles() {
+  final base = fromPackage('lib');
+  return [
+    for (final file
+        in Directory(base).listSync(recursive: true).whereType<File>())
+      if (file.path.endsWith('.dart'))
+        'lib/${file.path.substring(base.length + 1).replaceAll(r'\', '/')}',
+  ]..sort();
+}
 
 Iterable<String> _importsOf(String path) sync* {
   final source = File(fromPackage(path)).readAsStringSync();
@@ -81,6 +88,16 @@ void main() {
         );
       });
     }
+
+    test('paths are package-relative on every platform', () {
+      // Windows accepts both separators, so a path built by splitting on the
+      // platform's own can come back absolute and match nothing.
+      for (final path in _libraryFiles()) {
+        expect(path, startsWith('lib/'), reason: path);
+        expect(path, isNot(contains(r'\')), reason: path);
+        expect(path, isNot(contains(':')), reason: path);
+      }
+    });
 
     test('the sweep found the files it is meant to check', () {
       // A rule that checks nothing passes forever.
