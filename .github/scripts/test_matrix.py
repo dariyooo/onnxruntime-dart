@@ -77,6 +77,53 @@ class ArchitectureCoverage(unittest.TestCase):
         self.assertEqual(len(web) - len(threaded), 1)
 
 
+class Grouping(unittest.TestCase):
+    """One job per platform and runner. Never two platforms in one job."""
+
+    def setUp(self):
+        self.groups = m.group(list(m.CONFIGURATIONS))
+
+    def test_every_configuration_is_built_exactly_once(self):
+        built = [c.id for g in self.groups for c in g.configs]
+        self.assertEqual(sorted(built), sorted(c.id for c in m.CONFIGURATIONS))
+        self.assertEqual(len(built), len(set(built)))
+
+    def test_a_job_never_mixes_platforms(self):
+        for g in self.groups:
+            with self.subTest(g.id):
+                self.assertEqual({c.platform for c in g.configs}, {g.platform})
+
+    def test_a_job_never_mixes_runners(self):
+        # Grouping exists to share a toolchain and dependency cache, which only
+        # works on one machine.
+        for g in self.groups:
+            with self.subTest(g.id):
+                self.assertEqual({c.runner for c in g.configs}, {g.runner})
+
+    def test_group_ids_are_unique(self):
+        ids = [g.id for g in self.groups]
+        self.assertEqual(len(ids), len(set(ids)))
+
+    def test_platforms_sharing_a_runner_are_one_job(self):
+        by_platform = {}
+        for g in self.groups:
+            by_platform.setdefault(g.platform, []).append(g)
+        # Android and web cross-compile from one host, so each is a single job.
+        self.assertEqual(len(by_platform["android"]), 1)
+        self.assertEqual(len(by_platform["web"]), 1)
+        self.assertEqual(len(by_platform["ios"]), 1)
+        # These need different machines per architecture.
+        for platform in ("linux", "windows", "macos"):
+            self.assertEqual(len(by_platform[platform]), 2)
+
+    def test_single_configuration_groups_keep_the_configuration_id(self):
+        # Test jobs download artifacts by these names.
+        for g in self.groups:
+            if len(g.configs) == 1:
+                with self.subTest(g.id):
+                    self.assertEqual(g.id, g.configs[0].id)
+
+
 class MatrixHygiene(unittest.TestCase):
     def test_ids_are_unique(self):
         ids = [c.id for c in m.CONFIGURATIONS]

@@ -44,10 +44,14 @@ def sha256(path: pathlib.Path) -> str:
 
 
 def main() -> None:
-    config_id = os.environ["MATRIX_ID"]
-    config = ort_matrix.by_id(config_id)
+    for config_id in os.environ["MATRIX_IDS"].split():
+        package(ort_matrix.by_id(config_id))
+
+
+def package(config: ort_matrix.Config) -> None:
+    config_id = config.id
     build_config = os.environ.get("ORT_BUILD_CONFIG", "Release")
-    build_dir = REPO_ROOT / "build" / build_config
+    build_dir = REPO_ROOT / "build" / config_id / build_config
 
     if not build_dir.is_dir():
         raise SystemExit(f"{build_dir} does not exist; the build step did not produce output")
