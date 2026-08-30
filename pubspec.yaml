@@ -1,0 +1,12 @@
+# Workspace root. Holds no code.
+#
+# The ONNX Runtime submodule and the CI that builds it are shared by every
+# package here, so they live above the members rather than inside one.
+name: _onnxruntime_dart_workspace
+publish_to: none
+
+environment:
+  sdk: ^3.6.0
+
+workspace:
+  - packages/onnxruntime_dart
