@@ -21,6 +21,7 @@ dependencies:
   crypto: ^3.0.7
   ffi: ^2.1.0
   hooks: ^2.2.0
+  meta: ^1.19.0
 
 dev_dependencies:
   ffigen: ^21.0.0
