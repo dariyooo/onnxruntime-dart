@@ -23,6 +23,17 @@ extension OrtInteropApiCoreApi on OrtInteropApi {
         return out0.value;
       });
 
+  /// `CanImportMemory`
+  bool canImportMemory(
+          Pointer<OrtExternalResourceImporter> importer, int handleType) =>
+      withArena((arena) {
+        final out0 = arena<Bool>();
+        checkOrtStatus(this.CanImportMemory.asFunction<
+            Pointer<OrtStatus> Function(Pointer<OrtExternalResourceImporter>,
+                int, Pointer<Bool>)>()(importer, handleType, out0));
+        return out0.value;
+      });
+
   /// `ImportMemory`
   Pointer<OrtExternalMemoryHandle> importMemory(
           Pointer<OrtExternalResourceImporter> importer,
@@ -35,6 +46,17 @@ extension OrtInteropApiCoreApi on OrtInteropApi {
                     Pointer<OrtExternalMemoryDescriptor>,
                     Pointer<Pointer<OrtExternalMemoryHandle>>)>()(
             importer, desc, out0));
+        return out0.value;
+      });
+
+  /// `CanImportSemaphore`
+  bool canImportSemaphore(
+          Pointer<OrtExternalResourceImporter> importer, int type) =>
+      withArena((arena) {
+        final out0 = arena<Bool>();
+        checkOrtStatus(this.CanImportSemaphore.asFunction<
+            Pointer<OrtStatus> Function(Pointer<OrtExternalResourceImporter>,
+                int, Pointer<Bool>)>()(importer, type, out0));
         return out0.value;
       });
 
@@ -59,14 +81,12 @@ extension OrtInteropApiCoreApi on OrtInteropApi {
           Pointer<OrtExternalSemaphoreHandle> semaphoreHandle,
           Pointer<OrtSyncStream> stream,
           int value) =>
-      withArena((arena) {
-        checkOrtStatus(this.WaitSemaphore.asFunction<
-            Pointer<OrtStatus> Function(
-                Pointer<OrtExternalResourceImporter>,
-                Pointer<OrtExternalSemaphoreHandle>,
-                Pointer<OrtSyncStream>,
-                int)>()(importer, semaphoreHandle, stream, value));
-      });
+      checkOrtStatus(this.WaitSemaphore.asFunction<
+          Pointer<OrtStatus> Function(
+              Pointer<OrtExternalResourceImporter>,
+              Pointer<OrtExternalSemaphoreHandle>,
+              Pointer<OrtSyncStream>,
+              int)>()(importer, semaphoreHandle, stream, value));
 
   /// `SignalSemaphore`
   void signalSemaphore(
@@ -74,14 +94,12 @@ extension OrtInteropApiCoreApi on OrtInteropApi {
           Pointer<OrtExternalSemaphoreHandle> semaphoreHandle,
           Pointer<OrtSyncStream> stream,
           int value) =>
-      withArena((arena) {
-        checkOrtStatus(this.SignalSemaphore.asFunction<
-            Pointer<OrtStatus> Function(
-                Pointer<OrtExternalResourceImporter>,
-                Pointer<OrtExternalSemaphoreHandle>,
-                Pointer<OrtSyncStream>,
-                int)>()(importer, semaphoreHandle, stream, value));
-      });
+      checkOrtStatus(this.SignalSemaphore.asFunction<
+          Pointer<OrtStatus> Function(
+              Pointer<OrtExternalResourceImporter>,
+              Pointer<OrtExternalSemaphoreHandle>,
+              Pointer<OrtSyncStream>,
+              int)>()(importer, semaphoreHandle, stream, value));
 
   /// `ReleaseExternalResourceImporter`
   void releaseExternalResourceImporter(

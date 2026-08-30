@@ -119,11 +119,9 @@ extension OrtApiTensorApi on OrtApi {
   /// `SetTensorElementType`
   void setTensorElementType(
           Pointer<OrtTensorTypeAndShapeInfo> info, int type) =>
-      withArena((arena) {
-        checkOrtStatus(this.SetTensorElementType.asFunction<
-            Pointer<OrtStatus> Function(
-                Pointer<OrtTensorTypeAndShapeInfo>, int)>()(info, type));
-      });
+      checkOrtStatus(this.SetTensorElementType.asFunction<
+          Pointer<OrtStatus> Function(
+              Pointer<OrtTensorTypeAndShapeInfo>, int)>()(info, type));
 
   /// `SetDimensions`
   void setDimensions(Pointer<OrtTensorTypeAndShapeInfo> info,
@@ -157,14 +155,14 @@ extension OrtApiTensorApi on OrtApi {
       });
 
   /// `GetDimensions`
-  int getDimensions(
+  List<int> getDimensions(
           Pointer<OrtTensorTypeAndShapeInfo> info, int dimValuesLength) =>
       withArena((arena) {
-        final out0 = arena<Int64>();
+        final out0 = arena<Int64>(dimValuesLength);
         checkOrtStatus(this.GetDimensions.asFunction<
             Pointer<OrtStatus> Function(Pointer<OrtTensorTypeAndShapeInfo>,
                 Pointer<Int64>, int)>()(info, out0, dimValuesLength));
-        return out0.value;
+        return List.generate(dimValuesLength, (i) => (out0 + i).value);
       });
 
   /// `GetTensorShapeElementCount`
@@ -256,6 +254,20 @@ extension OrtApiTensorApi on OrtApi {
             dataContainerSize,
             out0));
         return out0.value;
+      });
+
+  /// `GetDenotationFromTypeInfo`
+  (String denotation, int len) getDenotationFromTypeInfo(
+          Pointer<OrtTypeInfo> typeInfo) =>
+      withArena((arena) {
+        final out0 = arena<Pointer<Char>>();
+        final out1 = arena<Size>();
+        checkOrtStatus(this.GetDenotationFromTypeInfo.asFunction<
+            Pointer<OrtStatus> Function(
+                Pointer<OrtTypeInfo>,
+                Pointer<Pointer<Char>>,
+                Pointer<Size>)>()(typeInfo, out0, out1));
+        return (out0.value.cast<Utf8>().toDartString(), out1.value);
       });
 
   /// `CastTypeInfoToMapTypeInfo`
@@ -486,6 +498,15 @@ extension OrtApiTensorApi on OrtApi {
         return out0.value;
       });
 
+  /// `GetTensorData`
+  Pointer<Void> getTensorData(Pointer<OrtValue> value) => withArena((arena) {
+        final out0 = arena<Pointer<Void>>();
+        checkOrtStatus(this.GetTensorData.asFunction<
+            Pointer<OrtStatus> Function(
+                Pointer<OrtValue>, Pointer<Pointer<Void>>)>()(value, out0));
+        return out0.value;
+      });
+
   /// `CopyTensors`
   void copyTensors(
           Pointer<OrtEnv> env,
@@ -502,6 +523,40 @@ extension OrtApiTensorApi on OrtApi {
                     Pointer<OrtSyncStream>,
                     int)>()(env, nativePointers(srcTensors, arena),
             nativePointers(dstTensors, arena), stream, numTensors));
+      });
+
+  /// `ReleaseTensorRTProviderOptions`
+  void releaseTensorRTProviderOptions(
+          Pointer<OrtTensorRTProviderOptionsV2> input) =>
+      this.ReleaseTensorRTProviderOptions.asFunction<
+          void Function(Pointer<OrtTensorRTProviderOptionsV2>)>()(input);
+
+  /// `CreateKeyValuePairs`
+  Pointer<OrtKeyValuePairs> createKeyValuePairs() => withArena((arena) {
+        final out0 = arena<Pointer<OrtKeyValuePairs>>();
+        this.CreateKeyValuePairs.asFunction<
+            void Function(Pointer<Pointer<OrtKeyValuePairs>>)>()(out0);
+        return out0.value;
+      });
+
+  /// `AddKeyValuePair`
+  void addKeyValuePair(
+          Pointer<OrtKeyValuePairs> kvps, String key, String value) =>
+      withArena((arena) {
+        this.AddKeyValuePair.asFunction<
+                void Function(
+                    Pointer<OrtKeyValuePairs>, Pointer<Char>, Pointer<Char>)>()(
+            kvps,
+            key.toNativeUtf8(allocator: arena).cast(),
+            value.toNativeUtf8(allocator: arena).cast());
+      });
+
+  /// `RemoveKeyValuePair`
+  void removeKeyValuePair(Pointer<OrtKeyValuePairs> kvps, String key) =>
+      withArena((arena) {
+        this.RemoveKeyValuePair.asFunction<
+                void Function(Pointer<OrtKeyValuePairs>, Pointer<Char>)>()(
+            kvps, key.toNativeUtf8(allocator: arena).cast());
       });
 
   /// `ReleaseValue`

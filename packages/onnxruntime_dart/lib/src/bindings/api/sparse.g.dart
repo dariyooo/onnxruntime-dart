@@ -177,4 +177,14 @@ extension OrtApiSparseApi on OrtApi {
             ortValue, out0));
         return out0.value;
       });
+
+  /// `GetSparseTensorValues`
+  Pointer<Void> getSparseTensorValues(Pointer<OrtValue> ortValue) =>
+      withArena((arena) {
+        final out0 = arena<Pointer<Void>>();
+        checkOrtStatus(this.GetSparseTensorValues.asFunction<
+            Pointer<OrtStatus> Function(
+                Pointer<OrtValue>, Pointer<Pointer<Void>>)>()(ortValue, out0));
+        return out0.value;
+      });
 }
