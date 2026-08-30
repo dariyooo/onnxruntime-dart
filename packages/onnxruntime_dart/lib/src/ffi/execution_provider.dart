@@ -22,6 +22,10 @@ import 'status.dart';
 /// [name] identifies the library for [unregisterExecutionProviderLibrary] and
 /// is not the provider's own name. Throws [OrtException] if the library is
 /// missing, is not a plugin, or was built against a different ONNX Runtime.
+///
+/// Register before creating any session. This mutates process-global state and
+/// racing it against session creation on another thread crashes the runtime
+/// with an alignment fault rather than failing cleanly.
 void registerExecutionProviderLibrary(
   OrtApi api,
   Pointer<OrtEnv> env, {
