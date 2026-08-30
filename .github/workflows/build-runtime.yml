@@ -65,7 +65,7 @@ jobs:
         run: python3 .github/scripts/plan_matrix.py >> "$GITHUB_OUTPUT"
 
   build:
-    name: ${{ matrix.id }}
+    name: ${{ matrix.group }}
     needs: plan
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 180
@@ -74,7 +74,7 @@ jobs:
       fail-fast: false
       matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
     env:
-      MATRIX_ID: ${{ matrix.id }}
+      MATRIX_IDS: ${{ matrix.ids }}
     steps:
       - uses: actions/checkout@v5
         with:
@@ -126,8 +126,8 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ runner.os == 'Windows' && 'C:\deps' || '~/.onnxruntime_deps' }}
-          key: ortdeps-${{ matrix.id }}-${{ hashFiles('third_party/onnxruntime/cmake/deps.txt') }}
-          restore-keys: ortdeps-${{ matrix.id }}-
+          key: ortdeps-${{ matrix.group }}-${{ hashFiles('third_party/onnxruntime/cmake/deps.txt') }}
+          restore-keys: ortdeps-${{ matrix.group }}-
 
       - name: Key the artifact cache on the exact source and flags
         id: key
@@ -135,12 +135,15 @@ jobs:
         run: |
           ort=$(git -C third_party/onnxruntime rev-parse HEAD)
           flags=$(python3 -c "
-          import sys; sys.path.insert(0, '.github/scripts')
+          import sys, os; sys.path.insert(0, '.github/scripts')
           import ort_matrix, hashlib
-          args = ' '.join(ort_matrix.by_id('${{ matrix.id }}').build_args())
+          args = ' '.join(
+              ' '.join(ort_matrix.by_id(i).build_args())
+              for i in os.environ['MATRIX_IDS'].split()
+          )
           print(hashlib.sha256(args.encode()).hexdigest()[:16])
           ")
-          echo "value=ort-${{ matrix.id }}-${ort:0:12}-$flags" >> "$GITHUB_OUTPUT"
+          echo "value=ort-${{ matrix.group }}-${ort:0:12}-$flags" >> "$GITHUB_OUTPUT"
 
       - name: Restore a previous build of this exact source
         id: cached
@@ -163,7 +166,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: onnxruntime-${{ matrix.id }}
+          name: onnxruntime-${{ matrix.group }}
           path: dist/
           if-no-files-found: error
           retention-days: 14

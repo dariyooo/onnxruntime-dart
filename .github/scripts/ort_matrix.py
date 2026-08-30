@@ -205,3 +205,40 @@ def by_id(config_id: str) -> Config:
         if config.id == config_id:
             return config
     raise SystemExit(f"unknown configuration id {config_id!r}")
+
+
+@dataclasses.dataclass(frozen=True)
+class Group:
+    """Configurations sharing a runner, built by one job.
+
+    Grouping is by platform, never across platforms. Android's four ABIs share a
+    toolchain, an NDK install and a dependency cache, so building them in one job
+    pays that setup once. Linux x64 and arm64 need different runners entirely and
+    have nothing to share, so they stay apart.
+    """
+
+    id: str
+    platform: str
+    runner: str
+    configs: tuple[Config, ...]
+
+
+def group(configs: list[Config]) -> list[Group]:
+    """Partitions `configs` into one job per platform and runner."""
+    ordered: dict[tuple[str, str], list[Config]] = {}
+    for config in configs:
+        ordered.setdefault((config.platform, config.runner), []).append(config)
+
+    # A platform split across runners keeps the configuration id, so the two
+    # jobs stay distinguishable.
+    platform_counts: dict[str, int] = {}
+    for platform, _ in ordered:
+        platform_counts[platform] = platform_counts.get(platform, 0) + 1
+
+    groups = []
+    for (platform, runner), members in ordered.items():
+        name = platform if platform_counts[platform] == 1 else members[0].id
+        groups.append(
+            Group(id=name, platform=platform, runner=runner, configs=tuple(members))
+        )
+    return groups

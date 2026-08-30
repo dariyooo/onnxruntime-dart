@@ -29,9 +29,12 @@ DEPS_CACHE = (
 
 
 def main() -> None:
-    config_id = os.environ["MATRIX_ID"]
-    config = ort_matrix.by_id(config_id)
+    for config_id in os.environ["MATRIX_IDS"].split():
+        build(ort_matrix.by_id(config_id))
 
+
+def build(config: ort_matrix.Config) -> None:
+    print(f"\n=== building {config.id} ===", flush=True)
     build_py = ORT_ROOT / "tools" / "ci_build" / "build.py"
     if not build_py.is_file():
         raise SystemExit(
@@ -47,7 +50,9 @@ def main() -> None:
     command = [
         sys.executable,
         str(build_py),
-        "--build_dir", str(BUILD_DIR),
+        # Each configuration gets its own build directory so grouped
+        # configurations do not overwrite one another's output.
+        "--build_dir", str(BUILD_DIR / config.id),
         "--config", os.environ.get("ORT_BUILD_CONFIG", "Release"),
         "--cmake_extra_defines", f"FETCHCONTENT_BASE_DIR={DEPS_CACHE}",
         # CMake 4 refuses projects declaring cmake_minimum_required below 3.5.
@@ -75,7 +80,7 @@ def main() -> None:
             "iterating blindly."
             if config.unproven else ""
         )
-        raise SystemExit(f"build failed for {config_id} (exit {result.returncode}){note}")
+        raise SystemExit(f"build failed for {config.id} (exit {result.returncode}){note}")
 
 
 if __name__ == "__main__":
