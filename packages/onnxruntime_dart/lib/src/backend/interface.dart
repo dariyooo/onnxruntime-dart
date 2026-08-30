@@ -30,6 +30,9 @@ abstract interface class OrtCalls {
   /// The version of ONNX Runtime that is loaded, such as `1.29.0`.
   String runtimeVersion();
 
+  /// The execution providers this build was compiled with.
+  List<String> availableProviders();
+
   OrtPtr createSessionOptions();
 
   void appendExecutionProvider(

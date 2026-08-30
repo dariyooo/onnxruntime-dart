@@ -1,5 +1,6 @@
-Functions in these groups that the generator does not handle.
-Each needs a hand-written wrapper, or a rule in tool/src/types.dart.
+Functions the generator does not handle.
+Each needs a rule in tool/src/types.dart, or a wrapper written by hand
+in lib/src/bindings/api/manual.dart.
 
 OrtApi.AddExternalInitializersFromFilesInMemory: input char* const*
 OrtApi.CreateEnvWithCustomLogger: input OrtLoggingFunction
