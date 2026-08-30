@@ -24,14 +24,17 @@ on:
 permissions:
   contents: read
 
-concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
-
+# Superseding a run must not cancel the native build: it takes hours, and a run
+# cancelled halfway leaves nothing cached, so a steady stream of pushes means it
+# never finishes once. The fast jobs cancel per job instead, and the build has
+# its own group in build-runtime.yml that queues rather than cancels.
 jobs:
   static:
     name: format, analyze, matrix
     runs-on: ubuntu-24.04
+    concurrency:
+      group: static-${{ github.ref }}
+      cancel-in-progress: true
     steps:
       - uses: actions/checkout@v5
         with: { submodules: true }
@@ -61,6 +64,9 @@ jobs:
   bindings-are-current:
     name: bindings match the submodule
     runs-on: ubuntu-24.04
+    concurrency:
+      group: bindings-${{ github.ref }}
+      cancel-in-progress: true
     steps:
       - uses: actions/checkout@v5
         with: { submodules: true }
@@ -82,6 +88,9 @@ jobs:
   test:
     name: test · ${{ matrix.name }}
     runs-on: ${{ matrix.runner }}
+    concurrency:
+      group: test-${{ github.ref }}-${{ matrix.name }}
+      cancel-in-progress: true
     strategy:
       fail-fast: false
       matrix:
@@ -111,6 +120,9 @@ jobs:
   test-web:
     name: test · web · ${{ matrix.browser }}
     runs-on: ubuntu-24.04
+    concurrency:
+      group: test-web-${{ github.ref }}-${{ matrix.browser }}
+      cancel-in-progress: true
     strategy:
       fail-fast: false
       matrix:
