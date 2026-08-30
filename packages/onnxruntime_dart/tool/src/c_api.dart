@@ -1,9 +1,14 @@
 /// Parses the ONNX Runtime C API header.
 ///
 /// The header is regular enough to read directly: every call is an
-/// `ORT_API2_STATUS(Name, params)` inside the `OrtApi` struct, and the SAL
-/// annotation on each parameter says which direction it goes. That is enough to
-/// derive a Dart signature without guessing.
+/// `ORT_API2_STATUS(Name, params)` inside an API struct, and the SAL annotation
+/// on each parameter says which direction it goes. That is enough to derive a
+/// Dart signature without guessing.
+///
+/// Which struct a declaration sits in matters: `OrtApi` is the main table, but
+/// `OrtModelEditorApi`, `OrtCompileApi` and their siblings are separate tables
+/// reached through their own getters, and a name only resolves against the one
+/// that declares it.
 library;
 
 /// Which way a parameter goes, from its SAL annotation.
@@ -50,10 +55,18 @@ final class CParameter {
 
 /// One `ORT_API2_STATUS` entry.
 final class CFunction {
-  CFunction({required this.name, required this.parameters});
+  CFunction({
+    required this.name,
+    required this.parameters,
+    this.returnsStatus = true,
+  });
 
   final String name;
   final List<CParameter> parameters;
+
+  /// Whether the call returns an `OrtStatus` that has to be checked and
+  /// released. Release functions return void and cannot fail.
+  final bool returnsStatus;
 
   Iterable<CParameter> get inputs =>
       parameters.where((p) => p.direction != Direction.output);
@@ -65,18 +78,81 @@ final class CFunction {
   String toString() => '$name(${parameters.join(', ')})';
 }
 
-/// Reads every `ORT_API2_STATUS` declaration from [header].
-List<CFunction> parseOrtApi(String header) {
-  final functions = <CFunction>[];
+/// Reads every API struct in [header], keyed by struct name.
+///
+/// Both declaration forms are collected: `ORT_API2_STATUS`, which returns a
+/// status, and `ORT_CLASS_RELEASE(X)`, which declares
+/// `void ReleaseX(OrtX*)` and cannot fail.
+Map<String, List<CFunction>> parseApis(String header) {
+  final structs = _structSpans(header);
+  final apis = <String, List<CFunction>>{};
+
+  void add(int offset, CFunction function) {
+    final struct = _structAt(structs, offset);
+    if (struct != null) (apis[struct] ??= []).add(function);
+  }
+
   for (final match in RegExp(
     r'ORT_API2_STATUS\(\s*(\w+)\s*,([^;]*)\)\s*;',
     multiLine: true,
   ).allMatches(header)) {
     final parameters = _parseParameters(match.group(2)!);
     if (parameters == null) continue;
-    functions.add(CFunction(name: match.group(1)!, parameters: parameters));
+    add(match.start, CFunction(name: match.group(1)!, parameters: parameters));
   }
-  return functions;
+
+  for (final match
+      in RegExp(r'ORT_CLASS_RELEASE\((\w+)\)\s*;').allMatches(header)) {
+    add(
+      match.start,
+      CFunction(
+        name: 'Release${match.group(1)}',
+        returnsStatus: false,
+        parameters: [
+          CParameter(
+            name: 'input',
+            type: 'Ort${match.group(1)}*',
+            direction: Direction.input,
+          ),
+        ],
+      ),
+    );
+  }
+
+  return apis;
+}
+
+/// The half-open span of each `struct OrtXxx { ... }`, by brace depth.
+Map<String, (int, int)> _structSpans(String header) {
+  final spans = <String, (int, int)>{};
+  for (final match
+      in RegExp(r'\bstruct\s+(Ort\w*Api\w*)\s*\{').allMatches(header)) {
+    final open = header.indexOf('{', match.start);
+    var depth = 0;
+    for (var i = open; i < header.length; i++) {
+      if (header[i] == '{') depth++;
+      if (header[i] == '}' && --depth == 0) {
+        spans[match.group(1)!] = (open, i);
+        break;
+      }
+    }
+  }
+  return spans;
+}
+
+/// The innermost struct containing [offset].
+String? _structAt(Map<String, (int, int)> spans, int offset) {
+  String? best;
+  var width = -1;
+  for (final entry in spans.entries) {
+    final (start, end) = entry.value;
+    if (offset < start || offset > end) continue;
+    if (width < 0 || end - start < width) {
+      best = entry.key;
+      width = end - start;
+    }
+  }
+  return best;
 }
 
 /// Splits a parameter list on commas outside parentheses.
