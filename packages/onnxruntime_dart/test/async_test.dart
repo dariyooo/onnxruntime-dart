@@ -102,7 +102,8 @@ void main() {
       expect(
         measurement.growthBytes,
         lessThan(4 << 20),
-        reason: '$measurement',
+        reason:
+            '$measurement\n\nResident memory is process-wide, so this only means anything with nothing else allocating: dart test --tags exclusive --concurrency 1',
       );
     });
   }, skip: skipWithoutOrt ?? skipWithoutNativeAsset);
