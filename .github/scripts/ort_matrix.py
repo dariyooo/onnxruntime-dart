@@ -143,7 +143,7 @@ CONFIGURATIONS: tuple[Config, ...] = (
         id="windows-x64",
         platform="windows",
         arch="x86_64",
-        runner="windows-2025",
+        runner="windows-2022",
         args=("--use_xnnpack", "--use_webgpu"),
     ),
     Config(
