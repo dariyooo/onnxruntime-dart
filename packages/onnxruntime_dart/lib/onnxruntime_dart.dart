@@ -9,5 +9,6 @@
 /// on it. Anything missing here is reachable there.
 library;
 
+export 'src/annotations.dart' show NativeOnly, unsupportedOnWeb;
 export 'src/ffi/runtime.dart' show OrtAbiMismatch, runtimeVersion;
 export 'src/ffi/status.dart' show OrtException;

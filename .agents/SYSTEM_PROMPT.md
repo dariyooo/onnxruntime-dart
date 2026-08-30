@@ -65,10 +65,15 @@ they are added: build, then test what was built.
 Exactly one conditional import, in `lib/src/backend/backend.dart`. Everything
 above the seam is shared between native and web.
 
-The seam limits what web can implement, not what the API may declare. A portable
-call that WebAssembly cannot support throws `UnsupportedError` there, the way
-`Isolate.spawn` does. Do not shrink the API to the intersection of both
-backends, and do not let a web gap go silent.
+The seam limits what web can implement, not what the API may declare. A call
+WebAssembly cannot support is annotated `@NativeOnly(reason)` and throws through
+`unsupportedOnWeb` there, with the same reason in both places. Do not shrink the
+API to the intersection of both backends, and never let a web gap be silent or
+undocumented.
+
+Execution providers load by path, so users can supply their own. We build two.
+Everything else, CUDA and TensorRT and OpenVINO among them, is theirs to
+provide, as it is with Microsoft's own distribution.
 
 Two public libraries. `native.dart` exports the generated C API, so every
 `OrtApi` function is reachable by construction rather than by effort.

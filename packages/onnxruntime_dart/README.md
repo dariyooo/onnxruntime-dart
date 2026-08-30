@@ -90,16 +90,59 @@ Everything runs on CPU. The accelerators are compiled in and used automatically.
 Windows arm64 has no XNNPACK because its fp16 kernels need `arm_fp16.h`, which
 MSVC does not ship.
 
-On the web, take the `.wasm` from this repo's releases and serve it with your
-app. The threaded build falls back to one thread when the page is not
-cross-origin isolated, so ship that one unless you have a reason not to.
+## Web
 
-## Going faster on a GPU or NPU
+The web works differently, and the difference is worth knowing before you plan
+around it.
+
+Nothing is loaded at run time. A browser cannot open a shared library, so
+everything the engine can do is compiled into the `.wasm` itself. There is no
+provider package for the web and no `register` call. **You choose your
+accelerators by choosing which build you serve.**
+
+Take a build from this repo's releases, serve it with your app, and point the
+package at it:
+
+```dart
+await Ort.initWeb(wasmUrl: '/assets/ort-wasm-simd-threaded.wasm');
+```
+
+| Build | Runs on |
+| --- | --- |
+| `ort-wasm-simd` | CPU |
+| `ort-wasm-simd-threaded` | CPU, several threads |
+
+The threaded build falls back to one thread when the page is not cross-origin
+isolated, so serve it unless you have a reason not to. Threads need
+`Cross-Origin-Opener-Policy: same-origin` and
+`Cross-Origin-Embedder-Policy: require-corp` on the page.
+
+## Execution providers
 
 An execution provider decides **where** operators run. It never adds operators,
 so switching to one cannot make a model load that did not load before.
 
-They are separate packages because they are separate binaries.
+A provider is a second shared library beside the engine, and ONNX Runtime opens
+it by path at run time. Any library exporting `CreateEpFactories` works,
+including ones you build or get elsewhere:
+
+```dart
+Ort.registerProvider(name: 'cuda', path: '/opt/ort/libonnxruntime_providers_cuda.so');
+
+final session = await Session.fromBytes(model, options: const SessionOptions(
+  providers: [Provider.named('cuda'), Provider.cpu],   // cuda first, cpu as fallback
+));
+```
+
+Register providers before creating a session. Registration mutates
+process-global state and racing it against session creation crashes.
+
+Two are packaged for convenience, so you do not fetch or version them yourself:
+
+| Package | Runs work on | Platforms |
+| --- | --- | --- |
+| `onnxruntime_dart_ep_webgpu` | GPU | Android, Linux, Windows |
+| `onnxruntime_dart_ep_qnn` | Snapdragon NPU | Android arm64 |
 
 ```
 dart pub add onnxruntime_dart_ep_webgpu
@@ -108,19 +151,12 @@ dart pub add onnxruntime_dart_ep_webgpu
 ```dart
 import 'package:onnxruntime_dart_ep_webgpu/onnxruntime_dart_ep_webgpu.dart';
 
-void main() async {
-  registerWebGpu();                       // once, before any session
-
-  final session = await Session.fromBytes(model, options: const SessionOptions(
-    providers: [Provider.webGpu, Provider.cpu],   // GPU first, CPU as fallback
-  ));
-}
+registerWebGpu();   // the same call, with the path filled in for you
 ```
 
-| Package | Runs work on | Platforms |
-| --- | --- | --- |
-| `onnxruntime_dart_ep_webgpu` | GPU | Android, Linux, Windows |
-| `onnxruntime_dart_ep_qnn` | Snapdragon NPU | Android arm64 |
+Everything else, CUDA, TensorRT, OpenVINO and the rest, you supply. Microsoft
+ships those as separate downloads too, and building every provider for every
+platform is not something anyone does.
 
 There is also `onnxruntime_dart_extensions`, which adds operators for the work
 around a model rather than in it: tokenizers, audio decoding, image resizing.
@@ -150,10 +186,23 @@ Neither works on the web. Dart has no isolates there and the WebAssembly build
 has no background entry point, so `runSync` blocks and `run` throws. Run the
 whole app in a Web Worker instead.
 
-## When you need something this API does not have
+## Raw C API
 
-Every function in ONNX Runtime's C API is available, generated from the same
-headers the libraries are built from:
+The Dart API covers ONNX Runtime's C API. Where the web cannot support a call it
+is marked, and throws there, rather than being left out everywhere:
+
+```dart
+@NativeOnly('the WebAssembly build exports no asynchronous run')
+Future<Map<String, OrtValue>> run(Map<String, OrtValue> inputs);
+```
+
+So the limit is in the signature and in the docs, not something you find by
+hitting it. Web supports a smaller C surface than native, and shrinking the API
+to their intersection would make web's limits everyone's.
+
+For interop with other native code, the generated bindings are also exported.
+They are produced from the same headers the libraries are built from, so they
+never lag the engine:
 
 ```dart
 import 'package:onnxruntime_dart/native.dart';
@@ -161,14 +210,4 @@ import 'package:onnxruntime_dart/native.dart';
 final api = ortApi().ref;
 ```
 
-Native only. The WebAssembly build exposes a different, smaller C surface, so
-anything reached this way will not compile for the web.
-
-## Versioning
-
-`X.Y.Z+onnxruntime-A.B.C`. The part after `+` is the ONNX Runtime version the
-package binds, so the engine version is always visible in the package version.
-
-## License
-
-MIT, as is ONNX Runtime.
+Native only, and you own every handle you create.
