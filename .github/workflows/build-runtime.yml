@@ -197,14 +197,39 @@ jobs:
           path: artifacts
           merge-multiple: true
 
+      # A tag names one release stream. runtime-v1.29.0+1 publishes the core
+      # library, ep-webgpu-v1.29.0+1 the plugin, and neither touches the other's
+      # assets.
+      - name: Select the component this tag releases
+        id: component
+        run: |
+          case "${{ github.ref_name }}" in
+            runtime-*)    echo "name=runtime"    >> "$GITHUB_OUTPUT" ;;
+            ep-webgpu-*)  echo "name=ep-webgpu"  >> "$GITHUB_OUTPUT" ;;
+            ep-qnn-*)     echo "name=ep-qnn"     >> "$GITHUB_OUTPUT" ;;
+            *)
+              echo "::error::tag ${{ github.ref_name }} names no release stream"
+              exit 1 ;;
+          esac
+
       - name: Collect archives
         run: |
-          mkdir -p dist
-          find artifacts -name '*.tar.gz' -o -name '*.sha256' | xargs -I{} cp {} dist/
-          python3 .github/scripts/package_headers.py
-          ls -la dist/
+          set -euo pipefail
+          component='${{ steps.component.outputs.name }}'
+          mkdir -p "dist/$component"
+          find artifacts -path "*/$component/*" \( -name '*.tar.gz' -o -name '*.sha256' \) \
+            -exec cp {} "dist/$component/" \;
+          if [ "$component" = runtime ]; then
+            python3 .github/scripts/package_headers.py
+          fi
+          if [ -z "$(ls -A "dist/$component")" ]; then
+            echo "::error::no artifacts for $component"
+            exit 1
+          fi
+          ls -la "dist/$component"
 
       - name: Pin the assets the build hook may install
+        if: steps.component.outputs.name == 'runtime'
         env:
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
@@ -215,6 +240,7 @@ jobs:
           echo '```' >> "$GITHUB_STEP_SUMMARY"
 
       - uses: actions/upload-artifact@v4
+        if: steps.component.outputs.name == 'runtime'
         with:
           name: release-manifest
           path: packages/onnxruntime_dart/lib/src/hook/release.g.dart
@@ -223,7 +249,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "${{ github.ref_name }}" dist/* \
+          gh release create "${{ github.ref_name }}" \
+            dist/${{ steps.component.outputs.name }}/* \
             --title "${{ github.ref_name }}" \
             --notes "Prebuilt ONNX Runtime for every supported configuration. Each archive is verified by the build hook against the SHA-256 in its sidecar."
 
