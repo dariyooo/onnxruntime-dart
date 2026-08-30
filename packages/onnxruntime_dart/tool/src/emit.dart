@@ -45,6 +45,29 @@ const groups = <String, String>{
 /// Where a function lands when no pattern claims it.
 const _fallbackGroup = 'core';
 
+/// Calls that keep a buffer the caller passed, with what the header says.
+///
+/// The signature cannot express this and the SAL annotation does not mark it,
+/// so it is read out of the header's prose and repeated in the wrapper's
+/// documentation. Passing a pointer that dies first is the highest-risk
+/// mistake available here, and silence is what makes it easy.
+const retainedBuffers = <String, String>{
+  'CreateTensorWithDataAsOrtValue':
+      'the tensor is a view over `pData` and does not copy it, so that '
+          'allocation must outlive the tensor',
+  'CreateSparseTensorWithValuesAsOrtValue':
+      'the tensor is a view over `pData` and does not copy it, so that '
+          'allocation must outlive the tensor',
+  'CreateTensorFromMemory':
+      'the tensor is a view over the imported memory, which must outlive it',
+  'AddInitializer':
+      'the runtime keeps `val` rather than copying it, so it must outlive '
+          'every session created from these options',
+  'AddInitializerToGraph':
+      'the graph keeps `tensor` rather than copying it, so it must outlive '
+          'the graph',
+};
+
 /// The file a function belongs in.
 ///
 /// A release files with the type it releases, so `ReleaseGraph` sits next to
@@ -155,12 +178,12 @@ String? emit(CFunction function, Signature signature) {
 
   if (!needsArena) {
     final body = outputs.isEmpty ? statement : throw StateError(function.name);
-    return '  /// `${function.name}`\n'
+    return '${_doc(function.name)}'
         '  $returnType ${dartName(function.name)}($parameters) => $body;\n';
   }
 
   final buffer = StringBuffer()
-    ..writeln('  /// `${function.name}`')
+    ..write(_doc(function.name))
     ..writeln('  $returnType ${dartName(function.name)}($parameters) =>')
     ..writeln('      withArena((arena) {')
     ..write(allocations)
@@ -199,6 +222,36 @@ String _dartParam(String name) {
           e.$1 == 0 ? e.$2 : '${e.$2[0].toUpperCase()}${e.$2.substring(1)}')
       .join();
   return reserved.contains(camel) ? '${camel}_' : camel;
+}
+
+/// The wrapper's doc comment: the C name, and any warning it carries.
+String _doc(String name) {
+  final buffer = StringBuffer('  /// `$name`\n');
+  if (retainedBuffers[name] case final warning?) {
+    buffer.writeln('  ///');
+    for (final line in _wrap('Borrows, does not copy: $warning.')) {
+      buffer.writeln('  /// $line');
+    }
+  }
+  return buffer.toString();
+}
+
+/// Wraps to what is left of eighty columns after the comment marker.
+///
+/// `dart format` leaves comments alone, so a long line stays long.
+List<String> _wrap(String text, {int width = 74}) {
+  final lines = <String>[];
+  final current = StringBuffer();
+  for (final word in text.split(' ')) {
+    if (current.isNotEmpty && current.length + 1 + word.length > width) {
+      lines.add(current.toString());
+      current.clear();
+    }
+    if (current.isNotEmpty) current.write(' ');
+    current.write(word);
+  }
+  if (current.isNotEmpty) lines.add(current.toString());
+  return lines;
 }
 
 String _out(int index) => 'out$index';

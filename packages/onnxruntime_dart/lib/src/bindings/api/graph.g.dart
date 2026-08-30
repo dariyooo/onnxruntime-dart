@@ -47,6 +47,9 @@ extension OrtApiGraphApi on OrtApi {
       });
 
   /// `AddInitializer`
+  ///
+  /// Borrows, does not copy: the runtime keeps `val` rather than copying it, so
+  /// it must outlive every session created from these options.
   void addInitializer(Pointer<OrtSessionOptions> options, String name,
           Pointer<OrtValue> val) =>
       withArena((arena) {

@@ -12,6 +12,9 @@ import 'support.dart';
 /// Tensor calls on `OrtInteropApi`.
 extension OrtInteropApiTensorApi on OrtInteropApi {
   /// `CreateTensorFromMemory`
+  ///
+  /// Borrows, does not copy: the tensor is a view over the imported memory,
+  /// which must outlive it.
   Pointer<OrtValue> createTensorFromMemory(
           Pointer<OrtExternalResourceImporter> importer,
           Pointer<OrtExternalMemoryHandle> memHandle,

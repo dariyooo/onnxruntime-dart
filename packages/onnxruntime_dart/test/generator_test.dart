@@ -235,6 +235,37 @@ void main() {
       expect(code, contains('this.AllocatorAlloc'));
     });
 
+    test('warns where the runtime keeps a caller buffer', () {
+      // The signature cannot say it and the SAL does not mark it, so silence
+      // is what makes passing a short-lived pointer easy.
+      final code = emit(
+        CFunction(
+          name: 'CreateTensorWithDataAsOrtValue',
+          parameters: [
+            CParameter(
+              name: 'p_data',
+              type: 'void*',
+              direction: Direction.input,
+            ),
+          ],
+        ),
+        ['Pointer<Void>'],
+      );
+      expect(code, contains('Borrows, does not copy'));
+      expect(code, contains('must outlive'));
+    });
+
+    test('the warnings name functions that exist', () {
+      final names = {
+        for (final api in parseApis(header.readAsStringSync()).values)
+          for (final function in api) function.name,
+      };
+      for (final name in retainedBuffers.keys) {
+        expect(names, contains(name),
+            reason: '$name is no longer in the C API');
+      }
+    });
+
     test('refuses a signature that disagrees with the header', () {
       final code = emit(
         CFunction(
