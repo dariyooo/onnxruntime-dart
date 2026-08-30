@@ -44,8 +44,7 @@ final class CParameter {
   bool get isPointer => type.endsWith('*');
 
   @override
-  String toString() =>
-      '${direction.name} $type $name'
+  String toString() => '${direction.name} $type $name'
       '${arrayLengthParameter == null ? '' : ' [len: $arrayLengthParameter]'}';
 }
 
