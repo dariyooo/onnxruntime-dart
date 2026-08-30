@@ -1,4 +1,5 @@
 @TestOn('vm')
+@Tags(['exclusive'])
 
 /// Execution provider plugins are shared libraries ONNX Runtime opens itself.
 /// These cover the registration path and its failure modes. Loading a real

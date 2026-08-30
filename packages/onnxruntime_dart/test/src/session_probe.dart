@@ -26,20 +26,9 @@ typedef LoadResult = ({bool ok, String? error});
 /// error message.
 LoadResult tryLoadModel(Uint8List model) {
   final api = _api;
+  final env = _env;
   final arena = Arena();
   try {
-    final envOut = arena<Pointer<OrtEnv>>();
-    _check(
-      api,
-      api.CreateEnv.asFunction<
-              Pointer<OrtStatus> Function(
-                  int, Pointer<Char>, Pointer<Pointer<OrtEnv>>)>()(
-          OrtLoggingLevel.ORT_LOGGING_LEVEL_ERROR.value,
-          'onnxruntime_dart_test'.toNativeUtf8(allocator: arena).cast(),
-          envOut),
-    );
-    final env = envOut.value;
-
     final optionsOut = arena<Pointer<OrtSessionOptions>>();
     _check(
       api,
@@ -75,14 +64,17 @@ LoadResult tryLoadModel(Uint8List model) {
 
     api.ReleaseSessionOptions.asFunction<
         void Function(Pointer<OrtSessionOptions>)>()(options);
-    api.ReleaseEnv.asFunction<void Function(Pointer<OrtEnv>)>()(env);
     return result;
   } finally {
     arena.releaseAll();
   }
 }
 
-OrtApi get _api {
+/// Resolved once. Reopening the library and recreating the environment per call
+/// is slow, and releasing the environment is wrong: `CreateEnv` hands back a
+/// process-wide singleton, so releasing it from here tears down an environment
+/// other isolates are still using.
+final OrtApi _api = () {
   final base = OrtBindings(openOrtLibrary()).OrtGetApiBase();
   final api = base.ref.GetApi
       .asFunction<Pointer<OrtApi> Function(int)>()(ORT_API_VERSION);
@@ -90,7 +82,31 @@ OrtApi get _api {
     throw StateError('runtime rejected API version $ORT_API_VERSION');
   }
   return api.ref;
-}
+}();
+
+/// The process-wide environment. Never released, for the reason above.
+final Pointer<OrtEnv> _env = () {
+  final arena = Arena();
+  try {
+    final out = arena<Pointer<OrtEnv>>();
+    _check(
+      _api,
+      _api.CreateEnv.asFunction<
+          Pointer<OrtStatus> Function(
+            int,
+            Pointer<Char>,
+            Pointer<Pointer<OrtEnv>>,
+          )>()(
+        OrtLoggingLevel.ORT_LOGGING_LEVEL_ERROR.value,
+        'onnxruntime_dart_test'.toNativeUtf8(allocator: arena).cast(),
+        out,
+      ),
+    );
+    return out.value;
+  } finally {
+    arena.releaseAll();
+  }
+}();
 
 /// Reads and releases [status].
 String _takeMessage(OrtApi api, Pointer<OrtStatus> status) {
