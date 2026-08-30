@@ -65,6 +65,17 @@ they are added: build, then test what was built.
 Exactly one conditional import, in `lib/src/backend/backend.dart`. Everything
 above the seam is shared between native and web.
 
+Two public libraries. `native.dart` exports the generated C API, so every
+`OrtApi` function is reachable by construction rather than by effort.
+`onnxruntime_dart.dart` is the ergonomic layer, built on it, covering the common
+path. The ergonomic layer is never a ceiling: if something is missing there, it
+is reachable in `native.dart`, and reaching for it is expected.
+
+The API is audited against `onnxruntime_c_api.h`, not against the Python
+package. Python omits consumer-facing calls we need, `GetEpDevices` and
+`BindOutputToDevice` among them, so treating it as the target would inherit its
+gaps. Borrow its names where they fit and nothing else.
+
 Every native handle has one owner and one release. `createTensor` borrows its
 buffer and does not copy. Public APIs copy in. Anything that outlives its
 creating scope gets a `NativeFinalizer`.
