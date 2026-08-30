@@ -1,0 +1,25 @@
+name: onnxruntime_dart
+description: >-
+  Comprehensive, pure-Dart bindings to the ONNX Runtime C API. Complete operator
+  coverage, full parity with the Python session and run configuration surface, and
+  a single narrow seam shared between native FFI and WebAssembly.
+# Version scheme: X.Y.Z+onnxruntime-<ORT version>
+# The build metadata after '+' names the ONNX Runtime release this package binds,
+# and MUST match the tag of the third_party/onnxruntime submodule. Enforced by
+# test/version_test.dart.
+version: 0.1.0+onnxruntime-1.29.0
+repository: https://github.com/CaptainDario/onnx-runtime-dart
+issue_tracker: https://github.com/CaptainDario/onnx-runtime-dart/issues
+
+environment:
+  sdk: ^3.6.0
+
+resolution: workspace
+
+dependencies:
+  ffi: ^2.1.0
+
+dev_dependencies:
+  ffigen: ^21.0.0
+  lints: ^6.0.0
+  test: ^1.25.0
