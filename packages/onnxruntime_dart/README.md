@@ -82,6 +82,15 @@ reinterpreting the bytes.
 `view.data` is the raw bytes if you would rather do it yourself. It borrows the
 tensor's own memory, so copy it if it needs to outlive the tensor.
 
+### Fewer outputs
+
+`run` computes every output by default. Naming the ones you want runs only the
+part of the graph they depend on:
+
+```dart
+session.run(feeds, wanted: ['logits']);
+```
+
 ### Options
 
 `SessionOptions` covers what most models need. Anything left null keeps ONNX

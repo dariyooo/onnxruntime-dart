@@ -231,11 +231,17 @@ final class Session {
   /// Runs the model.
   ///
   /// [feeds] is keyed by input name; every entry in [inputs] must be present.
-  /// Returns one entry per name in [outputs], keyed the same way.
-  Map<String, OrtTensor> run(Map<String, OrtTensor> feeds) {
+  /// Returns one entry per requested output, keyed by name.
+  ///
+  /// [wanted] names the outputs to compute, defaulting to all of them. Asking
+  /// for fewer is not just less to read back: ONNX Runtime only executes the
+  /// part of the graph those outputs depend on.
+  Map<String, OrtTensor> run(
+    Map<String, OrtTensor> feeds, {
+    List<String>? wanted,
+  }) {
     _check(feeds);
-
-    final names = outputs.map((o) => o.name).toList();
+    final names = _wanted(wanted);
     final runOptions = _calls.createRunOptions();
     try {
       final results = _calls.run(
@@ -261,7 +267,10 @@ final class Session {
   ///
   /// Web has no equivalent: the WebAssembly build exports no asynchronous run.
   @NativeOnly('the WebAssembly build exports no asynchronous run')
-  Future<Map<String, OrtTensor>> runAsync(Map<String, OrtTensor> feeds) async {
+  Future<Map<String, OrtTensor>> runAsync(
+    Map<String, OrtTensor> feeds, {
+    List<String>? wanted,
+  }) async {
     final calls = switch (_calls) {
       final OrtAsyncCalls calls => calls,
       _ => unsupportedOnWeb(
@@ -277,8 +286,8 @@ final class Session {
       );
     }
     _check(feeds);
+    final names = _wanted(wanted);
 
-    final names = outputs.map((o) => o.name).toList();
     final runOptions = _calls.createRunOptions();
     try {
       final results = await calls.runAsync(
@@ -303,6 +312,25 @@ final class Session {
 
   /// Frees the model now rather than waiting for collection.
   void release() => _handle.release();
+
+  /// The output names to ask for, defaulting to every one the model has.
+  List<String> _wanted(List<String>? requested) {
+    if (requested == null) return [for (final output in outputs) output.name];
+
+    final known = {for (final output in outputs) output.name};
+    final unknown = requested.toSet().difference(known);
+    if (unknown.isNotEmpty) {
+      throw ArgumentError.value(
+        requested,
+        'wanted',
+        'the model has no output named ${unknown.join(', ')}',
+      );
+    }
+    if (requested.isEmpty) {
+      throw ArgumentError.value(requested, 'wanted', 'asks for no outputs');
+    }
+    return requested;
+  }
 
   void _check(Map<String, OrtTensor> feeds) {
     final missing =
