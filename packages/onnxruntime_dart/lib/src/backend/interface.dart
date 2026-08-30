@@ -20,26 +20,27 @@ import 'types.dart';
 
 /// The calls both backends can make.
 ///
-/// Every method returning `int` returns 0 on success. On anything else call
-/// [lastError] for the message.
+/// Failures throw `OrtException`. The C API returns a status that has to be
+/// read and released, and the backend does that; nothing above this line sees
+/// a status code.
 abstract interface class OrtCalls {
   /// Prepares the runtime. Safe to call more than once.
-  int init({int intraOpNumThreads, int loggingLevel});
+  void init({int loggingLevel});
 
-  /// The message for the most recent failure, or null if there was none.
-  String? lastError();
+  /// The version of ONNX Runtime that is loaded, such as `1.29.0`.
+  String runtimeVersion();
 
   OrtPtr createSessionOptions();
 
-  int appendExecutionProvider(
+  void appendExecutionProvider(
     OrtPtr options,
     String name,
     Map<String, String> configuration,
   );
 
-  int addSessionConfigEntry(OrtPtr options, String key, String value);
+  void addSessionConfigEntry(OrtPtr options, String key, String value);
 
-  int addFreeDimensionOverride(OrtPtr options, String name, int dimension);
+  void addFreeDimensionOverride(OrtPtr options, String name, int dimension);
 
   void releaseSessionOptions(OrtPtr options);
 
@@ -66,14 +67,23 @@ abstract interface class OrtCalls {
   /// what stops the most dangerous rule in the C API from reaching the API.
   OrtPtr createTensor(OrtElementType type, TypedData data, List<int> shape);
 
+  /// Creates a string tensor holding [values] in row-major order.
+  ///
+  /// Strings are stored out of line rather than in `raw_data`, so they cannot
+  /// go through [createTensor].
+  OrtPtr createStringTensor(List<String> values, List<int> shape);
+
   /// Reads a tensor's type, shape and contents.
   OrtTensorView tensorData(OrtPtr tensor);
+
+  /// Reads a string tensor's contents in row-major order.
+  List<String> stringTensorData(OrtPtr tensor);
 
   void releaseTensor(OrtPtr tensor);
 
   OrtPtr createRunOptions();
 
-  int addRunConfigEntry(OrtPtr runOptions, String key, String value);
+  void addRunConfigEntry(OrtPtr runOptions, String key, String value);
 
   void releaseRunOptions(OrtPtr runOptions);
 
@@ -89,13 +99,15 @@ abstract interface class OrtCalls {
 
   OrtPtr createBinding(OrtPtr session);
 
-  int bindInput(OrtPtr binding, String name, OrtPtr tensor);
+  void bindInput(OrtPtr binding, String name, OrtPtr tensor);
 
-  int bindOutput(OrtPtr binding, String name, OrtPtr tensor);
+  void bindOutput(OrtPtr binding, String name, OrtPtr tensor);
+
+  void clearBoundInputs(OrtPtr binding);
 
   void clearBoundOutputs(OrtPtr binding);
 
-  int runWithBinding(OrtPtr session, OrtPtr binding, OrtPtr runOptions);
+  void runWithBinding(OrtPtr session, OrtPtr binding, OrtPtr runOptions);
 
   void releaseBinding(OrtPtr binding);
 

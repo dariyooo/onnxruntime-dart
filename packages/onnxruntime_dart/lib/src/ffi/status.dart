@@ -6,19 +6,9 @@ import 'dart:ffi';
 import 'package:ffi/ffi.dart';
 
 import '../bindings/ort_bindings.g.dart';
+import '../exceptions.dart';
 
-/// An error reported by ONNX Runtime.
-final class OrtException implements Exception {
-  OrtException(this.code, this.message);
-
-  /// One of the `OrtErrorCode` values.
-  final int code;
-
-  final String message;
-
-  @override
-  String toString() => 'OrtException($code): $message';
-}
+export '../exceptions.dart' show OrtException;
 
 /// Throws if [status] is an error, releasing it either way.
 ///

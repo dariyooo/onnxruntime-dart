@@ -13,6 +13,9 @@ import 'dart:ffi';
 import 'package:ffi/ffi.dart';
 
 import '../bindings/ort_bindings.g.dart';
+import '../exceptions.dart';
+
+export '../exceptions.dart' show OrtAbiMismatch;
 
 /// Asset id declared by `hook/build.dart`.
 const _assetId = 'package:onnxruntime_dart/onnxruntime';
@@ -44,17 +47,4 @@ Pointer<OrtApi> ortApi() {
     throw OrtAbiMismatch(ORT_API_VERSION, runtimeVersion());
   }
   return api;
-}
-
-/// Thrown when the loaded runtime does not support the bound API version.
-final class OrtAbiMismatch implements Exception {
-  OrtAbiMismatch(this.requiredApiVersion, this.runtimeVersion);
-
-  final int requiredApiVersion;
-  final String runtimeVersion;
-
-  @override
-  String toString() =>
-      'ONNX Runtime $runtimeVersion does not support API version '
-      '$requiredApiVersion, which these bindings were generated against.';
 }
