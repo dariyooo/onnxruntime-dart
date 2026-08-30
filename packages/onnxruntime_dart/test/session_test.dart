@@ -63,6 +63,45 @@ void main() {
       );
     });
 
+    /// A valid feed, so a test about outputs fails on the outputs.
+    OrtTensor feed() {
+      final input = TensorProto.decode(voiceCommands.input(0));
+      final tensor = OrtTensor.fromData(
+        OrtElementType.float32,
+        input.rawData,
+        input.dims,
+      );
+      addTearDown(tensor.release);
+      return tensor;
+    }
+
+    test('asking for one output returns only that one', () {
+      final results = session.run({'input_1': feed()}, wanted: ['dense_1']);
+      addTearDown(() => _releaseAll(results.values));
+
+      expect(results.keys, ['dense_1']);
+    });
+
+    test('asking for an output the model does not have names it', () {
+      expect(
+        () => session.run({'input_1': feed()}, wanted: ['nope']),
+        throwsA(
+          isA<ArgumentError>().having(
+            (e) => e.message,
+            'message',
+            contains('nope'),
+          ),
+        ),
+      );
+    });
+
+    test('asking for no outputs is refused', () {
+      expect(
+        () => session.run({'input_1': feed()}, wanted: const []),
+        throwsA(isA<ArgumentError>()),
+      );
+    });
+
     test('a missing input names what is missing', () {
       expect(
         () => session.run({}),
