@@ -100,6 +100,9 @@ def _ios(name: str, sysroot: str, arch: str) -> Config:
         runner="macos-15",
         args=(
             "--ios",
+            # build.py rejects an Apple framework build under any other
+            # generator.
+            "--cmake_generator", "Xcode",
             "--apple_sysroot", sysroot,
             "--osx_arch", arch,
             "--apple_deploy_target", "15.1",
