@@ -60,7 +60,10 @@ void main() {
       // The RSS harness is void if this returns zero, which is a real risk on
       // platforms where the VM does not implement it.
       expect(ProcessInfo.currentRss, greaterThan(0));
-      expect(ProcessInfo.maxRss, greaterThanOrEqualTo(ProcessInfo.currentRss));
+      // Not compared against each other: on Linux maxRss is getrusage's
+      // high-water mark while currentRss reads /proc live, so current can
+      // exceed the recorded max between samples.
+      expect(ProcessInfo.maxRss, greaterThan(0));
     });
 
     test('resident memory responds to a large allocation', () {
