@@ -1,0 +1,106 @@
+/// Marshalling the generated wrappers rely on.
+///
+/// Hand-written because it is the same for every call, and because the parts
+/// that matter are the ones a generator should not invent: who owns what, and
+/// when it is freed.
+library;
+
+import 'dart:ffi';
+
+import 'package:ffi/ffi.dart';
+
+import '../../ffi/runtime.dart';
+import '../../ffi/status.dart';
+import '../ort_bindings.g.dart';
+
+export '../../ffi/ort_path.dart' show allocateOrtPath;
+
+/// The `OrtApi` used to read and release an `OrtStatus`.
+///
+/// Resolved on first use. A status can only be read through the API that
+/// produced it, and the generated wrappers are extensions on `OrtApi` rather
+/// than methods holding one, so this is how they reach it.
+final OrtApi ortApiForStatus = ortApi().ref;
+
+/// Runs [body] with an arena, releasing it on every path.
+///
+/// Everything a call needs is scoped to the call: ONNX Runtime copies the
+/// strings and arrays it is handed, so nothing here outlives it. Tensors are
+/// the exception, and they are not built this way.
+T withArena<T>(T Function(Arena arena) body) {
+  final arena = Arena();
+  try {
+    return body(arena);
+  } finally {
+    arena.releaseAll();
+  }
+}
+
+/// Throws if [status] is an error, releasing it either way.
+void checkOrtStatus(Pointer<OrtStatus> status) =>
+    checkStatus(ortApiForStatus, status);
+
+/// Writes an array of strings, returning the `char**`.
+Pointer<Pointer<Char>> nativeStrings(List<String> values, Arena arena) {
+  final array = arena<Pointer<Char>>(values.isEmpty ? 1 : values.length);
+  for (var i = 0; i < values.length; i++) {
+    array[i] = values[i].toNativeUtf8(allocator: arena).cast();
+  }
+  return array;
+}
+
+/// Writes an array of handles, returning the `T**`.
+///
+/// Allocated as `Pointer<Void>` because Arena cannot allocate a type variable,
+/// then cast. Every pointer is the same width, so the cast is safe.
+Pointer<Pointer<T>> nativePointers<T extends NativeType>(
+  List<Pointer<T>> values,
+  Arena arena,
+) {
+  final array = arena<Pointer<Void>>(values.isEmpty ? 1 : values.length)
+      .cast<Pointer<T>>();
+  for (var i = 0; i < values.length; i++) {
+    array[i] = values[i];
+  }
+  return array;
+}
+
+/// Writes int64 values, which is how the C API takes shapes on every platform.
+Pointer<Int64> nativeInt64s(List<int> values, Arena arena) {
+  final array = arena<Int64>(values.isEmpty ? 1 : values.length);
+  for (var i = 0; i < values.length; i++) {
+    array[i] = values[i];
+  }
+  return array;
+}
+
+/// Writes `size_t` values.
+Pointer<Size> nativeSizes(List<int> values, Arena arena) {
+  final array = arena<Size>(values.isEmpty ? 1 : values.length);
+  for (var i = 0; i < values.length; i++) {
+    array[i] = values[i];
+  }
+  return array;
+}
+
+/// Reads a string the allocator owns, and frees it.
+///
+/// `SessionGetInputName` and its kin hand back memory the caller must return,
+/// so reading without freeing leaks one name per call.
+String takeAllocatedString(Pointer<Pointer<Char>> out) {
+  final value = out.value.cast<Utf8>().toDartString();
+  ortApiForStatus.AllocatorFree.asFunction<
+          Pointer<OrtStatus> Function(Pointer<OrtAllocator>, Pointer<Void>)>()(
+      _defaultAllocator, out.value.cast());
+  return value;
+}
+
+Pointer<OrtAllocator> get _defaultAllocator => withArena((arena) {
+      final out = arena<Pointer<Pointer<OrtAllocator>>>();
+      checkOrtStatus(
+        ortApiForStatus.GetAllocatorWithDefaultOptions.asFunction<
+            Pointer<OrtStatus> Function(
+                Pointer<Pointer<OrtAllocator>>)>()(out.cast()),
+      );
+      return out.cast<Pointer<OrtAllocator>>().value;
+    });
