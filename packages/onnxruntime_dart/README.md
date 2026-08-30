@@ -1,105 +1,150 @@
 # onnxruntime_dart
 
-Pure-Dart bindings to [ONNX Runtime](https://onnxruntime.ai). No Flutter
-dependency, so it runs in CLI tools and servers as well as apps.
+ONNX Runtime 1.29.0 for Dart. No Flutter dependency, so it runs in CLI tools and
+servers as well as apps.
 
-> **Status:** unreleased. `native.dart` works today. The ergonomic `Session` API
-> below is being written.
+> Unreleased. `native.dart` works today. `Session` is not written yet.
 
-## Quickstart
+## Install
 
 ```yaml
 dependencies:
   onnxruntime_dart: ^0.1.0
 ```
 
-The runtime is downloaded and bundled by a build hook. There is no binary to
-place and no path to configure.
+That is the whole setup. A build hook downloads the runtime for your target,
+checks it against a pinned SHA-256, and bundles it as a native asset. You do not
+place a binary, set a path, or add a platform folder.
+
+## Use
 
 ```dart
 import 'package:onnxruntime_dart/onnxruntime_dart.dart';
 
-final session = await Session.fromBytes(await File('model.onnx').readAsBytes());
-final outputs = session.runSync({'input': OrtValue.fromList(pixels, [1, 3, 224, 224])});
-print(outputs['output']!.toFloat32List());
+final session = await Session.fromBytes(bytes);
+final out = session.runSync({'input': OrtValue.fromList(pixels, [1, 3, 224, 224])});
+print(out['output']!.toFloat32List());
 session.dispose();
 ```
 
-Anything the ergonomic API does not cover yet is reachable through the complete
-C API, which is generated from the pinned headers:
+## What you get
 
-```dart
-import 'package:onnxruntime_dart/native.dart';
+Every build carries **every operator**: all of `ai.onnx`, `ai.onnx.ml` and the
+`com.microsoft` contrib ops, at every opset. No operator is behind a download or
+a flag. Fifteen builds, all made from a pinned ONNX Runtime submodule in this
+repo's CI.
 
-final api = ortApi().ref;   // all 425 OrtApi functions
-```
+| Platform | Architecture | Providers | Library |
+| --- | --- | --- | --- |
+| Android | arm64-v8a | CPU, XNNPACK | `libonnxruntime.so` |
+| Android | armeabi-v7a | CPU, XNNPACK | `libonnxruntime.so` |
+| Android | x86_64 | CPU, XNNPACK | `libonnxruntime.so` |
+| Android | x86 | CPU, XNNPACK | `libonnxruntime.so` |
+| iOS | arm64 device | CPU, XNNPACK, CoreML | `libonnxruntime.dylib` |
+| iOS | arm64 simulator | CPU, XNNPACK, CoreML | `libonnxruntime.dylib` |
+| iOS | x86_64 simulator | CPU, XNNPACK, CoreML | `libonnxruntime.dylib` |
+| macOS | arm64 | CPU, XNNPACK, CoreML | `libonnxruntime.dylib` |
+| macOS | x86_64 | CPU, XNNPACK, CoreML | `libonnxruntime.dylib` |
+| Linux | x64 | CPU, XNNPACK | `libonnxruntime.so` |
+| Linux | arm64 | CPU, XNNPACK | `libonnxruntime.so` |
+| Windows | x64 | CPU, XNNPACK | `onnxruntime.dll` |
+| Windows | arm64 | CPU | `onnxruntime.dll` |
+| Web | wasm + SIMD | CPU | `ort-wasm.wasm` |
+| Web | wasm + SIMD + threads | CPU | `ort-wasm.wasm` |
 
-## Async and isolates
-
-`runSync` is the primitive. It is the only call both native and web have, and it
-blocks the calling thread. Two ways to not block, and the package makes neither
-your only option.
-
-**`run` (native only).** Returns a `Future` backed by ONNX Runtime's own
-intra-op thread pool. No second Dart heap, no copying, and the calling isolate
-stays responsive. Requires `intraOpNumThreads >= 2`, which is checked up front.
-
-**Your own isolate.** The package ships no isolate pool, deliberately. A pool
-inside a library guesses wrong about your workload, and only you know whether
-inference sits next to image decode or a request handler. What the package owes
-you is that a session works anywhere, which it does.
-
-```dart
-// Right: build once, serve many. Session creation runs graph optimisation.
-Isolate.spawn(_worker, [port, modelBytes]);
-
-// Wrong: rebuilds the session, and re-optimises the graph, on every call.
-await Isolate.run(() => Session.fromBytes(bytes).runSync(inputs));
-```
-
-A `Session` belongs to the isolate that created it. Create it there rather than
-passing one across.
-
-**On web there is neither.** `dart:isolate` is unavailable under dart2js and
-dart2wasm, and ONNX Runtime's async entry point is not in the wasm build, so
-`runSync` blocks. Running your app in a Web Worker is the answer, and that is
-your call to make, not this package's.
+About 33 MB per desktop library. Windows arm64 has no XNNPACK: its fp16 kernels
+include `arm_fp16.h`, which MSVC does not ship. The threaded wasm build falls
+back to one thread when the page is not cross-origin isolated, so ship that one
+unless you have a reason not to.
 
 ## Packages
 
-The base package carries **every operator**. Nothing you need for inference is
-behind an extra download.
+Everything above is in the base package. The rest are separate because they are
+separate binaries, downloaded only if you ask for them.
 
-| Package | Contains |
-| --- | --- |
-| `onnxruntime_dart` | `ai.onnx`, `ai.onnx.ml`, `com.microsoft` contrib ops. CPU, plus XNNPACK and CoreML where they apply. |
-| `onnxruntime_dart_ep_webgpu` | GPU execution provider. Loaded at runtime, not linked. |
-| `onnxruntime_dart_ep_qnn` | Snapdragon NPU. Android, opt-in download. |
-| `onnxruntime_dart_extensions` | Pre- and post-processing operators: tokenizers, audio, vision. Not model operators. |
+| Package | What it is | Size |
+| --- | --- | --- |
+| `onnxruntime_dart` | The runtime and every operator. | ~33 MB |
+| `onnxruntime_dart_ep_webgpu` | A GPU execution provider. A shared library the runtime loads at runtime. Android, Linux, Windows. | ~18 MB |
+| `onnxruntime_dart_ep_qnn` | Snapdragon NPU execution provider. Android arm64. | |
+| `onnxruntime_dart_extensions` | Custom operators for pre- and post-processing: tokenizers, audio, image decoding. Not model operators. | |
 
-Contrib ops are **not** an optional package. They are built into the CPU
-provider and the graph passes that emit them are compiled in beside them, so
-splitting them would produce graphs referencing operators that do not exist.
+An execution provider changes **where** operators run. It never adds operators.
+If a model loads on CPU it loads on every provider.
 
-An execution provider is a shared library the runtime opens by path:
+```
+dart pub add onnxruntime_dart_ep_webgpu
+```
 
 ```dart
 import 'package:onnxruntime_dart_ep_webgpu/onnxruntime_dart_ep_webgpu.dart';
 
-registerWebGpu();                       // adds its devices to the environment
-final session = await Session.fromBytes(model, options: SessionOptions(
+registerWebGpu();                     // before any session exists
+final session = await Session.fromBytes(model, options: const SessionOptions(
   providers: [Provider.webGpu, Provider.cpu],
 ));
 ```
 
-Register providers before creating any session. Registration mutates
+Register providers before creating a session. Registration mutates
 process-global runtime state and racing it against session creation crashes.
+
+Contrib ops are not a package and cannot be. They are built into the CPU
+provider, and the graph passes that emit them are compiled in beside them.
+
+## Structure
+
+Two libraries.
+
+| Import | Reach | Limit |
+| --- | --- | --- |
+| `package:onnxruntime_dart/onnxruntime_dart.dart` | all six platforms | what the wasm build exports |
+| `package:onnxruntime_dart/native.dart` | native only | all 425 `OrtApi` functions |
+
+`native.dart` is generated from the pinned headers, so it is complete by
+construction rather than by effort. Use it for anything the portable API does
+not cover:
+
+```dart
+import 'package:onnxruntime_dart/native.dart';
+final api = ortApi().ref;
+```
+
+The portable API cannot simply forward to it, because the WebAssembly build
+exposes a different and smaller C surface with no `OrtApi` struct at all. So
+everything portable is written against a narrow interface with two
+implementations, one over `dart:ffi` and one over the wasm exports. That
+interface is the only place either backend appears.
+
+## Concurrency
+
+| | Blocks the caller | Where |
+| --- | --- | --- |
+| `session.runSync(...)` | yes | everywhere |
+| `await session.run(...)` | no | native, needs `intraOpNumThreads >= 2` |
+| your own isolate | no | native |
+
+`run` hands the work to ONNX Runtime's own thread pool. No second Dart heap and
+no copying.
+
+There is no isolate pool in this package. A `Session` belongs to the isolate
+that created it, so create it there and keep it:
+
+```dart
+Isolate.spawn(_worker, [port, modelBytes]);   // build once, serve many
+```
+
+`Isolate.run(...)` per inference rebuilds the session, and session creation runs
+graph optimisation.
+
+Web has neither. `dart:isolate` is unavailable under dart2js and dart2wasm, and
+the wasm build has no async entry point, so `runSync` blocks. Run your app in a
+Web Worker.
 
 ## Versioning
 
-`X.Y.Z+onnxruntime-<version>`. The suffix names the ONNX Runtime release the
-package binds, and always matches the pinned submodule.
+`X.Y.Z+onnxruntime-A.B.C`. The suffix is the ONNX Runtime version, and always
+matches the submodule this repo pins.
 
 ## License
 
-MIT, as is ONNX Runtime. See [LICENSE](LICENSE).
+MIT, as is ONNX Runtime.
