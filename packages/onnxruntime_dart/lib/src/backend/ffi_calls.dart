@@ -232,6 +232,30 @@ final class FfiCalls implements OrtCalls, OrtAsyncCalls {
     TypedData data,
     List<int> shape,
   ) {
+    // Checked here rather than only above, because this is where the write
+    // happens: the tensor is sized from the shape, and copying more than that
+    // into it runs off the end of the allocation with nothing to report it.
+    final width = type.byteWidth;
+    if (width == null) {
+      throw ArgumentError.value(
+        type,
+        'type',
+        'has no fixed-width representation; use createStringTensor',
+      );
+    }
+    if (shape.any((dimension) => dimension < 0)) {
+      throw ArgumentError.value(shape, 'shape', 'must be fully known');
+    }
+    final expected = shape.fold(1, (a, b) => a * b) * width;
+    if (data.lengthInBytes != expected) {
+      throw ArgumentError.value(
+        data,
+        'data',
+        'holds ${data.lengthInBytes} bytes, but $shape of ${type.name} '
+            'needs $expected',
+      );
+    }
+
     // Allocator-backed rather than `CreateTensorWithDataAsOrtValue`, which
     // borrows the buffer it is given and would outlive an arena. Here the
     // tensor owns its memory, so its lifetime is the only one to reason about.
@@ -242,11 +266,10 @@ final class FfiCalls implements OrtCalls, OrtAsyncCalls {
       type.code,
     );
     try {
-      final bytes = data.buffer.asUint8List(
-        data.offsetInBytes,
-        data.lengthInBytes,
+      _tensorBytes(tensor, expected).setAll(
+        0,
+        data.buffer.asUint8List(data.offsetInBytes, expected),
       );
-      _tensorBytes(tensor, bytes.length).setAll(0, bytes);
       return _ptr(tensor);
     } on Object {
       _api.releaseValue(tensor);
@@ -256,6 +279,18 @@ final class FfiCalls implements OrtCalls, OrtAsyncCalls {
 
   @override
   OrtPtr createStringTensor(List<String> values, List<int> shape) {
+    if (shape.any((dimension) => dimension < 0)) {
+      throw ArgumentError.value(shape, 'shape', 'must be fully known');
+    }
+    final expected = shape.fold(1, (a, b) => a * b);
+    if (values.length != expected) {
+      throw ArgumentError.value(
+        values,
+        'values',
+        'holds ${values.length} strings, but $shape needs $expected',
+      );
+    }
+
     final tensor = _api.createTensorAsOrtValue(
       _allocator,
       shape,

@@ -190,6 +190,19 @@ void main() {
         throwsA(isA<ArgumentError>()),
       );
     });
+
+    test('rejects a shape with a run-time dimension', () {
+      // -1 means the model decides, which it cannot for something we are
+      // building. Passing it through would allocate a tensor of no elements.
+      expect(
+        () => OrtTensor.fromData(
+          OrtElementType.float32,
+          Float32List(3),
+          [-1, 3],
+        ),
+        throwsA(isA<ArgumentError>()),
+      );
+    });
   });
 }
 
