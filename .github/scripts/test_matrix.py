@@ -102,6 +102,19 @@ class ArchitectureCoverage(unittest.TestCase):
                     self.assertNotIn("shared_lib", config.args)
 
 
+class WindowsWarnings(unittest.TestCase):
+    """MSVC promotes warnings in ORT's own sources to errors."""
+
+    def test_both_windows_architectures_allow_ort_warnings(self):
+        # graph_flatbuffers_utils.cc trips C4267 in the training sources, so
+        # only the full variant failed and only on Windows. We pin ORT and do
+        # not edit it, so failing on its warnings stops the build for nothing.
+        for config in m.all_configurations():
+            if config.platform != "windows":
+                continue
+            self.assertIn("--compile_no_warning_as_error", config.args, config.id)
+
+
 class Packaging(unittest.TestCase):
     """The globs that decide what ends up in an archive."""
 

@@ -198,7 +198,17 @@ CONFIGURATIONS: tuple[Config, ...] = (
         platform="windows",
         arch="x86_64",
         runner="windows-2022",
-        args=("--use_xnnpack", "--use_webgpu", "shared_lib"),
+        args=(
+            "--use_xnnpack",
+            "--use_webgpu", "shared_lib",
+            # ORT's own sources trip MSVC's C4267 (size_t narrowed to
+            # flatbuffers::uoffset_t in graph_flatbuffers_utils.cc), and only
+            # in the full variant, where the training sources are compiled.
+            # Failing on a warning in code we pin and do not edit stops the
+            # build without telling us anything we can act on. arm64 already
+            # does this.
+            "--compile_no_warning_as_error",
+        ),
     ),
     Config(
         id="windows-arm64",
