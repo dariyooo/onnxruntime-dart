@@ -10,3 +10,11 @@ environment:
 
 workspace:
   - packages/onnxruntime_dart
+
+# Development only, and never published: this file is the workspace root, not a
+# package. Points the build hook at a locally extracted ONNX Runtime so the
+# package can be worked on before any binaries are released.
+hooks:
+  user_defines:
+    onnxruntime_dart:
+      local_build: .local/ort/onnxruntime-osx-arm64-1.29.0/lib
