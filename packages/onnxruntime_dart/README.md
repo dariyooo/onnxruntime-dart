@@ -81,6 +81,25 @@ reinterpreting the bytes.
 `view.data` is the raw bytes if you would rather do it yourself. It borrows the
 tensor's own memory, so copy it if it needs to outlive the tensor.
 
+### Options
+
+`SessionOptions` covers what most models need. Anything left null keeps ONNX
+Runtime's own default.
+
+```dart
+Session.fromBytes(model, options: const SessionOptions(
+  intraOpNumThreads: 4,
+  optimizationLevel: OrtOptimizationLevel.all,
+  logLevel: OrtLogLevel.warning,
+));
+```
+
+`interOpNumThreads`, `executionMode`, `logId`, `optimizedModelPath`,
+`profileFilePrefix`, `deterministicCompute`, `memoryPattern` and
+`cpuMemoryArena` are there too, along with `freeDimensionOverrides` for pinning
+a symbolic dimension and `config` for the string-keyed entries in
+`config_keys.g.dart`. Everything else is a call on `native.dart`.
+
 ## Platforms
 
 Every build carries **every operator**: all of `ai.onnx`, `ai.onnx.ml` and the

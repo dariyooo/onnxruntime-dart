@@ -8,6 +8,7 @@
 /// than against a value recorded from an earlier run of this package.
 library;
 
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:onnxruntime_dart/onnxruntime_dart.dart';
@@ -102,6 +103,54 @@ void main() {
 
       final expected = TensorProto.decode(bidirectionalLstm.output(0));
       expect(results.values.single.view.shape, expected.dims);
+    });
+  }, skip: skipWithoutOrt ?? skipWithoutNativeAsset);
+
+  group('SessionOptions', () {
+    test('every setting is accepted by the runtime', () {
+      // Each one is a separate C call, and a wrong argument or a wrong enum
+      // value is rejected at session creation rather than later.
+      final directory = Directory.systemTemp.createTempSync('ort_options');
+      addTearDown(() => directory.deleteSync(recursive: true));
+
+      final session = Session.fromBytes(
+        voiceCommands.model(),
+        options: SessionOptions(
+          intraOpNumThreads: 2,
+          interOpNumThreads: 2,
+          optimizationLevel: OrtOptimizationLevel.basic,
+          executionMode: OrtExecutionMode.parallel,
+          logLevel: OrtLogLevel.fatal,
+          logId: 'options-test',
+          optimizedModelPath: '${directory.path}/optimized.onnx',
+          profileFilePrefix: '${directory.path}/profile',
+          deterministicCompute: true,
+          memoryPattern: false,
+          cpuMemoryArena: false,
+          config: const {'session.use_env_allocators': '0'},
+          freeDimensionOverrides: const {'batch': 1},
+        ),
+      );
+      addTearDown(session.release);
+
+      expect(session.inputs, hasLength(1));
+
+      // Two settings leave evidence on disk, which is the only way to tell
+      // they were applied rather than accepted and ignored.
+      expect(File('${directory.path}/optimized.onnx').existsSync(), isTrue);
+      expect(session.endProfiling(), isNotNull);
+    });
+
+    test('an unknown provider is refused rather than falling back to CPU', () {
+      expect(
+        () => Session.fromBytes(
+          voiceCommands.model(),
+          options: const SessionOptions(
+            providers: [(name: 'NotAProvider', configuration: {})],
+          ),
+        ),
+        throwsA(isA<OrtException>()),
+      );
     });
   }, skip: skipWithoutOrt ?? skipWithoutNativeAsset);
 

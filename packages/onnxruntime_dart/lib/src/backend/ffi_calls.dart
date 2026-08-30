@@ -111,6 +111,62 @@ final class FfiCalls implements OrtCalls, OrtAsyncCalls {
       _api.setIntraOpNumThreads(_as<OrtSessionOptions>(options), threads);
 
   @override
+  void setInterOpNumThreads(OrtPtr options, int threads) =>
+      _api.setInterOpNumThreads(_as<OrtSessionOptions>(options), threads);
+
+  @override
+  void setOptimizationLevel(OrtPtr options, OrtOptimizationLevel level) =>
+      _api.setSessionGraphOptimizationLevel(
+        _as<OrtSessionOptions>(options),
+        level.code,
+      );
+
+  @override
+  void setExecutionMode(OrtPtr options, OrtExecutionMode mode) =>
+      _api.setSessionExecutionMode(_as<OrtSessionOptions>(options), mode.code);
+
+  @override
+  void setLogLevel(OrtPtr options, OrtLogLevel level) =>
+      _api.setSessionLogSeverityLevel(
+        _as<OrtSessionOptions>(options),
+        level.code,
+      );
+
+  @override
+  void setLogId(OrtPtr options, String id) =>
+      _api.setSessionLogId(_as<OrtSessionOptions>(options), id);
+
+  @override
+  void setOptimizedModelPath(OrtPtr options, String path) =>
+      _api.setOptimizedModelFilePath(_as<OrtSessionOptions>(options), path);
+
+  @override
+  void enableProfiling(OrtPtr options, String pathPrefix) =>
+      _api.enableProfiling(_as<OrtSessionOptions>(options), pathPrefix);
+
+  @override
+  void setDeterministicCompute(
+    OrtPtr options, {
+    required bool deterministic,
+  }) =>
+      _api.setDeterministicCompute(
+        _as<OrtSessionOptions>(options),
+        deterministic,
+      );
+
+  @override
+  void setMemoryPattern(OrtPtr options, {required bool enabled}) {
+    final handle = _as<OrtSessionOptions>(options);
+    enabled ? _api.enableMemPattern(handle) : _api.disableMemPattern(handle);
+  }
+
+  @override
+  void setCpuMemoryArena(OrtPtr options, {required bool enabled}) {
+    final handle = _as<OrtSessionOptions>(options);
+    enabled ? _api.enableCpuMemArena(handle) : _api.disableCpuMemArena(handle);
+  }
+
+  @override
   void releaseSessionOptions(OrtPtr options) =>
       _api.releaseSessionOptions(_as<OrtSessionOptions>(options));
 

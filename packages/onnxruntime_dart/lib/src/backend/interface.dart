@@ -57,6 +57,29 @@ abstract interface class OrtCalls {
   /// Threads ONNX Runtime may use within a single operator.
   void setIntraOpNumThreads(OrtPtr options, int threads);
 
+  /// Threads ONNX Runtime may use across independent branches of the graph.
+  void setInterOpNumThreads(OrtPtr options, int threads);
+
+  void setOptimizationLevel(OrtPtr options, OrtOptimizationLevel level);
+
+  void setExecutionMode(OrtPtr options, OrtExecutionMode mode);
+
+  void setLogLevel(OrtPtr options, OrtLogLevel level);
+
+  void setLogId(OrtPtr options, String id);
+
+  /// Writes the optimised graph to [path], for inspection or to load instead.
+  void setOptimizedModelPath(OrtPtr options, String path);
+
+  /// Turns on profiling, writing to files starting with [pathPrefix].
+  void enableProfiling(OrtPtr options, String pathPrefix);
+
+  void setDeterministicCompute(OrtPtr options, {required bool deterministic});
+
+  void setMemoryPattern(OrtPtr options, {required bool enabled});
+
+  void setCpuMemoryArena(OrtPtr options, {required bool enabled});
+
   void releaseSessionOptions(OrtPtr options);
 
   /// Creates a session from a model already in memory.

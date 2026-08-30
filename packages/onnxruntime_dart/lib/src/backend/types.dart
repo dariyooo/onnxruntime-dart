@@ -55,6 +55,54 @@ enum OrtElementType {
       );
 }
 
+/// How much ONNX Runtime rewrites the graph before running it.
+///
+/// The values are fixed by `GraphOptimizationLevel` in the C API. More
+/// optimisation costs time when the session is created and saves it on every
+/// run, so the default is worth changing only when loading time dominates.
+enum OrtOptimizationLevel {
+  none(0),
+  basic(1),
+  extended(2),
+  layout(3),
+  all(99);
+
+  const OrtOptimizationLevel(this.code);
+
+  /// The value the C API uses.
+  final int code;
+}
+
+/// Whether independent branches of a graph run at the same time.
+///
+/// The values are fixed by `ExecutionMode` in the C API. Parallel uses the
+/// inter-op thread pool, and only helps a graph that actually branches.
+enum OrtExecutionMode {
+  sequential(0),
+  parallel(1);
+
+  const OrtExecutionMode(this.code);
+
+  /// The value the C API uses.
+  final int code;
+}
+
+/// How much ONNX Runtime logs.
+///
+/// The values are fixed by `OrtLoggingLevel` in the C API.
+enum OrtLogLevel {
+  verbose(0),
+  info(1),
+  warning(2),
+  error(3),
+  fatal(4);
+
+  const OrtLogLevel(this.code);
+
+  /// The value the C API uses.
+  final int code;
+}
+
 /// What a session says about one of its inputs or outputs.
 final class OrtTensorMeta {
   const OrtTensorMeta({
