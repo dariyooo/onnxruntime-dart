@@ -24,6 +24,9 @@ dependencies:
   meta: ^1.19.0
 
 dev_dependencies:
+  # The generator formats its own output, so what it writes is final.
+  dart_style: ^3.1.0
   ffigen: ^21.0.0
   lints: ^6.0.0
+  pub_semver: ^2.1.0
   test: ^1.25.0
