@@ -91,11 +91,6 @@ Future<File?> _resolveLibrary(BuildInput input, String target, OS os) async {
     return null;
   }
 
-  final cached = File.fromUri(
-    input.outputDirectoryShared.resolve('$target/$fileName'),
-  );
-  if (cached.existsSync()) return cached;
-
   if (releaseTag.isEmpty) {
     stderr.writeln(
       'onnxruntime_dart: no binaries are published yet and no local build was '
@@ -118,6 +113,13 @@ Future<File?> _resolveLibrary(BuildInput input, String target, OS os) async {
       'That is a packaging bug, not a configuration error.',
     );
   }
+
+  // Keyed by release, so upgrading the package downloads the library that
+  // release pins rather than reusing whatever the last one left here.
+  final cached = File.fromUri(
+    input.outputDirectoryShared.resolve('$releaseTag/$target/$fileName'),
+  );
+  if (cached.existsSync()) return cached;
 
   return _download(
     url: assetUrl(releaseTag: releaseTag, targetId: target),
