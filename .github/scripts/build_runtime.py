@@ -50,6 +50,10 @@ def main() -> None:
         "--build_dir", str(BUILD_DIR),
         "--config", os.environ.get("ORT_BUILD_CONFIG", "Release"),
         "--cmake_extra_defines", f"FETCHCONTENT_BASE_DIR={DEPS_CACHE}",
+        # CMake 4 refuses projects declaring cmake_minimum_required below 3.5.
+        # Several vendored dependencies still do, psimd among them. ORT applies
+        # the same override in its own build images.
+        "--cmake_extra_defines", "CMAKE_POLICY_VERSION_MINIMUM=3.5",
         *args,
     ]
 
