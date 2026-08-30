@@ -84,7 +84,11 @@ ARTIFACT_PATTERNS = {
     },
     "web": {
         ort_matrix.RUNTIME: {
-            "*": ["ort-wasm*.wasm", "ort-wasm*.mjs"],
+            # The full variant enables the training APIs, and ORT puts that in
+            # the file name: ort-training-wasm-... rather than ort-wasm-...
+            # (cmake/onnxruntime_webassembly.cmake builds the name from the
+            # features that are on). So the glob cannot anchor on "ort-wasm".
+            "*": ["ort-*wasm*.wasm", "ort-*wasm*.mjs"],
         },
     },
 }
