@@ -395,7 +395,7 @@ extension OrtApiTensorApi on OrtApi {
                 Pointer<OrtTensorRTProviderOptionsV2>,
                 Pointer<OrtAllocator>,
                 Pointer<Pointer<Char>>)>()(tensorrtOptions, allocator, out0));
-        return takeAllocatedString(out0);
+        return takeAllocatedString(out0, allocator);
       });
 
   /// `HasValue`

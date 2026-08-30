@@ -34,15 +34,20 @@ String _identity(String name) => name;
 
 /// Part of the return value, read out of an out-parameter.
 final class OutputMapping extends Mapping {
-  const OutputMapping(this.dartType, this.read);
+  const OutputMapping(this.dartType, this.read, {this.needsAllocator = false});
 
   /// A scalar read back, typed from the ffigen signature.
   const OutputMapping.scalar()
       : dartType = null,
+        needsAllocator = false,
         read = _readValue;
 
   /// Null when the ffigen signature decides.
   final String? dartType;
+
+  /// Whether reading frees allocator memory, so the emitter has to say which
+  /// allocator the call was given rather than assuming the default one.
+  final bool needsAllocator;
 
   /// Dart expression reading the result, given the allocated pointer name.
   final String Function(String pointer) read;
@@ -179,8 +184,13 @@ Mapping _mapOutput(String type, CParameter parameter) {
     );
   }
   if (normalised == 'char**') {
-    // Allocator memory. Reading it is not enough, it has to be freed.
-    return OutputMapping('String', (p) => 'takeAllocatedString($p)');
+    // Allocator memory. Reading it is not enough, it has to be freed, and with
+    // the allocator that produced it rather than whichever is the default.
+    return OutputMapping(
+      'String',
+      (p) => 'takeAllocatedString($p, ALLOCATOR)',
+      needsAllocator: true,
+    );
   }
   if (type.endsWith('*') &&
       _scalars.contains(type.replaceFirst(RegExp(r'\s*\*$'), ''))) {

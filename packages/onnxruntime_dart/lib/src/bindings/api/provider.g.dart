@@ -59,7 +59,7 @@ extension OrtApiProviderApi on OrtApi {
                 Pointer<OrtCUDAProviderOptionsV2>,
                 Pointer<OrtAllocator>,
                 Pointer<Pointer<Char>>)>()(cudaOptions, allocator, out0));
-        return takeAllocatedString(out0);
+        return takeAllocatedString(out0, allocator);
       });
 
   /// `CreateCANNProviderOptions`
@@ -99,7 +99,7 @@ extension OrtApiProviderApi on OrtApi {
                 Pointer<OrtCANNProviderOptions>,
                 Pointer<OrtAllocator>,
                 Pointer<Pointer<Char>>)>()(cannOptions, allocator, out0));
-        return takeAllocatedString(out0);
+        return takeAllocatedString(out0, allocator);
       });
 
   /// `CreateDnnlProviderOptions`
@@ -139,7 +139,7 @@ extension OrtApiProviderApi on OrtApi {
                 Pointer<OrtDnnlProviderOptions>,
                 Pointer<OrtAllocator>,
                 Pointer<Pointer<Char>>)>()(dnnlOptions, allocator, out0));
-        return takeAllocatedString(out0);
+        return takeAllocatedString(out0, allocator);
       });
 
   /// `CreateROCMProviderOptions`
@@ -179,7 +179,7 @@ extension OrtApiProviderApi on OrtApi {
                 Pointer<OrtROCMProviderOptions>,
                 Pointer<OrtAllocator>,
                 Pointer<Pointer<Char>>)>()(rocmOptions, allocator, out0));
-        return takeAllocatedString(out0);
+        return takeAllocatedString(out0, allocator);
       });
 
   /// `GetCUDAProviderOptionsByName`
@@ -206,7 +206,7 @@ extension OrtApiProviderApi on OrtApi {
             epType.toNativeUtf8(allocator: arena).cast(),
             allocator,
             out0));
-        return takeAllocatedString(out0);
+        return takeAllocatedString(out0, allocator);
       });
 
   /// `GetCompatibilityInfoFromModelBytes`
@@ -225,7 +225,7 @@ extension OrtApiProviderApi on OrtApi {
             epType.toNativeUtf8(allocator: arena).cast(),
             allocator,
             out0));
-        return takeAllocatedString(out0);
+        return takeAllocatedString(out0, allocator);
       });
 
   /// `ReleaseCUDAProviderOptions`
