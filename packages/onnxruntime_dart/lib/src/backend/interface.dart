@@ -1,8 +1,12 @@
 /// The boundary between the shared code and a backend.
 ///
-/// Two small interfaces, implemented once over `dart:ffi` and once over the
-/// WebAssembly exports. Everything above them is written once and compiles for
-/// both.
+/// One interface, taking Dart types. Each backend marshals in whatever way
+/// suits it: the FFI backend with `Arena` and `toNativeUtf8`, the WebAssembly
+/// backend by writing into the emscripten heap. Nothing above this line touches
+/// bytes, pointer widths or byte order.
+///
+/// Only genuine runtime handles cross as [OrtPtr]. Everything else, model
+/// bytes, tensor data, shapes and names, crosses as Dart values.
 ///
 /// The shape follows the WebAssembly export set, because that is the smaller of
 /// the two and an interface either side cannot implement is no use. It is not
@@ -13,24 +17,6 @@ library;
 import 'dart:typed_data';
 
 import 'types.dart';
-
-/// Allocation in backend memory.
-///
-/// String marshalling, pointer arrays and dimension arrays are all built on
-/// these four operations in shared code. Do not add platform-specific helpers.
-abstract interface class OrtMemory {
-  /// Allocates [byteCount] bytes, or returns [OrtPtr.nullPtr] on failure.
-  OrtPtr allocate(int byteCount);
-
-  /// Releases an allocation from [allocate]. A no-op on [OrtPtr.nullPtr].
-  void free(OrtPtr pointer);
-
-  /// Copies [source] into the allocation at [destination].
-  void write(OrtPtr destination, TypedData source);
-
-  /// Copies [byteCount] bytes out of the allocation at [source].
-  Uint8List read(OrtPtr source, int byteCount);
-}
 
 /// The calls both backends can make.
 ///
@@ -48,21 +34,20 @@ abstract interface class OrtCalls {
   int appendExecutionProvider(
     OrtPtr options,
     String name,
-    List<String> keys,
-    List<String> values,
+    Map<String, String> configuration,
   );
 
   int addSessionConfigEntry(OrtPtr options, String key, String value);
 
-  int addFreeDimensionOverride(OrtPtr options, String name, int dimValue);
+  int addFreeDimensionOverride(OrtPtr options, String name, int dimension);
 
   void releaseSessionOptions(OrtPtr options);
 
   /// Creates a session from a model already in memory.
   ///
-  /// Only from bytes. Loading by path would mean `ORTCHAR_T`, which is UTF-16 on
-  /// Windows, for no gain over reading the file first.
-  OrtPtr createSession(OrtPtr modelData, int modelLength, OrtPtr options);
+  /// Only from bytes. Loading by path would mean `ORTCHAR_T`, which is UTF-16
+  /// on Windows, for no gain over reading the file first.
+  OrtPtr createSession(Uint8List model, OrtPtr options);
 
   void releaseSession(OrtPtr session);
 
@@ -74,19 +59,14 @@ abstract interface class OrtCalls {
     required bool input,
   });
 
-  /// Wraps [data] as a tensor.
+  /// Creates a tensor holding a copy of [data].
   ///
-  /// **Borrows [data].** It is not copied, so the allocation must outlive the
-  /// tensor. This is the single most dangerous call in the package, which is why
-  /// nothing above this interface exposes it directly.
-  OrtPtr createTensor(
-    OrtElementType type,
-    OrtPtr data,
-    int dataLength,
-    OrtPtr dims,
-    int dimsLength,
-  );
+  /// The C call borrows its buffer rather than copying, so the backend owns a
+  /// copy for as long as the tensor lives. Keeping that inside the backend is
+  /// what stops the most dangerous rule in the C API from reaching the API.
+  OrtPtr createTensor(OrtElementType type, TypedData data, List<int> shape);
 
+  /// Reads a tensor's type, shape and contents.
   OrtTensorView tensorData(OrtPtr tensor);
 
   void releaseTensor(OrtPtr tensor);
@@ -97,22 +77,21 @@ abstract interface class OrtCalls {
 
   void releaseRunOptions(OrtPtr runOptions);
 
-  int run(
+  /// Runs [session], returning one tensor per name in [outputNames].
+  ///
+  /// The returned tensors are owned by the caller.
+  List<OrtPtr> run(
     OrtPtr session,
-    OrtPtr inputIndices,
-    OrtPtr inputs,
-    int inputCount,
-    OrtPtr outputIndices,
-    int outputCount,
-    OrtPtr outputs,
+    Map<String, OrtPtr> inputs,
+    List<String> outputNames,
     OrtPtr runOptions,
   );
 
   OrtPtr createBinding(OrtPtr session);
 
-  int bindInput(OrtPtr binding, int index, OrtPtr tensor);
+  int bindInput(OrtPtr binding, String name, OrtPtr tensor);
 
-  int bindOutput(OrtPtr binding, int index, OrtPtr tensor);
+  int bindOutput(OrtPtr binding, String name, OrtPtr tensor);
 
   void clearBoundOutputs(OrtPtr binding);
 
@@ -122,10 +101,4 @@ abstract interface class OrtCalls {
 
   /// Stops profiling and returns the file it was written to.
   String? endProfiling(OrtPtr session);
-}
-
-/// What a backend provides.
-abstract interface class OrtBackend {
-  OrtMemory get memory;
-  OrtCalls get calls;
 }
