@@ -30,14 +30,20 @@ class CompleteBuilds(unittest.TestCase):
             with self.subTest(denied), self.assertRaises(SystemExit):
                 m.assert_complete_build(["--build_shared_lib", denied])
 
-    def test_native_configurations_carry_the_common_flags(self):
+    def test_every_configuration_skips_ort_unit_tests(self):
+        # Building them roughly doubles build time and ships nothing. Web needs
+        # this as much as native does.
         for config in m.CONFIGURATIONS:
-            if not config.is_native:
-                continue
             with self.subTest(config.id):
                 args = config.build_args()
-                self.assertIn("--build_shared_lib", args)
                 self.assertIn("--skip_tests", args)
+                self.assertIn("onnxruntime_BUILD_UNIT_TESTS=OFF", args)
+
+    def test_native_configurations_build_a_shared_library(self):
+        for config in m.CONFIGURATIONS:
+            if config.is_native:
+                with self.subTest(config.id):
+                    self.assertIn("--build_shared_lib", config.build_args())
 
     def test_web_does_not_inherit_lto(self):
         # LTO does not combine well with Emscripten.

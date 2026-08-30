@@ -22,15 +22,21 @@ DENIED_FLAGS = (
     "--disable_exceptions",
 )
 
-# Native only. Web sets its own because LTO does not combine well with
-# Emscripten.
-COMMON_NATIVE_FLAGS = (
-    "--build_shared_lib",
+# Every configuration, web included. Building ORT's unit tests roughly doubles
+# build time and is not something we ship, and --skip_tests alone does not stop
+# the targets being compiled.
+COMMON_FLAGS = (
     "--parallel",
-    "--enable_lto",
     "--skip_tests",
     "--cmake_extra_defines",
     "onnxruntime_BUILD_UNIT_TESTS=OFF",
+)
+
+# Native only. LTO does not combine well with Emscripten, and the wasm build
+# produces its own artifact shape rather than a shared library.
+NATIVE_ONLY_FLAGS = (
+    "--build_shared_lib",
+    "--enable_lto",
 )
 
 
@@ -51,7 +57,7 @@ class Config:
         return self.platform != "web"
 
     def build_args(self) -> tuple[str, ...]:
-        base = COMMON_NATIVE_FLAGS if self.is_native else ()
+        base = COMMON_FLAGS + (NATIVE_ONLY_FLAGS if self.is_native else ())
         return base + self.args
 
 
@@ -151,7 +157,10 @@ CONFIGURATIONS: tuple[Config, ...] = (
         platform="windows",
         arch="arm64",
         runner="windows-11-arm",
-        args=("--use_xnnpack", "--use_webgpu"),
+        # No XNNPACK: its fp16 microkernels include arm_fp16.h, which MSVC on
+        # ARM64 does not provide. Operator coverage is unaffected because
+        # XNNPACK only accelerates kernels the CPU provider already has.
+        args=("--use_webgpu", "--compile_no_warning_as_error"),
     ),
 
     # Web. Threads need cross-origin isolation, which the embedding page may
@@ -161,20 +170,14 @@ CONFIGURATIONS: tuple[Config, ...] = (
         platform="web",
         arch="wasm32",
         runner="ubuntu-24.04",
-        args=("--build_wasm", "--enable_wasm_simd", "--skip_tests", "--parallel"),
+        args=("--build_wasm", "--enable_wasm_simd"),
     ),
     Config(
         id="web-wasm-simd-threads",
         platform="web",
         arch="wasm32",
         runner="ubuntu-24.04",
-        args=(
-            "--build_wasm",
-            "--enable_wasm_simd",
-            "--enable_wasm_threads",
-            "--skip_tests",
-            "--parallel",
-        ),
+        args=("--build_wasm", "--enable_wasm_simd", "--enable_wasm_threads"),
     ),
 )
 
