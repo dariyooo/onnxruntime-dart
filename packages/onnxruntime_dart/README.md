@@ -2,27 +2,22 @@
 
 Run ONNX machine-learning models in Dart, on any platform, without Flutter.
 
-Wraps [ONNX Runtime](https://onnxruntime.ai) 1.29.0, Microsoft's inference
-engine. If you have a `.onnx` file, this runs it.
-
-> Unreleased. `native.dart` works today. The `Session` API below is being
-> written.
+Wraps [ONNX Runtime](https://onnxruntime.ai), Microsoft's inference engine. If
+you have a `.onnx` file, this runs it.
 
 ## Install
 
-```yaml
-dependencies:
-  onnxruntime_dart: ^0.1.0
+```
+dart pub add onnxruntime_dart
 ```
 
-That is all. The engine itself is a 33 MB native library, and a build hook
-downloads the right one for your target and bundles it. You do not download a
-binary, set a path, or edit a platform folder.
+A build hook downloads and bundles the engine for native targets, and on the web
+you serve the `.wasm` yourself.
 
 ## Your first inference
 
 A model has named inputs and outputs. You pass a tensor for each input and get
-one back for each output. A tensor is a flat list plus a shape.
+one back per output. A tensor is a flat list plus a shape.
 
 ```dart
 import 'dart:io';
@@ -57,10 +52,9 @@ weighs.
 
 ### Shapes
 
-A shape is one entry per dimension, outermost first, and the flat list holds
-their product. `[1, 3, 224, 224]` is one image, three colour channels, 224 by
-224, so 150 528 values. A `-1` in a model's shape means that dimension is
-decided at run time, usually batch size.
+One entry per dimension, outermost first. `[1, 3, 224, 224]` is one image, three
+colour channels, 224 by 224, so the flat list holds 150 528 values. A `-1` means
+the model decides that dimension at run time, usually batch size.
 
 ### Types
 
@@ -79,7 +73,7 @@ Float64, float16, int8, int16, bool and string are supported too.
 
 Every build carries **every operator**: all of `ai.onnx`, `ai.onnx.ml` and the
 `com.microsoft` contrib ops, at every opset. A model that loads anywhere loads
-everywhere. Fifteen builds, all made in this repo's CI from a pinned ONNX
+everywhere. All libraries are built in this repo's CI from a pinned ONNX
 Runtime.
 
 | Platform | Architecture | Accelerators |
@@ -92,11 +86,12 @@ Runtime.
 | Windows | arm64 | none |
 | Web | wasm + SIMD, and a threaded build | none |
 
-Everything runs on CPU. The accelerators above are compiled in and used
-automatically where they help. Windows arm64 has no XNNPACK because its fp16
-kernels need `arm_fp16.h`, which MSVC does not ship.
+Everything runs on CPU. The accelerators are compiled in and used automatically.
+Windows arm64 has no XNNPACK because its fp16 kernels need `arm_fp16.h`, which
+MSVC does not ship.
 
-The threaded wasm build falls back to a single thread when the page is not
+On the web, take the `.wasm` from this repo's releases and serve it with your
+app. The threaded build falls back to one thread when the page is not
 cross-origin isolated, so ship that one unless you have a reason not to.
 
 ## Going faster on a GPU or NPU
@@ -104,8 +99,7 @@ cross-origin isolated, so ship that one unless you have a reason not to.
 An execution provider decides **where** operators run. It never adds operators,
 so switching to one cannot make a model load that did not load before.
 
-The GPU and NPU providers are separate downloads because they are separate
-binaries and most apps do not need them.
+They are separate packages because they are separate binaries.
 
 ```
 dart pub add onnxruntime_dart_ep_webgpu
@@ -139,13 +133,12 @@ around a model rather than in it: tokenizers, audio decoding, image resizing.
 final outputs = await session.run(inputs);     // returns to you immediately
 ```
 
-`run` hands the work to ONNX Runtime's own threads, so nothing is copied and no
-isolate is spawned. It needs at least two intra-op threads, which is the
-default.
+`run` hands the work to ONNX Runtime's own threads. Nothing is copied and no
+isolate is spawned.
 
-If you want your own pre- and post-processing off the UI thread too, run the
-whole pipeline in an isolate. Build the session inside it and keep it, because
-creating one optimises the model graph and is not cheap:
+To move your own pre- and post-processing off the UI thread too, run the whole
+pipeline in an isolate. Build the session inside it and keep it, because
+creating one optimises the model graph:
 
 ```dart
 Isolate.spawn(_worker, [replyPort, modelBytes]);
@@ -153,14 +146,14 @@ Isolate.spawn(_worker, [replyPort, modelBytes]);
 
 Do not call `Isolate.run` per inference. That rebuilds the session every time.
 
-On the web neither works. Dart has no isolates there, and the WebAssembly build
-has no background entry point, so `runSync` blocks and `run` throws. Run your
+Neither works on the web. Dart has no isolates there and the WebAssembly build
+has no background entry point, so `runSync` blocks and `run` throws. Run the
 whole app in a Web Worker instead.
 
 ## When you need something this API does not have
 
-Every one of ONNX Runtime's 425 C functions is available, generated from the
-same headers the libraries are built from:
+Every function in ONNX Runtime's C API is available, generated from the same
+headers the libraries are built from:
 
 ```dart
 import 'package:onnxruntime_dart/native.dart';
@@ -168,13 +161,13 @@ import 'package:onnxruntime_dart/native.dart';
 final api = ortApi().ref;
 ```
 
-This is native only. The WebAssembly build exposes a smaller, different C
-surface, so anything reached this way will not compile for the web.
+Native only. The WebAssembly build exposes a different, smaller C surface, so
+anything reached this way will not compile for the web.
 
 ## Versioning
 
 `X.Y.Z+onnxruntime-A.B.C`. The part after `+` is the ONNX Runtime version the
-package binds.
+package binds, so the engine version is always visible in the package version.
 
 ## License
 
