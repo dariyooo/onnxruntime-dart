@@ -30,6 +30,17 @@ COMMON_FLAGS = (
     "--skip_tests",
     "--cmake_extra_defines",
     "onnxruntime_BUILD_UNIT_TESTS=OFF",
+    # Provider-bridge compatibility for TensorRT, CUDA, OpenVINO, VitisAI, QNN
+    # and MIGraphX, so a user can supply one of those without us building it.
+    # RegisterExecutionProviderLibrary already loads plugin-style providers;
+    # this is what lets it also load the older bridge-style ones, which is the
+    # form Microsoft ships CUDA and TensorRT in.
+    #
+    # In every build, not just `full`: the bridge itself is already compiled in,
+    # since onnxruntime_session.cmake only excludes provider_bridge_ort.cc for
+    # minimal builds and we never make one. These flags add dispatch to code
+    # that already ships.
+    "--enable_generic_interface",
 )
 
 # Native only. LTO does not combine well with Emscripten, and the wasm build
@@ -54,21 +65,16 @@ FULL = "full"
 
 # Only in `full`, and only what genuinely cannot be loaded at run time.
 #
-# onnxruntime-extensions is deliberately absent: it loads through
-# RegisterCustomOpsLibrary_V2, so it belongs in its own package rather than in
-# every full build.
+# Two things are deliberately absent. onnxruntime-extensions loads through
+# RegisterCustomOpsLibrary_V2, so it belongs in its own package. The provider
+# interfaces are in every build, because the machinery they dispatch to is
+# already there.
 FULL_ONLY_FLAGS = (
     # On-device training: checkpoints, train and optimizer steps, exporting an
     # inference model. Behind `#ifdef ENABLE_TRAINING_APIS`, so it cannot be a
     # download. GetTrainingApi returns null in a base build, which makes
     # availability detectable at run time rather than a crash.
     "--enable_training_apis",
-    # Provider-bridge compatibility for TensorRT, CUDA, OpenVINO, VitisAI, QNN
-    # and MIGraphX. RegisterExecutionProviderLibrary already loads plugin-style
-    # providers without this; these stubs are what let it also load the older
-    # bridge-style ones, which is the form Microsoft ships CUDA and TensorRT in.
-    # Compiled-in compatibility for loading, so it cannot itself be loaded.
-    "--enable_generic_interface",
 )
 
 
