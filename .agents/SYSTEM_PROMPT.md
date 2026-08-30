@@ -6,6 +6,9 @@ Pure-Dart FFI bindings to ONNX Runtime. No Flutter dependency. Runs under `dart 
 
 ## Commands
 
+Run `./tool/check.sh` before pushing. It is everything CI checks, in order,
+and the static job gates the builds, so a formatting slip costs a whole cycle.
+
 Run from the workspace root.
 
 ```

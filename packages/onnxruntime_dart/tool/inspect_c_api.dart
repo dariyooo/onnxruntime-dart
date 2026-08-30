@@ -11,7 +11,8 @@ void main(List<String> args) {
     'onnxruntime_c_api.h',
   ).readAsStringSync();
 
-  final declared = RegExp(r'ORT_API2_STATUS\(\s*(\w+)').allMatches(header).length;
+  final declared =
+      RegExp(r'ORT_API2_STATUS\(\s*(\w+)').allMatches(header).length;
   final parsed = parseOrtApi(header);
   stdout.writeln('declared: $declared   parsed: ${parsed.length}');
 
