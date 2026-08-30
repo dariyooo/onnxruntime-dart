@@ -27,3 +27,14 @@ doc/api/
 
 .flutter-plugins
 .flutter-plugins-dependencies
+
+# Local working plan — deliberately NOT committed
+DESIGN.md
+TMP.md
+TODO.md
+
+# Locally-fetched ORT binaries used before our own builds exist (see DESIGN.md P5)
+.local/
+
+# Native build output (see .github/workflows/build-runtime.yml)
+dist/
