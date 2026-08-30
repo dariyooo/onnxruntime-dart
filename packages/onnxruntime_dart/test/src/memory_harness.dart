@@ -199,3 +199,35 @@ RssMeasurement measureRssGrowth(
     afterBytes: after,
   );
 }
+
+/// [measureRssGrowth] for work that completes asynchronously.
+///
+/// Separate because awaiting inside the loop is the point: the memory a
+/// callback frees is only freed once the event loop has run it, so a
+/// synchronous loop would measure the queue rather than the leak.
+Future<RssMeasurement> measureRssGrowthAsync(
+  Future<void> Function() body, {
+  int iterations = 500,
+  int warmup = 50,
+}) async {
+  RangeError.checkNotNegative(warmup, 'warmup');
+  if (iterations < 1) {
+    throw RangeError.value(iterations, 'iterations', 'must be at least 1');
+  }
+
+  for (var i = 0; i < warmup; i++) {
+    await body();
+  }
+  final before = ProcessInfo.currentRss;
+  for (var i = 0; i < iterations; i++) {
+    await body();
+  }
+  final after = ProcessInfo.currentRss;
+
+  return RssMeasurement(
+    growthBytes: after - before,
+    iterations: iterations,
+    beforeBytes: before,
+    afterBytes: after,
+  );
+}

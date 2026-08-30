@@ -15,7 +15,17 @@ export '../exceptions.dart' show OrtException;
 /// Every fallible call returns an OrtStatus that the caller owns, so releasing
 /// on both paths is the only correct handling.
 void checkStatus(OrtApi api, Pointer<OrtStatus> status) {
-  if (status == nullptr) return;
+  final failure = readStatus(api, status);
+  if (failure != null) throw failure;
+}
+
+/// Reads [status] and releases it, returning the failure it described.
+///
+/// Separate from [checkStatus] because a status delivered to a callback cannot
+/// be thrown: there is nobody to catch it. There it becomes the error a Future
+/// completes with instead.
+OrtException? readStatus(OrtApi api, Pointer<OrtStatus> status) {
+  if (status == nullptr) return null;
 
   final code =
       api.GetErrorCode.asFunction<int Function(Pointer<OrtStatus>)>()(status);
@@ -25,5 +35,5 @@ void checkStatus(OrtApi api, Pointer<OrtStatus> status) {
       .toDartString();
   api.ReleaseStatus.asFunction<void Function(Pointer<OrtStatus>)>()(status);
 
-  throw OrtException(code, message);
+  return OrtException(code, message);
 }

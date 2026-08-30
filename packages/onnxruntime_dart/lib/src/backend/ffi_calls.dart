@@ -6,9 +6,12 @@
 /// cannot know, which is ownership.
 library;
 
+import 'dart:async';
 import 'dart:convert';
 import 'dart:ffi';
 import 'dart:typed_data';
+
+import 'package:ffi/ffi.dart';
 
 import '../bindings/api/api.g.dart';
 import '../bindings/api/support.dart';
@@ -23,7 +26,7 @@ import 'types.dart';
 OrtCalls createCalls() => FfiCalls();
 
 /// `OrtCalls` implemented against the ONNX Runtime C API.
-final class FfiCalls implements OrtCalls {
+final class FfiCalls implements OrtCalls, OrtAsyncCalls {
   FfiCalls._(this._environment);
 
   static FfiCalls? _instance;
@@ -77,6 +80,10 @@ final class FfiCalls implements OrtCalls {
         name,
         dimension,
       );
+
+  @override
+  void setIntraOpNumThreads(OrtPtr options, int threads) =>
+      _api.setIntraOpNumThreads(_as<OrtSessionOptions>(options), threads);
 
   @override
   void releaseSessionOptions(OrtPtr options) =>
@@ -313,6 +320,85 @@ final class FfiCalls implements OrtCalls {
       });
 
   @override
+  Future<List<OrtPtr>> runAsync(
+    OrtPtr session,
+    Map<String, OrtPtr> inputs,
+    List<String> outputNames,
+    OrtPtr runOptions,
+  ) {
+    // Everything the call touches has to outlive it: ORT reads the name and
+    // value arrays on its own thread and writes the outputs there too, long
+    // after this function has returned. So it is malloc, freed once in the
+    // callback, rather than an arena scoped to the call.
+    final arrays = _AsyncArrays(inputs, outputNames);
+    final completer = Completer<List<OrtPtr>>();
+
+    late final NativeCallable<RunAsyncCallbackFnFunction> callback;
+    void complete(
+      Pointer<Void> _,
+      Pointer<Pointer<OrtValue>> outputs,
+      int count,
+      Pointer<OrtStatus> status,
+    ) {
+      // Runs on the calling isolate's event loop, not ORT's thread, because
+      // the callable is a listener. Ordinary Dart rules apply here.
+      final failure = readStatus(_api, status);
+      final results = failure != null
+          ? const <OrtPtr>[]
+          : [for (var i = 0; i < count; i++) _ptr(outputs[i])];
+
+      arrays.free();
+      callback.close();
+
+      if (failure != null) {
+        completer.completeError(failure);
+      } else {
+        completer.complete(results);
+      }
+    }
+
+    callback = NativeCallable<RunAsyncCallbackFnFunction>.listener(complete);
+
+    try {
+      checkStatus(
+        _api,
+        _api.RunAsync.asFunction<
+            Pointer<OrtStatus> Function(
+              Pointer<OrtSession>,
+              Pointer<OrtRunOptions>,
+              Pointer<Pointer<Char>>,
+              Pointer<Pointer<OrtValue>>,
+              int,
+              Pointer<Pointer<Char>>,
+              int,
+              Pointer<Pointer<OrtValue>>,
+              RunAsyncCallbackFn,
+              Pointer<Void>,
+            )>()(
+          _as<OrtSession>(session),
+          _as<OrtRunOptions>(runOptions),
+          arrays.inputNames,
+          arrays.inputs,
+          inputs.length,
+          arrays.outputNames,
+          outputNames.length,
+          arrays.outputs,
+          callback.nativeFunction,
+          nullptr,
+        ),
+      );
+    } on Object {
+      // The call never started, so the callback will not fire and nothing else
+      // will clean up after it.
+      arrays.free();
+      callback.close();
+      rethrow;
+    }
+
+    return completer.future;
+  }
+
+  @override
   OrtPtr createBinding(OrtPtr session) =>
       _ptr(_api.createIoBinding(_as<OrtSession>(session)));
 
@@ -351,6 +437,62 @@ final class FfiCalls implements OrtCalls {
   /// The tensor's own buffer, as bytes. Borrowed: valid while the tensor is.
   Uint8List _tensorBytes(Pointer<OrtValue> tensor, int length) =>
       _api.getTensorMutableData(tensor).cast<Uint8>().asTypedList(length);
+}
+
+/// The arrays `RunAsync` borrows until its callback fires.
+///
+/// One owner, one free. Grouped rather than tracked as eight locals because
+/// the failure mode of missing one is a leak per call.
+final class _AsyncArrays {
+  _AsyncArrays(Map<String, OrtPtr> inputs, List<String> outputNames)
+      : inputNames = _strings(inputs.keys),
+        outputNames = _strings(outputNames),
+        inputs = calloc<Pointer<OrtValue>>(_atLeastOne(inputs.length)),
+        outputs = calloc<Pointer<OrtValue>>(_atLeastOne(outputNames.length)),
+        _inputCount = inputs.length,
+        _outputCount = outputNames.length {
+    var i = 0;
+    for (final value in inputs.values) {
+      this.inputs[i++] = _as<OrtValue>(value);
+    }
+  }
+
+  final Pointer<Pointer<Char>> inputNames;
+  final Pointer<Pointer<Char>> outputNames;
+  final Pointer<Pointer<OrtValue>> inputs;
+  final Pointer<Pointer<OrtValue>> outputs;
+  final int _inputCount;
+  final int _outputCount;
+
+  var _freed = false;
+
+  void free() {
+    if (_freed) return;
+    _freed = true;
+    for (var i = 0; i < _inputCount; i++) {
+      calloc.free(inputNames[i]);
+    }
+    for (var i = 0; i < _outputCount; i++) {
+      calloc.free(outputNames[i]);
+    }
+    calloc
+      ..free(inputNames)
+      ..free(outputNames)
+      ..free(inputs)
+      ..free(outputs);
+  }
+
+  static Pointer<Pointer<Char>> _strings(Iterable<String> values) {
+    final list = values.toList();
+    final array = calloc<Pointer<Char>>(_atLeastOne(list.length));
+    for (var i = 0; i < list.length; i++) {
+      array[i] = list[i].toNativeUtf8(allocator: calloc).cast();
+    }
+    return array;
+  }
+
+  /// `calloc<T>(0)` is not meaningful, and a model can take no inputs.
+  static int _atLeastOne(int count) => count == 0 ? 1 : count;
 }
 
 Pointer<T> _as<T extends NativeType>(OrtPtr pointer) =>
