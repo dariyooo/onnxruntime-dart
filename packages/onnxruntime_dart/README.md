@@ -82,13 +82,11 @@ Runtime.
 | iOS | arm64 device, arm64 simulator, x86_64 simulator | XNNPACK, CoreML |
 | macOS | arm64, x86_64 | XNNPACK, CoreML |
 | Linux | x64, arm64 | XNNPACK |
-| Windows | x64 | XNNPACK |
-| Windows | arm64 | none |
-| Web | wasm + SIMD, and a threaded build | none |
+| Windows | x64, arm64 | XNNPACK |
+| Web | wasm + SIMD, and a threaded build | XNNPACK |
 
-Everything runs on CPU. The accelerators are compiled in and used automatically.
-Windows arm64 has no XNNPACK because its fp16 kernels need `arm_fp16.h`, which
-MSVC does not ship.
+Everything runs on CPU. The accelerators are compiled in and used
+automatically.
 
 ## Web
 
