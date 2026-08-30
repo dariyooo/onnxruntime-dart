@@ -65,6 +65,11 @@ they are added: build, then test what was built.
 Exactly one conditional import, in `lib/src/backend/backend.dart`. Everything
 above the seam is shared between native and web.
 
+The seam limits what web can implement, not what the API may declare. A portable
+call that WebAssembly cannot support throws `UnsupportedError` there, the way
+`Isolate.spawn` does. Do not shrink the API to the intersection of both
+backends, and do not let a web gap go silent.
+
 Two public libraries. `native.dart` exports the generated C API, so every
 `OrtApi` function is reachable by construction rather than by effort.
 `onnxruntime_dart.dart` is the ergonomic layer, built on it, covering the common
