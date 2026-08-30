@@ -137,7 +137,7 @@ final session = await Session.fromBytes(model, options: const SessionOptions(
 Register providers before creating a session. Registration mutates
 process-global state and racing it against session creation crashes.
 
-Two are packaged for convenience, so you do not fetch or version them yourself:
+The common ones are packaged, so you do not fetch or version them yourself:
 
 | Package | Runs work on | Platforms |
 | --- | --- | --- |
@@ -154,9 +154,9 @@ import 'package:onnxruntime_dart_ep_webgpu/onnxruntime_dart_ep_webgpu.dart';
 registerWebGpu();   // the same call, with the path filled in for you
 ```
 
-Everything else, CUDA, TensorRT, OpenVINO and the rest, you supply. Microsoft
-ships those as separate downloads too, and building every provider for every
-platform is not something anyone does.
+Vendor-specific providers are not packaged and will not be. CANN, ROCm, VitisAI
+and RKNPU each target one vendor's hardware, and building them for every
+platform is not something we or Microsoft do. Load those with the call above.
 
 There is also `onnxruntime_dart_extensions`, which adds operators for the work
 around a model rather than in it: tokenizers, audio decoding, image resizing.
