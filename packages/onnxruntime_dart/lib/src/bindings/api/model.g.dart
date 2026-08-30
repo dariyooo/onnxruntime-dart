@@ -21,7 +21,7 @@ extension OrtApiModelApi on OrtApi {
                 Pointer<OrtModelMetadata>,
                 Pointer<OrtAllocator>,
                 Pointer<Pointer<Char>>)>()(modelMetadata, allocator, out0));
-        return takeAllocatedString(out0);
+        return takeAllocatedString(out0, allocator);
       });
 
   /// `ModelMetadataGetGraphName`
@@ -34,7 +34,7 @@ extension OrtApiModelApi on OrtApi {
                 Pointer<OrtModelMetadata>,
                 Pointer<OrtAllocator>,
                 Pointer<Pointer<Char>>)>()(modelMetadata, allocator, out0));
-        return takeAllocatedString(out0);
+        return takeAllocatedString(out0, allocator);
       });
 
   /// `ModelMetadataGetDomain`
@@ -47,7 +47,7 @@ extension OrtApiModelApi on OrtApi {
                 Pointer<OrtModelMetadata>,
                 Pointer<OrtAllocator>,
                 Pointer<Pointer<Char>>)>()(modelMetadata, allocator, out0));
-        return takeAllocatedString(out0);
+        return takeAllocatedString(out0, allocator);
       });
 
   /// `ModelMetadataGetDescription`
@@ -60,7 +60,7 @@ extension OrtApiModelApi on OrtApi {
                 Pointer<OrtModelMetadata>,
                 Pointer<OrtAllocator>,
                 Pointer<Pointer<Char>>)>()(modelMetadata, allocator, out0));
-        return takeAllocatedString(out0);
+        return takeAllocatedString(out0, allocator);
       });
 
   /// `ModelMetadataLookupCustomMetadataMap`
@@ -77,7 +77,7 @@ extension OrtApiModelApi on OrtApi {
                     Pointer<Char>,
                     Pointer<Pointer<Char>>)>()(modelMetadata, allocator,
             key.toNativeUtf8(allocator: arena).cast(), out0));
-        return takeAllocatedString(out0);
+        return takeAllocatedString(out0, allocator);
       });
 
   /// `ModelMetadataGetVersion`
@@ -101,7 +101,7 @@ extension OrtApiModelApi on OrtApi {
                 Pointer<OrtModelMetadata>,
                 Pointer<OrtAllocator>,
                 Pointer<Pointer<Char>>)>()(modelMetadata, allocator, out0));
-        return takeAllocatedString(out0);
+        return takeAllocatedString(out0, allocator);
       });
 
   /// `ReleaseModelMetadata`

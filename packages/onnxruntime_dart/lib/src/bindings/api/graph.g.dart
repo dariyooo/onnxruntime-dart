@@ -43,7 +43,7 @@ extension OrtApiGraphApi on OrtApi {
                 int,
                 Pointer<OrtAllocator>,
                 Pointer<Pointer<Char>>)>()(session, index, allocator, out0));
-        return takeAllocatedString(out0);
+        return takeAllocatedString(out0, allocator);
       });
 
   /// `AddInitializer`

@@ -83,24 +83,19 @@ Pointer<Size> nativeSizes(List<int> values, Arena arena) {
   return array;
 }
 
-/// Reads a string the allocator owns, and frees it.
+/// Reads a string [allocator] owns, and frees it with the same allocator.
 ///
 /// `SessionGetInputName` and its kin hand back memory the caller must return,
-/// so reading without freeing leaks one name per call.
-String takeAllocatedString(Pointer<Pointer<Char>> out) {
+/// so reading without freeing leaks one name per call. Freeing it with a
+/// different allocator than produced it is worse, which is why the allocator is
+/// passed in rather than looked up.
+String takeAllocatedString(
+  Pointer<Pointer<Char>> out,
+  Pointer<OrtAllocator> allocator,
+) {
   final value = out.value.cast<Utf8>().toDartString();
   ortApiForStatus.AllocatorFree.asFunction<
-          Pointer<OrtStatus> Function(Pointer<OrtAllocator>, Pointer<Void>)>()(
-      _defaultAllocator, out.value.cast());
+      Pointer<OrtStatus> Function(
+          Pointer<OrtAllocator>, Pointer<Void>)>()(allocator, out.value.cast());
   return value;
 }
-
-Pointer<OrtAllocator> get _defaultAllocator => withArena((arena) {
-      final out = arena<Pointer<Pointer<OrtAllocator>>>();
-      checkOrtStatus(
-        ortApiForStatus.GetAllocatorWithDefaultOptions.asFunction<
-            Pointer<OrtStatus> Function(
-                Pointer<Pointer<OrtAllocator>>)>()(out.cast()),
-      );
-      return out.cast<Pointer<OrtAllocator>>().value;
-    });

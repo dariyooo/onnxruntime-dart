@@ -170,11 +170,16 @@ void main() {
     });
 
     test('allocator strings are freed, runtime strings are not', () {
-      final owned = map(parameter('char**', Direction.output));
-      final borrowed = map(parameter('const char**', Direction.output));
-      expect(
-          (owned as OutputMapping).read('p'), contains('takeAllocatedString'));
-      expect((borrowed as OutputMapping).read('p'), contains('toDartString'));
+      // char** with an allocator is memory the caller must return. const
+      // char** is borrowed from the object and freeing it would be a fault.
+      final owned = map(parameter('char**', Direction.output)) as OutputMapping;
+      final borrowed =
+          map(parameter('const char**', Direction.output)) as OutputMapping;
+
+      expect(owned.read('p'), contains('takeAllocatedString'));
+      expect(owned.needsAllocator, isTrue);
+      expect(borrowed.read('p'), contains('toDartString'));
+      expect(borrowed.needsAllocator, isFalse);
     });
 
     test('paths marshal through the ORTCHAR_T helper', () {
@@ -253,6 +258,30 @@ void main() {
       );
       expect(code, contains('Borrows, does not copy'));
       expect(code, contains('must outlive'));
+    });
+
+    test('frees with the allocator the call was given', () {
+      // Freeing with the default allocator when the caller passed another is
+      // a mismatched free, and it works right up until someone passes one.
+      final code = emit(
+        CFunction(
+          name: 'SessionGetInputName',
+          parameters: [
+            CParameter(
+              name: 'allocator',
+              type: 'OrtAllocator*',
+              direction: Direction.inout,
+            ),
+            CParameter(
+              name: 'value',
+              type: 'char**',
+              direction: Direction.output,
+            ),
+          ],
+        ),
+        ['Pointer<OrtAllocator>', 'Pointer<Pointer<Char>>'],
+      );
+      expect(code, contains('takeAllocatedString(out0, allocator)'));
     });
 
     test('the warnings name functions that exist', () {

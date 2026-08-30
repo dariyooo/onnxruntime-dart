@@ -162,7 +162,7 @@ extension OrtApiSessionApi on OrtApi {
                 int,
                 Pointer<OrtAllocator>,
                 Pointer<Pointer<Char>>)>()(session, index, allocator, out0));
-        return takeAllocatedString(out0);
+        return takeAllocatedString(out0, allocator);
       });
 
   /// `SessionGetOutputName`
@@ -176,7 +176,7 @@ extension OrtApiSessionApi on OrtApi {
                 int,
                 Pointer<OrtAllocator>,
                 Pointer<Pointer<Char>>)>()(session, index, allocator, out0));
-        return takeAllocatedString(out0);
+        return takeAllocatedString(out0, allocator);
       });
 
   /// `SessionEndProfiling`
@@ -189,7 +189,7 @@ extension OrtApiSessionApi on OrtApi {
                 Pointer<OrtSession>,
                 Pointer<OrtAllocator>,
                 Pointer<Pointer<Char>>)>()(session, allocator, out0));
-        return takeAllocatedString(out0);
+        return takeAllocatedString(out0, allocator);
       });
 
   /// `SessionGetModelMetadata`

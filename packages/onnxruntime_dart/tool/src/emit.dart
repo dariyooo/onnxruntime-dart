@@ -189,11 +189,24 @@ String? emit(CFunction function, Signature signature) {
     ..write(allocations)
     ..writeln('        $statement;');
 
+  // Which allocator this call was handed, for the reads that free with it.
+  final allocator = function.parameters
+      .where((p) => p.type.contains('OrtAllocator'))
+      .map((p) => _dartParam(p.name))
+      .firstOrNull;
+
   String read(CParameter parameter, OutputMapping mapping, int index) {
     final length = parameter.arrayLengthParameter;
-    return length == null
+    final text = length == null
         ? mapping.read(_out(index))
         : mapping.readAll(_out(index), _dartParam(length));
+    if (!mapping.needsAllocator) return text;
+    if (allocator == null) {
+      throw StateError(
+        '${function.name} frees allocator memory but takes no allocator',
+      );
+    }
+    return text.replaceAll('ALLOCATOR', allocator);
   }
 
   switch (outputs.length) {
