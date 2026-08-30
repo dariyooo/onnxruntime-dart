@@ -21,6 +21,30 @@ final class UnsupportedTarget implements Exception {
       '${supportedTargets.join(', ')}.';
 }
 
+/// The libraries we publish per platform.
+///
+/// [base] carries every operator and every provider we build, which is what
+/// almost every app wants. [full] adds what cannot be loaded at run time, which
+/// today is on-device training.
+enum OrtVariant {
+  base(''),
+  full('-full');
+
+  const OrtVariant(this.suffix);
+
+  /// Appended to a target identifier to name the asset.
+  final String suffix;
+
+  static OrtVariant byName(String name) => values.firstWhere(
+        (v) => v.name == name,
+        orElse: () => throw ArgumentError.value(
+          name,
+          'variant',
+          'expected one of ${values.map((v) => v.name).join(', ')}',
+        ),
+      );
+}
+
 /// Identifiers of every configuration we build, matching the release assets.
 const supportedTargets = <String>[
   'android-arm64-v8a',
@@ -41,11 +65,13 @@ const supportedTargets = <String>[
 /// The configuration identifier for a target.
 ///
 /// [iosSdk] distinguishes an iOS device build from a simulator build, which are
-/// different artifacts for the same architecture.
+/// different artifacts for the same architecture. [variant] selects which
+/// library, and defaults to the one almost every app wants.
 String targetId({
   required OS os,
   required Architecture architecture,
   IOSSdk? iosSdk,
+  OrtVariant variant = OrtVariant.base,
 }) {
   final id = switch ((os, architecture)) {
     (OS.android, Architecture.arm64) => 'android-arm64-v8a',
@@ -72,7 +98,7 @@ String targetId({
     _ => throw UnsupportedTarget(os, architecture),
   };
   assert(supportedTargets.contains(id));
-  return id;
+  return '$id${variant.suffix}';
 }
 
 /// File name of the shared library on [os].

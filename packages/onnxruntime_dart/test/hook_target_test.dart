@@ -100,4 +100,51 @@ void main() {
       expect(url.scheme, 'https');
     });
   });
+
+  group('variants', () {
+    test('base is the default and adds no suffix', () {
+      expect(
+        targetId(os: OS.linux, architecture: Architecture.x64),
+        'linux-x64',
+      );
+    });
+
+    test('full names a different asset', () {
+      // A different library, so it must not resolve to the base one.
+      expect(
+        targetId(
+          os: OS.linux,
+          architecture: Architecture.x64,
+          variant: OrtVariant.full,
+        ),
+        'linux-x64-full',
+      );
+    });
+
+    test('every supported target has both variants', () {
+      for (final base in supportedTargets) {
+        expect('$base${OrtVariant.base.suffix}', base);
+        expect('$base${OrtVariant.full.suffix}', '$base-full');
+      }
+    });
+
+    test('an unknown variant is refused, listing the real ones', () {
+      expect(
+        () => OrtVariant.byName('everything'),
+        throwsA(
+          isA<ArgumentError>().having(
+            (e) => e.toString(),
+            'message',
+            allOf(contains('base'), contains('full')),
+          ),
+        ),
+      );
+    });
+
+    test('names match what the build matrix produces', () {
+      // ort_matrix.py appends "-full" to build the full configuration id.
+      expect(OrtVariant.base.suffix, '');
+      expect(OrtVariant.full.suffix, '-full');
+    });
+  });
 }

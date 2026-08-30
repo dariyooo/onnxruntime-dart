@@ -32,6 +32,7 @@ void main(List<String> args) async {
       os: code.targetOS,
       architecture: code.targetArchitecture,
       iosSdk: code.targetOS == OS.iOS ? code.iOS.targetSdk : null,
+      variant: _variant(input),
     );
 
     final library = await _resolveLibrary(input, target, code.targetOS);
@@ -46,6 +47,21 @@ void main(List<String> args) async {
       ),
     );
   });
+}
+
+/// Which library to install, from user-defines.
+///
+/// Defaults to the standard one. `full` adds on-device training, which cannot
+/// be a separate download because it is compiled in behind an ifdef.
+OrtVariant _variant(BuildInput input) {
+  final name = input.userDefines['variant'];
+  if (name == null) return OrtVariant.base;
+  if (name is! String) {
+    throw StateError(
+      'onnxruntime_dart: variant must be a string, got ${name.runtimeType}',
+    );
+  }
+  return OrtVariant.byName(name);
 }
 
 /// Returns the library for [target], or null when none is available yet.
