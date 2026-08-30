@@ -333,39 +333,22 @@ final class OrtTensor {
     TypedData data,
     List<int> shape,
   ) {
-    final width = type.byteWidth;
-    if (width == null) {
+    if (type == OrtElementType.string) {
       throw ArgumentError.value(
         type,
         'type',
-        'has no fixed-width representation; use OrtTensor.fromStrings',
-      );
-    }
-    final expected = shape.fold(1, (a, b) => a * b);
-    if (data.lengthInBytes != expected * width) {
-      throw ArgumentError.value(
-        data,
-        'data',
-        'holds ${data.lengthInBytes} bytes, but $shape of ${type.name} '
-            'needs ${expected * width}',
+        'strings are not stored as bytes; use OrtTensor.fromStrings',
       );
     }
 
+    // The size check lives with the write, in the backend, because that is
+    // where getting it wrong runs off the end of an allocation.
     final calls = createCalls()..init();
     return OrtTensor._(calls, calls.createTensor(type, data, shape));
   }
 
   /// Creates a string tensor holding [values], laid out row-major.
   factory OrtTensor.fromStrings(List<String> values, List<int> shape) {
-    final expected = shape.fold(1, (a, b) => a * b);
-    if (values.length != expected) {
-      throw ArgumentError.value(
-        values,
-        'values',
-        'holds ${values.length} strings, but $shape needs $expected',
-      );
-    }
-
     final calls = createCalls()..init();
     return OrtTensor._(calls, calls.createStringTensor(values, shape));
   }
