@@ -22,6 +22,10 @@ BUILD_DIR = REPO_ROOT / "build"
 
 # cmake/deps.txt vendors ~40 dependencies. A stable FetchContent directory lets
 # actions/cache reuse them between runs.
+#
+# One directory per configuration, never one per job. FetchContent puts compiled
+# archives here, not only downloaded sources, so sharing it between the four
+# Android ABIs links x86_64 objects into the 32-bit x86 build.
 DEPS_CACHE = (
     pathlib.Path("C:/deps") if sys.platform == "win32"
     else pathlib.Path.home() / ".onnxruntime_deps"
@@ -45,7 +49,7 @@ def build(config: ort_matrix.Config) -> None:
     args = list(config.build_args())
     ort_matrix.assert_complete_build(args)
 
-    DEPS_CACHE.mkdir(parents=True, exist_ok=True)
+    (DEPS_CACHE / config.id).mkdir(parents=True, exist_ok=True)
 
     command = [
         sys.executable,
@@ -54,7 +58,7 @@ def build(config: ort_matrix.Config) -> None:
         # configurations do not overwrite one another's output.
         "--build_dir", str(BUILD_DIR / config.id),
         "--config", os.environ.get("ORT_BUILD_CONFIG", "Release"),
-        "--cmake_extra_defines", f"FETCHCONTENT_BASE_DIR={DEPS_CACHE}",
+        "--cmake_extra_defines", f"FETCHCONTENT_BASE_DIR={DEPS_CACHE / config.id}",
         # CMake 4 refuses projects declaring cmake_minimum_required below 3.5.
         # Several vendored dependencies still do, psimd among them. ORT applies
         # the same override in its own build images.
