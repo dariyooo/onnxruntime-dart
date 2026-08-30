@@ -46,6 +46,11 @@ final class OutputMapping extends Mapping {
 
   /// Dart expression reading the result, given the allocated pointer name.
   final String Function(String pointer) read;
+
+  /// Dart expression reading [count] results, for a parameter the call writes
+  /// an array into.
+  String readAll(String pointer, String count) =>
+      'List.generate($count, (i) => ${read('($pointer + i)')})';
 }
 
 String _readValue(String pointer) => '$pointer.value';
@@ -61,27 +66,6 @@ final _handle = RegExp(r'^(?:const\s+)?(Ort\w+)\s*\*$');
 
 /// A pointer to a handle, such as `OrtSession**`, which is how they come back.
 final _handleOut = RegExp(r'^(?:const\s+)?(Ort\w+)\s*\*\s*\*$');
-
-/// C enums, which cross as their underlying integer.
-///
-/// ffigen emits Dart enums for these, but the function pointers take the raw
-/// value, so the boundary deals in ints and the typed enum sits above it.
-const _enums = {
-  'OrtLoggingLevel',
-  'ONNXTensorElementDataType',
-  'ONNXType',
-  'OrtAllocatorType',
-  'OrtMemType',
-  'OrtDeviceMemoryType',
-  'OrtErrorCode',
-  'OrtSparseFormat',
-  'GraphOptimizationLevel',
-  'ExecutionMode',
-  'OrtLanguageProjection',
-  'OrtHardwareDeviceType',
-  'OrtExecutionProviderDevicePolicy',
-  'OrtCompiledModelFormat',
-};
 
 /// C scalars that cross as a Dart primitive. Which primitive, and how wide, is
 /// the ffigen signature's call rather than this list's.
@@ -105,7 +89,9 @@ Mapping map(CParameter parameter) {
       .replaceAll(RegExp(r'\s+'), ' ')
       .trim();
 
-  if (parameter.direction == Direction.output) return _mapOutput(type);
+  if (parameter.direction == Direction.output) {
+    return _mapOutput(type, parameter);
+  }
   return _mapInput(type, parameter);
 }
 
@@ -123,8 +109,11 @@ Mapping _mapInput(String type, CParameter parameter) {
   if (type == 'const char* const*') {
     return InputMapping('List<String>', (n) => 'nativeStrings($n, arena)');
   }
-  if (_scalars.contains(type)) return const InputMapping.scalar();
-  if (_enums.contains(_bareEnum(type))) return const InputMapping.scalar();
+  // An enum crosses as its underlying integer: the function pointer takes the
+  // raw value, and the typed enum sits above this boundary.
+  if (_scalars.contains(type) || parameter.isEnum) {
+    return const InputMapping.scalar();
+  }
   // Integer arrays, always paired with a length parameter the caller passes.
   if (type == 'const int64_t*' || type == 'int64_t*') {
     return InputMapping('List<int>', (n) => 'nativeInt64s($n, arena)');
@@ -153,23 +142,22 @@ Mapping _mapInput(String type, CParameter parameter) {
   return Unmapped('input $type');
 }
 
-String _bareEnum(String type) =>
-    type.replaceFirst(RegExp(r'^(?:const\s+)?enum\s+'), '').trim();
-
-Mapping _mapOutput(String type) {
-  final bare = _bareEnum(type.replaceFirst(RegExp(r'\s*\*$'), ''));
-  if (type.endsWith('*') && _enums.contains(bare)) {
+Mapping _mapOutput(String type, CParameter parameter) {
+  if (type.endsWith('*') && parameter.isEnum) {
     return const OutputMapping.scalar();
   }
   // Runtime-owned, unlike char** which comes from the allocator and must be
   // freed. Reading it is enough.
-  if (type == 'const char**') {
+  // A trailing `const` qualifies the pointer, not what it points at, so it
+  // makes no difference to how the value is read.
+  final normalised = type.replaceFirst(RegExp(r'\s*const$'), '');
+  if (normalised == 'const char**') {
     return OutputMapping(
       'String',
       (p) => '$p.value.cast<Utf8>().toDartString()',
     );
   }
-  if (type == 'char**') {
+  if (normalised == 'char**') {
     // Allocator memory. Reading it is not enough, it has to be freed.
     return OutputMapping('String', (p) => 'takeAllocatedString($p)');
   }
@@ -181,7 +169,7 @@ Mapping _mapOutput(String type) {
   if (handle != null) {
     return OutputMapping('Pointer<${handle.group(1)}>', (p) => '$p.value');
   }
-  if (type == 'void**') {
+  if (normalised == 'void**' || normalised == 'const void**') {
     return OutputMapping('Pointer<Void>', (p) => '$p.value');
   }
   return Unmapped('output $type');

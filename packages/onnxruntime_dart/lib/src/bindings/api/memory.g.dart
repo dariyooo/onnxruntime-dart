@@ -13,35 +13,23 @@ import 'support.dart';
 extension OrtApiMemoryApi on OrtApi {
   /// `EnableMemPattern`
   void enableMemPattern(Pointer<OrtSessionOptions> options) =>
-      withArena((arena) {
-        checkOrtStatus(this.EnableMemPattern.asFunction<
-            Pointer<OrtStatus> Function(
-                Pointer<OrtSessionOptions>)>()(options));
-      });
+      checkOrtStatus(this.EnableMemPattern.asFunction<
+          Pointer<OrtStatus> Function(Pointer<OrtSessionOptions>)>()(options));
 
   /// `DisableMemPattern`
   void disableMemPattern(Pointer<OrtSessionOptions> options) =>
-      withArena((arena) {
-        checkOrtStatus(this.DisableMemPattern.asFunction<
-            Pointer<OrtStatus> Function(
-                Pointer<OrtSessionOptions>)>()(options));
-      });
+      checkOrtStatus(this.DisableMemPattern.asFunction<
+          Pointer<OrtStatus> Function(Pointer<OrtSessionOptions>)>()(options));
 
   /// `EnableCpuMemArena`
   void enableCpuMemArena(Pointer<OrtSessionOptions> options) =>
-      withArena((arena) {
-        checkOrtStatus(this.EnableCpuMemArena.asFunction<
-            Pointer<OrtStatus> Function(
-                Pointer<OrtSessionOptions>)>()(options));
-      });
+      checkOrtStatus(this.EnableCpuMemArena.asFunction<
+          Pointer<OrtStatus> Function(Pointer<OrtSessionOptions>)>()(options));
 
   /// `DisableCpuMemArena`
   void disableCpuMemArena(Pointer<OrtSessionOptions> options) =>
-      withArena((arena) {
-        checkOrtStatus(this.DisableCpuMemArena.asFunction<
-            Pointer<OrtStatus> Function(
-                Pointer<OrtSessionOptions>)>()(options));
-      });
+      checkOrtStatus(this.DisableCpuMemArena.asFunction<
+          Pointer<OrtStatus> Function(Pointer<OrtSessionOptions>)>()(options));
 
   /// `CreateMemoryInfo`
   Pointer<OrtMemoryInfo> createMemoryInfo(
@@ -128,11 +116,9 @@ extension OrtApiMemoryApi on OrtApi {
 
   /// `AllocatorFree`
   void allocatorFree(Pointer<OrtAllocator> ortAllocator, Pointer<Void> p) =>
-      withArena((arena) {
-        checkOrtStatus(this.AllocatorFree.asFunction<
-            Pointer<OrtStatus> Function(
-                Pointer<OrtAllocator>, Pointer<Void>)>()(ortAllocator, p));
-      });
+      checkOrtStatus(this.AllocatorFree.asFunction<
+          Pointer<OrtStatus> Function(
+              Pointer<OrtAllocator>, Pointer<Void>)>()(ortAllocator, p));
 
   /// `AllocatorGetInfo`
   Pointer<OrtMemoryInfo> allocatorGetInfo(Pointer<OrtAllocator> ortAllocator) =>
@@ -267,20 +253,16 @@ extension OrtApiMemoryApi on OrtApi {
   /// `RegisterAllocator`
   void registerAllocator(
           Pointer<OrtEnv> env, Pointer<OrtAllocator> allocator) =>
-      withArena((arena) {
-        checkOrtStatus(this.RegisterAllocator.asFunction<
-            Pointer<OrtStatus> Function(
-                Pointer<OrtEnv>, Pointer<OrtAllocator>)>()(env, allocator));
-      });
+      checkOrtStatus(this.RegisterAllocator.asFunction<
+          Pointer<OrtStatus> Function(
+              Pointer<OrtEnv>, Pointer<OrtAllocator>)>()(env, allocator));
 
   /// `UnregisterAllocator`
   void unregisterAllocator(
           Pointer<OrtEnv> env, Pointer<OrtMemoryInfo> memInfo) =>
-      withArena((arena) {
-        checkOrtStatus(this.UnregisterAllocator.asFunction<
-            Pointer<OrtStatus> Function(
-                Pointer<OrtEnv>, Pointer<OrtMemoryInfo>)>()(env, memInfo));
-      });
+      checkOrtStatus(this.UnregisterAllocator.asFunction<
+          Pointer<OrtStatus> Function(
+              Pointer<OrtEnv>, Pointer<OrtMemoryInfo>)>()(env, memInfo));
 
   /// `GetTensorMemoryInfo`
   Pointer<OrtMemoryInfo> getTensorMemoryInfo(Pointer<OrtValue> value) =>
@@ -331,6 +313,31 @@ extension OrtApiMemoryApi on OrtApi {
         return out0.value;
       });
 
+  /// `CreateMemoryInfo_V2`
+  Pointer<OrtMemoryInfo> createMemoryInfo_V2(
+          String name,
+          int deviceType,
+          int vendorId,
+          int deviceId,
+          int memType,
+          int alignment,
+          int allocatorType) =>
+      withArena((arena) {
+        final out0 = arena<Pointer<OrtMemoryInfo>>();
+        checkOrtStatus(this.CreateMemoryInfo_V2.asFunction<
+                Pointer<OrtStatus> Function(Pointer<Char>, int, int, int, int,
+                    int, int, Pointer<Pointer<OrtMemoryInfo>>)>()(
+            name.toNativeUtf8(allocator: arena).cast(),
+            deviceType,
+            vendorId,
+            deviceId,
+            memType,
+            alignment,
+            allocatorType,
+            out0));
+        return out0.value;
+      });
+
   /// `CreateSharedAllocator`
   Pointer<OrtAllocator> createSharedAllocator(
           Pointer<OrtEnv> env,
@@ -366,36 +373,34 @@ extension OrtApiMemoryApi on OrtApi {
   /// `ReleaseSharedAllocator`
   void releaseSharedAllocator(
           Pointer<OrtEnv> env, Pointer<OrtEpDevice> epDevice, int memType) =>
-      withArena((arena) {
-        checkOrtStatus(this.ReleaseSharedAllocator.asFunction<
-            Pointer<OrtStatus> Function(Pointer<OrtEnv>, Pointer<OrtEpDevice>,
-                int)>()(env, epDevice, memType));
-      });
+      checkOrtStatus(this.ReleaseSharedAllocator.asFunction<
+          Pointer<OrtStatus> Function(Pointer<OrtEnv>, Pointer<OrtEpDevice>,
+              int)>()(env, epDevice, memType));
 
   /// `SessionGetMemoryInfoForInputs`
-  Pointer<OrtMemoryInfo> sessionGetMemoryInfoForInputs(
+  List<Pointer<OrtMemoryInfo>> sessionGetMemoryInfoForInputs(
           Pointer<OrtSession> session, int numInputs) =>
       withArena((arena) {
-        final out0 = arena<Pointer<OrtMemoryInfo>>();
+        final out0 = arena<Pointer<OrtMemoryInfo>>(numInputs);
         checkOrtStatus(this.SessionGetMemoryInfoForInputs.asFunction<
             Pointer<OrtStatus> Function(
                 Pointer<OrtSession>,
                 Pointer<Pointer<OrtMemoryInfo>>,
                 int)>()(session, out0, numInputs));
-        return out0.value;
+        return List.generate(numInputs, (i) => (out0 + i).value);
       });
 
   /// `SessionGetMemoryInfoForOutputs`
-  Pointer<OrtMemoryInfo> sessionGetMemoryInfoForOutputs(
+  List<Pointer<OrtMemoryInfo>> sessionGetMemoryInfoForOutputs(
           Pointer<OrtSession> session, int numOutputs) =>
       withArena((arena) {
-        final out0 = arena<Pointer<OrtMemoryInfo>>();
+        final out0 = arena<Pointer<OrtMemoryInfo>>(numOutputs);
         checkOrtStatus(this.SessionGetMemoryInfoForOutputs.asFunction<
             Pointer<OrtStatus> Function(
                 Pointer<OrtSession>,
                 Pointer<Pointer<OrtMemoryInfo>>,
                 int)>()(session, out0, numOutputs));
-        return out0.value;
+        return List.generate(numOutputs, (i) => (out0 + i).value);
       });
 
   /// `GetMemPatternEnabled`
@@ -405,6 +410,15 @@ extension OrtApiMemoryApi on OrtApi {
         checkOrtStatus(this.GetMemPatternEnabled.asFunction<
             Pointer<OrtStatus> Function(
                 Pointer<OrtSessionOptions>, Pointer<Int>)>()(options, out0));
+        return out0.value;
+      });
+
+  /// `MemoryInfoGetDeviceType`
+  int memoryInfoGetDeviceType(Pointer<OrtMemoryInfo> ptr) => withArena((arena) {
+        final out0 = arena<UnsignedInt>();
+        this.MemoryInfoGetDeviceType.asFunction<
+            void Function(
+                Pointer<OrtMemoryInfo>, Pointer<UnsignedInt>)>()(ptr, out0);
         return out0.value;
       });
 

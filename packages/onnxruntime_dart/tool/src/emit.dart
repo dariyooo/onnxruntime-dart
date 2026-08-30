@@ -99,9 +99,12 @@ String? emit(CFunction function, Signature signature) {
         dartType,
       Unmapped() => null,
     };
-    if (declared != null) return declared;
     final ffi = signature[function.parameters.indexOf(parameter)];
-    return _callType(mapping is OutputMapping ? _pointee(ffi) : ffi);
+    final element =
+        declared ?? _callType(mapping is OutputMapping ? _pointee(ffi) : ffi);
+    return mapping is OutputMapping && parameter.arrayLengthParameter != null
+        ? 'List<$element>'
+        : element;
   }
 
   final returnType = switch (outputs.length) {
@@ -119,26 +122,14 @@ String? emit(CFunction function, Signature signature) {
   // and `double` even though the field they come from is typed in FFI terms.
   final callSignature = signature.map(_callType).join(', ');
 
-  // A release returns void and cannot fail, so it needs no arena and no status
-  // check. Emitting the general shape for it would be noise around one call.
-  if (!function.returnsStatus) {
-    final argument = _dartParam(function.parameters.single.name);
-    final type = _callType(signature.single);
-    return '''  /// `${function.name}`
-  void ${dartName(function.name)}($type $argument) =>
-      this.${function.name}.asFunction<void Function($callSignature)>()($argument);
-''';
-  }
-
-  final buffer = StringBuffer()
-    ..writeln('  /// `${function.name}`')
-    ..writeln('  $returnType ${dartName(function.name)}($parameters) =>')
-    ..writeln('      withArena((arena) {');
-
-  // An out-parameter is `Pointer<X>`, so `X` is what the arena allocates.
+  // An out-parameter is `Pointer<X>`, so `X` is what the arena allocates. An
+  // out-array allocates as many as its length parameter says.
+  final allocations = StringBuffer();
   for (final (index, (parameter, _)) in outputs.indexed) {
     final cell = _pointee(signature[function.parameters.indexOf(parameter)]);
-    buffer.writeln('        final ${_out(index)} = arena<$cell>();');
+    final length = parameter.arrayLengthParameter;
+    final count = length == null ? '' : _dartParam(length);
+    allocations.writeln('        final ${_out(index)} = arena<$cell>($count);');
   }
 
   final outputIndex = {
@@ -152,20 +143,45 @@ String? emit(CFunction function, Signature signature) {
         : (mapping as InputMapping).marshal(_dartParam(p.name));
   }).join(', ');
 
-  buffer
-    ..writeln('        checkOrtStatus(this.${function.name}')
-    ..writeln('            .asFunction<')
-    ..writeln('              Pointer<OrtStatus> Function($callSignature)')
-    ..writeln('            >()($arguments));');
+  // Nothing to free means no arena: a release takes a handle and returns, and
+  // wrapping that in a scope allocates more than the call does.
+  final needsArena = outputs.isNotEmpty ||
+      inputs.any((i) => i.$2.marshal(_dartParam(i.$1.name)).contains('arena'));
+
+  final call = 'this.${function.name}.asFunction<'
+      '${function.returnsStatus ? 'Pointer<OrtStatus>' : 'void'} '
+      'Function($callSignature)>()($arguments)';
+  final statement = function.returnsStatus ? 'checkOrtStatus($call)' : call;
+
+  if (!needsArena) {
+    final body = outputs.isEmpty ? statement : throw StateError(function.name);
+    return '  /// `${function.name}`\n'
+        '  $returnType ${dartName(function.name)}($parameters) => $body;\n';
+  }
+
+  final buffer = StringBuffer()
+    ..writeln('  /// `${function.name}`')
+    ..writeln('  $returnType ${dartName(function.name)}($parameters) =>')
+    ..writeln('      withArena((arena) {')
+    ..write(allocations)
+    ..writeln('        $statement;');
+
+  String read(CParameter parameter, OutputMapping mapping, int index) {
+    final length = parameter.arrayLengthParameter;
+    return length == null
+        ? mapping.read(_out(index))
+        : mapping.readAll(_out(index), _dartParam(length));
+  }
 
   switch (outputs.length) {
     case 0:
       break;
     case 1:
-      buffer.writeln('        return ${outputs.single.$2.read(_out(0))};');
+      final (parameter, mapping) = outputs.single;
+      buffer.writeln('        return ${read(parameter, mapping, 0)};');
     default:
       final reads =
-          outputs.indexed.map((e) => e.$2.$2.read(_out(e.$1))).join(', ');
+          outputs.indexed.map((e) => read(e.$2.$1, e.$2.$2, e.$1)).join(', ');
       buffer.writeln('        return ($reads);');
   }
 

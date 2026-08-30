@@ -53,17 +53,27 @@ extension OrtApiBindingApi on OrtApi {
 
   /// `SynchronizeBoundInputs`
   void synchronizeBoundInputs(Pointer<OrtIoBinding> bindingPtr) =>
-      withArena((arena) {
-        checkOrtStatus(this.SynchronizeBoundInputs.asFunction<
-            Pointer<OrtStatus> Function(Pointer<OrtIoBinding>)>()(bindingPtr));
-      });
+      checkOrtStatus(this
+              .SynchronizeBoundInputs
+              .asFunction<Pointer<OrtStatus> Function(Pointer<OrtIoBinding>)>()(
+          bindingPtr));
 
   /// `SynchronizeBoundOutputs`
   void synchronizeBoundOutputs(Pointer<OrtIoBinding> bindingPtr) =>
-      withArena((arena) {
-        checkOrtStatus(this.SynchronizeBoundOutputs.asFunction<
-            Pointer<OrtStatus> Function(Pointer<OrtIoBinding>)>()(bindingPtr));
-      });
+      checkOrtStatus(this
+              .SynchronizeBoundOutputs
+              .asFunction<Pointer<OrtStatus> Function(Pointer<OrtIoBinding>)>()(
+          bindingPtr));
+
+  /// `ClearBoundInputs`
+  void clearBoundInputs(Pointer<OrtIoBinding> bindingPtr) => this
+      .ClearBoundInputs
+      .asFunction<void Function(Pointer<OrtIoBinding>)>()(bindingPtr);
+
+  /// `ClearBoundOutputs`
+  void clearBoundOutputs(Pointer<OrtIoBinding> bindingPtr) => this
+      .ClearBoundOutputs
+      .asFunction<void Function(Pointer<OrtIoBinding>)>()(bindingPtr);
 
   /// `ReleaseIoBinding`
   void releaseIoBinding(Pointer<OrtIoBinding> input) => this

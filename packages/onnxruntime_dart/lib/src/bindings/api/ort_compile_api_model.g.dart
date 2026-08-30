@@ -29,16 +29,14 @@ extension OrtCompileApiModelApi on OrtCompileApi {
           Pointer<OrtModelCompilationOptions> modelCompileOptions,
           Pointer<Void> inputModelData,
           int inputModelDataSize) =>
-      withArena((arena) {
-        checkOrtStatus(this
-                .ModelCompilationOptions_SetInputModelFromBuffer
-                .asFunction<
-                    Pointer<OrtStatus> Function(
-                        Pointer<OrtModelCompilationOptions>,
-                        Pointer<Void>,
-                        int)>()(
-            modelCompileOptions, inputModelData, inputModelDataSize));
-      });
+      checkOrtStatus(this
+              .ModelCompilationOptions_SetInputModelFromBuffer
+              .asFunction<
+                  Pointer<OrtStatus> Function(
+                      Pointer<OrtModelCompilationOptions>,
+                      Pointer<Void>,
+                      int)>()(
+          modelCompileOptions, inputModelData, inputModelDataSize));
 
   /// `ModelCompilationOptions_SetOutputModelPath`
   void modelCompilationOptions_SetOutputModelPath(
@@ -77,31 +75,25 @@ extension OrtCompileApiModelApi on OrtCompileApi {
   void modelCompilationOptions_SetEpContextEmbedMode(
           Pointer<OrtModelCompilationOptions> modelCompileOptions,
           bool embedEpContextInModel) =>
-      withArena((arena) {
-        checkOrtStatus(this
-            .ModelCompilationOptions_SetEpContextEmbedMode
-            .asFunction<
-                Pointer<OrtStatus> Function(Pointer<OrtModelCompilationOptions>,
-                    bool)>()(modelCompileOptions, embedEpContextInModel));
-      });
+      checkOrtStatus(this
+          .ModelCompilationOptions_SetEpContextEmbedMode
+          .asFunction<
+              Pointer<OrtStatus> Function(Pointer<OrtModelCompilationOptions>,
+                  bool)>()(modelCompileOptions, embedEpContextInModel));
 
   /// `CompileModel`
   void compileModel(Pointer<OrtEnv> env,
           Pointer<OrtModelCompilationOptions> modelOptions) =>
-      withArena((arena) {
-        checkOrtStatus(this.CompileModel.asFunction<
-            Pointer<OrtStatus> Function(Pointer<OrtEnv>,
-                Pointer<OrtModelCompilationOptions>)>()(env, modelOptions));
-      });
+      checkOrtStatus(this.CompileModel.asFunction<
+          Pointer<OrtStatus> Function(Pointer<OrtEnv>,
+              Pointer<OrtModelCompilationOptions>)>()(env, modelOptions));
 
   /// `ModelCompilationOptions_SetFlags`
   void modelCompilationOptions_SetFlags(
           Pointer<OrtModelCompilationOptions> modelCompileOptions, int flags) =>
-      withArena((arena) {
-        checkOrtStatus(this.ModelCompilationOptions_SetFlags.asFunction<
-            Pointer<OrtStatus> Function(Pointer<OrtModelCompilationOptions>,
-                int)>()(modelCompileOptions, flags));
-      });
+      checkOrtStatus(this.ModelCompilationOptions_SetFlags.asFunction<
+          Pointer<OrtStatus> Function(Pointer<OrtModelCompilationOptions>,
+              int)>()(modelCompileOptions, flags));
 
   /// `ModelCompilationOptions_SetEpContextBinaryInformation`
   void modelCompilationOptions_SetEpContextBinaryInformation(
@@ -125,35 +117,29 @@ extension OrtCompileApiModelApi on OrtCompileApi {
   void modelCompilationOptions_SetGraphOptimizationLevel(
           Pointer<OrtModelCompilationOptions> modelCompileOptions,
           int graphOptimizationLevel) =>
-      withArena((arena) {
-        checkOrtStatus(this
-            .ModelCompilationOptions_SetGraphOptimizationLevel
-            .asFunction<
-                Pointer<OrtStatus> Function(Pointer<OrtModelCompilationOptions>,
-                    int)>()(modelCompileOptions, graphOptimizationLevel));
-      });
+      checkOrtStatus(this
+          .ModelCompilationOptions_SetGraphOptimizationLevel
+          .asFunction<
+              Pointer<OrtStatus> Function(Pointer<OrtModelCompilationOptions>,
+                  int)>()(modelCompileOptions, graphOptimizationLevel));
 
   /// `ModelCompilationOptions_SetInputModel`
   void modelCompilationOptions_SetInputModel(
           Pointer<OrtModelCompilationOptions> modelCompileOptions,
           Pointer<OrtModel> model) =>
-      withArena((arena) {
-        checkOrtStatus(this.ModelCompilationOptions_SetInputModel.asFunction<
-            Pointer<OrtStatus> Function(Pointer<OrtModelCompilationOptions>,
-                Pointer<OrtModel>)>()(modelCompileOptions, model));
-      });
+      checkOrtStatus(this.ModelCompilationOptions_SetInputModel.asFunction<
+          Pointer<OrtStatus> Function(Pointer<OrtModelCompilationOptions>,
+              Pointer<OrtModel>)>()(modelCompileOptions, model));
 
   /// `ModelCompilationOptions_SetWeightlessEnabled`
   void modelCompilationOptions_SetWeightlessEnabled(
           Pointer<OrtModelCompilationOptions> modelCompileOptions,
           bool useWeightless) =>
-      withArena((arena) {
-        checkOrtStatus(this
-            .ModelCompilationOptions_SetWeightlessEnabled
-            .asFunction<
-                Pointer<OrtStatus> Function(Pointer<OrtModelCompilationOptions>,
-                    bool)>()(modelCompileOptions, useWeightless));
-      });
+      checkOrtStatus(this
+          .ModelCompilationOptions_SetWeightlessEnabled
+          .asFunction<
+              Pointer<OrtStatus> Function(Pointer<OrtModelCompilationOptions>,
+                  bool)>()(modelCompileOptions, useWeightless));
 
   /// `ReleaseModelCompilationOptions`
   void releaseModelCompilationOptions(

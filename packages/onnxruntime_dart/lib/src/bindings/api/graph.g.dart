@@ -119,19 +119,23 @@ extension OrtApiGraphApi on OrtApi {
       });
 
   /// `ValueInfo_GetValueConsumers`
-  (Pointer<OrtNode> nodes, int inputIndices) valueInfo_GetValueConsumers(
-          Pointer<OrtValueInfo> valueInfo, int numConsumers) =>
-      withArena((arena) {
-        final out0 = arena<Pointer<OrtNode>>();
-        final out1 = arena<Int64>();
-        checkOrtStatus(this.ValueInfo_GetValueConsumers.asFunction<
-            Pointer<OrtStatus> Function(
-                Pointer<OrtValueInfo>,
-                Pointer<Pointer<OrtNode>>,
-                Pointer<Int64>,
-                int)>()(valueInfo, out0, out1, numConsumers));
-        return (out0.value, out1.value);
-      });
+  (List<Pointer<OrtNode>> nodes, List<int> inputIndices)
+      valueInfo_GetValueConsumers(
+              Pointer<OrtValueInfo> valueInfo, int numConsumers) =>
+          withArena((arena) {
+            final out0 = arena<Pointer<OrtNode>>(numConsumers);
+            final out1 = arena<Int64>(numConsumers);
+            checkOrtStatus(this.ValueInfo_GetValueConsumers.asFunction<
+                Pointer<OrtStatus> Function(
+                    Pointer<OrtValueInfo>,
+                    Pointer<Pointer<OrtNode>>,
+                    Pointer<Int64>,
+                    int)>()(valueInfo, out0, out1, numConsumers));
+            return (
+              List.generate(numConsumers, (i) => (out0 + i).value),
+              List.generate(numConsumers, (i) => (out1 + i).value)
+            );
+          });
 
   /// `ValueInfo_GetInitializerValue`
   Pointer<OrtValue> valueInfo_GetInitializerValue(
@@ -234,18 +238,22 @@ extension OrtApiGraphApi on OrtApi {
       });
 
   /// `Graph_GetOperatorSets`
-  (String domains, int opsetVersions) graph_GetOperatorSets(
+  (List<String> domains, List<int> opsetVersions) graph_GetOperatorSets(
           Pointer<OrtGraph> graph, int numOperatorSets) =>
       withArena((arena) {
-        final out0 = arena<Pointer<Char>>();
-        final out1 = arena<Int64>();
+        final out0 = arena<Pointer<Char>>(numOperatorSets);
+        final out1 = arena<Int64>(numOperatorSets);
         checkOrtStatus(this.Graph_GetOperatorSets.asFunction<
             Pointer<OrtStatus> Function(
                 Pointer<OrtGraph>,
                 Pointer<Pointer<Char>>,
                 Pointer<Int64>,
                 int)>()(graph, out0, out1, numOperatorSets));
-        return (out0.value.cast<Utf8>().toDartString(), out1.value);
+        return (
+          List.generate(numOperatorSets,
+              (i) => (out0 + i).value.cast<Utf8>().toDartString()),
+          List.generate(numOperatorSets, (i) => (out1 + i).value)
+        );
       });
 
   /// `Graph_GetNumInputs`
@@ -258,16 +266,16 @@ extension OrtApiGraphApi on OrtApi {
       });
 
   /// `Graph_GetInputs`
-  Pointer<OrtValueInfo> graph_GetInputs(
+  List<Pointer<OrtValueInfo>> graph_GetInputs(
           Pointer<OrtGraph> graph, int numInputs) =>
       withArena((arena) {
-        final out0 = arena<Pointer<OrtValueInfo>>();
+        final out0 = arena<Pointer<OrtValueInfo>>(numInputs);
         checkOrtStatus(this.Graph_GetInputs.asFunction<
             Pointer<OrtStatus> Function(
                 Pointer<OrtGraph>,
                 Pointer<Pointer<OrtValueInfo>>,
                 int)>()(graph, out0, numInputs));
-        return out0.value;
+        return List.generate(numInputs, (i) => (out0 + i).value);
       });
 
   /// `Graph_GetNumOutputs`
@@ -280,16 +288,16 @@ extension OrtApiGraphApi on OrtApi {
       });
 
   /// `Graph_GetOutputs`
-  Pointer<OrtValueInfo> graph_GetOutputs(
+  List<Pointer<OrtValueInfo>> graph_GetOutputs(
           Pointer<OrtGraph> graph, int numOutputs) =>
       withArena((arena) {
-        final out0 = arena<Pointer<OrtValueInfo>>();
+        final out0 = arena<Pointer<OrtValueInfo>>(numOutputs);
         checkOrtStatus(this.Graph_GetOutputs.asFunction<
             Pointer<OrtStatus> Function(
                 Pointer<OrtGraph>,
                 Pointer<Pointer<OrtValueInfo>>,
                 int)>()(graph, out0, numOutputs));
-        return out0.value;
+        return List.generate(numOutputs, (i) => (out0 + i).value);
       });
 
   /// `Graph_GetNumInitializers`
@@ -302,16 +310,16 @@ extension OrtApiGraphApi on OrtApi {
       });
 
   /// `Graph_GetInitializers`
-  Pointer<OrtValueInfo> graph_GetInitializers(
+  List<Pointer<OrtValueInfo>> graph_GetInitializers(
           Pointer<OrtGraph> graph, int numInitializers) =>
       withArena((arena) {
-        final out0 = arena<Pointer<OrtValueInfo>>();
+        final out0 = arena<Pointer<OrtValueInfo>>(numInitializers);
         checkOrtStatus(this.Graph_GetInitializers.asFunction<
             Pointer<OrtStatus> Function(
                 Pointer<OrtGraph>,
                 Pointer<Pointer<OrtValueInfo>>,
                 int)>()(graph, out0, numInitializers));
-        return out0.value;
+        return List.generate(numInitializers, (i) => (out0 + i).value);
       });
 
   /// `Graph_GetNumNodes`
@@ -324,13 +332,14 @@ extension OrtApiGraphApi on OrtApi {
       });
 
   /// `Graph_GetNodes`
-  Pointer<OrtNode> graph_GetNodes(Pointer<OrtGraph> graph, int numNodes) =>
+  List<Pointer<OrtNode>> graph_GetNodes(
+          Pointer<OrtGraph> graph, int numNodes) =>
       withArena((arena) {
-        final out0 = arena<Pointer<OrtNode>>();
+        final out0 = arena<Pointer<OrtNode>>(numNodes);
         checkOrtStatus(this.Graph_GetNodes.asFunction<
             Pointer<OrtStatus> Function(Pointer<OrtGraph>,
                 Pointer<Pointer<OrtNode>>, int)>()(graph, out0, numNodes));
-        return out0.value;
+        return List.generate(numNodes, (i) => (out0 + i).value);
       });
 
   /// `Graph_GetParentNode`
@@ -413,13 +422,14 @@ extension OrtApiGraphApi on OrtApi {
       });
 
   /// `Node_GetInputs`
-  Pointer<OrtValueInfo> node_GetInputs(Pointer<OrtNode> node, int numInputs) =>
+  List<Pointer<OrtValueInfo>> node_GetInputs(
+          Pointer<OrtNode> node, int numInputs) =>
       withArena((arena) {
-        final out0 = arena<Pointer<OrtValueInfo>>();
+        final out0 = arena<Pointer<OrtValueInfo>>(numInputs);
         checkOrtStatus(this.Node_GetInputs.asFunction<
             Pointer<OrtStatus> Function(Pointer<OrtNode>,
                 Pointer<Pointer<OrtValueInfo>>, int)>()(node, out0, numInputs));
-        return out0.value;
+        return List.generate(numInputs, (i) => (out0 + i).value);
       });
 
   /// `Node_GetNumOutputs`
@@ -432,16 +442,16 @@ extension OrtApiGraphApi on OrtApi {
       });
 
   /// `Node_GetOutputs`
-  Pointer<OrtValueInfo> node_GetOutputs(
+  List<Pointer<OrtValueInfo>> node_GetOutputs(
           Pointer<OrtNode> node, int numOutputs) =>
       withArena((arena) {
-        final out0 = arena<Pointer<OrtValueInfo>>();
+        final out0 = arena<Pointer<OrtValueInfo>>(numOutputs);
         checkOrtStatus(this.Node_GetOutputs.asFunction<
             Pointer<OrtStatus> Function(
                 Pointer<OrtNode>,
                 Pointer<Pointer<OrtValueInfo>>,
                 int)>()(node, out0, numOutputs));
-        return out0.value;
+        return List.generate(numOutputs, (i) => (out0 + i).value);
       });
 
   /// `Node_GetNumImplicitInputs`
@@ -454,16 +464,16 @@ extension OrtApiGraphApi on OrtApi {
       });
 
   /// `Node_GetImplicitInputs`
-  Pointer<OrtValueInfo> node_GetImplicitInputs(
+  List<Pointer<OrtValueInfo>> node_GetImplicitInputs(
           Pointer<OrtNode> node, int numImplicitInputs) =>
       withArena((arena) {
-        final out0 = arena<Pointer<OrtValueInfo>>();
+        final out0 = arena<Pointer<OrtValueInfo>>(numImplicitInputs);
         checkOrtStatus(this.Node_GetImplicitInputs.asFunction<
             Pointer<OrtStatus> Function(
                 Pointer<OrtNode>,
                 Pointer<Pointer<OrtValueInfo>>,
                 int)>()(node, out0, numImplicitInputs));
-        return out0.value;
+        return List.generate(numImplicitInputs, (i) => (out0 + i).value);
       });
 
   /// `Node_GetNumAttributes`
@@ -476,16 +486,16 @@ extension OrtApiGraphApi on OrtApi {
       });
 
   /// `Node_GetAttributes`
-  Pointer<OrtOpAttr> node_GetAttributes(
+  List<Pointer<OrtOpAttr>> node_GetAttributes(
           Pointer<OrtNode> node, int numAttributes) =>
       withArena((arena) {
-        final out0 = arena<Pointer<OrtOpAttr>>();
+        final out0 = arena<Pointer<OrtOpAttr>>(numAttributes);
         checkOrtStatus(this.Node_GetAttributes.asFunction<
             Pointer<OrtStatus> Function(
                 Pointer<OrtNode>,
                 Pointer<Pointer<OrtOpAttr>>,
                 int)>()(node, out0, numAttributes));
-        return out0.value;
+        return List.generate(numAttributes, (i) => (out0 + i).value);
       });
 
   /// `Node_GetAttributeByName`
@@ -510,18 +520,24 @@ extension OrtApiGraphApi on OrtApi {
       });
 
   /// `Node_GetSubgraphs`
-  (Pointer<OrtGraph> subgraphs, String attributeNames) node_GetSubgraphs(
-          Pointer<OrtNode> node, int numSubgraphs) =>
+  (
+    List<Pointer<OrtGraph>> subgraphs,
+    List<String> attributeNames
+  ) node_GetSubgraphs(Pointer<OrtNode> node, int numSubgraphs) =>
       withArena((arena) {
-        final out0 = arena<Pointer<OrtGraph>>();
-        final out1 = arena<Pointer<Char>>();
+        final out0 = arena<Pointer<OrtGraph>>(numSubgraphs);
+        final out1 = arena<Pointer<Char>>(numSubgraphs);
         checkOrtStatus(this.Node_GetSubgraphs.asFunction<
             Pointer<OrtStatus> Function(
                 Pointer<OrtNode>,
                 Pointer<Pointer<OrtGraph>>,
                 int,
                 Pointer<Pointer<Char>>)>()(node, out0, numSubgraphs, out1));
-        return (out0.value, out1.value.cast<Utf8>().toDartString());
+        return (
+          List.generate(numSubgraphs, (i) => (out0 + i).value),
+          List.generate(
+              numSubgraphs, (i) => (out1 + i).value.cast<Utf8>().toDartString())
+        );
       });
 
   /// `Node_GetGraph`

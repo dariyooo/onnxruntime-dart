@@ -14,16 +14,14 @@ extension OrtInteropApiEpApi on OrtInteropApi {
   /// `InitGraphicsInteropForEpDevice`
   void initGraphicsInteropForEpDevice(Pointer<OrtEpDevice> epDevice,
           Pointer<OrtGraphicsInteropConfig> config) =>
-      withArena((arena) {
-        checkOrtStatus(this.InitGraphicsInteropForEpDevice.asFunction<
-            Pointer<OrtStatus> Function(Pointer<OrtEpDevice>,
-                Pointer<OrtGraphicsInteropConfig>)>()(epDevice, config));
-      });
+      checkOrtStatus(this.InitGraphicsInteropForEpDevice.asFunction<
+          Pointer<OrtStatus> Function(Pointer<OrtEpDevice>,
+              Pointer<OrtGraphicsInteropConfig>)>()(epDevice, config));
 
   /// `DeinitGraphicsInteropForEpDevice`
   void deinitGraphicsInteropForEpDevice(Pointer<OrtEpDevice> epDevice) =>
-      withArena((arena) {
-        checkOrtStatus(this.DeinitGraphicsInteropForEpDevice.asFunction<
-            Pointer<OrtStatus> Function(Pointer<OrtEpDevice>)>()(epDevice));
-      });
+      checkOrtStatus(this
+              .DeinitGraphicsInteropForEpDevice
+              .asFunction<Pointer<OrtStatus> Function(Pointer<OrtEpDevice>)>()(
+          epDevice));
 }

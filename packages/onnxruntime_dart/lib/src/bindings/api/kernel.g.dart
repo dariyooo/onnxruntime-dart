@@ -25,20 +25,16 @@ extension OrtApiKernelApi on OrtApi {
   /// `CustomOpDomain_Add`
   void customOpDomain_Add(
           Pointer<OrtCustomOpDomain> customOpDomain, Pointer<OrtCustomOp> op) =>
-      withArena((arena) {
-        checkOrtStatus(this.CustomOpDomain_Add.asFunction<
-            Pointer<OrtStatus> Function(Pointer<OrtCustomOpDomain>,
-                Pointer<OrtCustomOp>)>()(customOpDomain, op));
-      });
+      checkOrtStatus(this.CustomOpDomain_Add.asFunction<
+          Pointer<OrtStatus> Function(Pointer<OrtCustomOpDomain>,
+              Pointer<OrtCustomOp>)>()(customOpDomain, op));
 
   /// `AddCustomOpDomain`
   void addCustomOpDomain(Pointer<OrtSessionOptions> options,
           Pointer<OrtCustomOpDomain> customOpDomain) =>
-      withArena((arena) {
-        checkOrtStatus(this.AddCustomOpDomain.asFunction<
-            Pointer<OrtStatus> Function(Pointer<OrtSessionOptions>,
-                Pointer<OrtCustomOpDomain>)>()(options, customOpDomain));
-      });
+      checkOrtStatus(this.AddCustomOpDomain.asFunction<
+          Pointer<OrtStatus> Function(Pointer<OrtSessionOptions>,
+              Pointer<OrtCustomOpDomain>)>()(options, customOpDomain));
 
   /// `RegisterCustomOpsLibrary`
   Pointer<Void> registerCustomOpsLibrary(
@@ -150,11 +146,8 @@ extension OrtApiKernelApi on OrtApi {
 
   /// `EnableOrtCustomOps`
   void enableOrtCustomOps(Pointer<OrtSessionOptions> options) =>
-      withArena((arena) {
-        checkOrtStatus(this.EnableOrtCustomOps.asFunction<
-            Pointer<OrtStatus> Function(
-                Pointer<OrtSessionOptions>)>()(options));
-      });
+      checkOrtStatus(this.EnableOrtCustomOps.asFunction<
+          Pointer<OrtStatus> Function(Pointer<OrtSessionOptions>)>()(options));
 
   /// `KernelContext_GetGPUComputeStream`
   Pointer<Void> kernelContext_GetGPUComputeStream(
@@ -164,6 +157,18 @@ extension OrtApiKernelApi on OrtApi {
         checkOrtStatus(this.KernelContext_GetGPUComputeStream.asFunction<
             Pointer<OrtStatus> Function(Pointer<OrtKernelContext>,
                 Pointer<Pointer<Void>>)>()(context, out0));
+        return out0.value;
+      });
+
+  /// `CreateOpAttr`
+  Pointer<OrtOpAttr> createOpAttr(
+          String name, Pointer<Void> data, int len, int type) =>
+      withArena((arena) {
+        final out0 = arena<Pointer<OrtOpAttr>>();
+        checkOrtStatus(this.CreateOpAttr.asFunction<
+                Pointer<OrtStatus> Function(Pointer<Char>, Pointer<Void>, int,
+                    int, Pointer<Pointer<OrtOpAttr>>)>()(
+            name.toNativeUtf8(allocator: arena).cast(), data, len, type, out0));
         return out0.value;
       });
 
@@ -374,10 +379,19 @@ extension OrtApiKernelApi on OrtApi {
           Pointer<OrtShapeInferContext> context,
           int index,
           Pointer<OrtTensorTypeAndShapeInfo> info) =>
+      checkOrtStatus(this.ShapeInferContext_SetOutputTypeShape.asFunction<
+          Pointer<OrtStatus> Function(Pointer<OrtShapeInferContext>, int,
+              Pointer<OrtTensorTypeAndShapeInfo>)>()(context, index, info));
+
+  /// `ReadOpAttr`
+  int readOpAttr(
+          Pointer<OrtOpAttr> opAttr, int type, Pointer<Void> data, int len) =>
       withArena((arena) {
-        checkOrtStatus(this.ShapeInferContext_SetOutputTypeShape.asFunction<
-            Pointer<OrtStatus> Function(Pointer<OrtShapeInferContext>, int,
-                Pointer<OrtTensorTypeAndShapeInfo>)>()(context, index, info));
+        final out0 = arena<Size>();
+        checkOrtStatus(this.ReadOpAttr.asFunction<
+            Pointer<OrtStatus> Function(Pointer<OrtOpAttr>, int, Pointer<Void>,
+                int, Pointer<Size>)>()(opAttr, type, data, len, out0));
+        return out0.value;
       });
 
   /// `KernelContext_GetScratchBuffer`
@@ -413,6 +427,15 @@ extension OrtApiKernelApi on OrtApi {
         checkOrtStatus(this.OpAttr_GetTensorAttributeAsOrtValue.asFunction<
             Pointer<OrtStatus> Function(Pointer<OrtOpAttr>,
                 Pointer<Pointer<OrtValue>>)>()(attribute, out0));
+        return out0.value;
+      });
+
+  /// `OpAttr_GetType`
+  int opAttr_GetType(Pointer<OrtOpAttr> attribute) => withArena((arena) {
+        final out0 = arena<UnsignedInt>();
+        checkOrtStatus(this.OpAttr_GetType.asFunction<
+            Pointer<OrtStatus> Function(
+                Pointer<OrtOpAttr>, Pointer<UnsignedInt>)>()(attribute, out0));
         return out0.value;
       });
 

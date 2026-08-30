@@ -11,6 +11,17 @@ import 'support.dart';
 
 /// Provider calls on `OrtApi`.
 extension OrtApiProviderApi on OrtApi {
+  /// `GetExecutionProviderApi`
+  Pointer<Void> getExecutionProviderApi(String providerName, int version) =>
+      withArena((arena) {
+        final out0 = arena<Pointer<Void>>();
+        checkOrtStatus(this.GetExecutionProviderApi.asFunction<
+                Pointer<OrtStatus> Function(
+                    Pointer<Char>, int, Pointer<Pointer<Void>>)>()(
+            providerName.toNativeUtf8(allocator: arena).cast(), version, out0));
+        return out0.value;
+      });
+
   /// `CreateCUDAProviderOptions`
   Pointer<OrtCUDAProviderOptionsV2> createCUDAProviderOptions() =>
       withArena((arena) {
@@ -216,4 +227,26 @@ extension OrtApiProviderApi on OrtApi {
             out0));
         return takeAllocatedString(out0);
       });
+
+  /// `ReleaseCUDAProviderOptions`
+  void releaseCUDAProviderOptions(Pointer<OrtCUDAProviderOptionsV2> input) =>
+      this
+              .ReleaseCUDAProviderOptions
+              .asFunction<void Function(Pointer<OrtCUDAProviderOptionsV2>)>()(
+          input);
+
+  /// `ReleaseCANNProviderOptions`
+  void releaseCANNProviderOptions(Pointer<OrtCANNProviderOptions> input) => this
+      .ReleaseCANNProviderOptions
+      .asFunction<void Function(Pointer<OrtCANNProviderOptions>)>()(input);
+
+  /// `ReleaseDnnlProviderOptions`
+  void releaseDnnlProviderOptions(Pointer<OrtDnnlProviderOptions> input) => this
+      .ReleaseDnnlProviderOptions
+      .asFunction<void Function(Pointer<OrtDnnlProviderOptions>)>()(input);
+
+  /// `ReleaseROCMProviderOptions`
+  void releaseROCMProviderOptions(Pointer<OrtROCMProviderOptions> input) => this
+      .ReleaseROCMProviderOptions
+      .asFunction<void Function(Pointer<OrtROCMProviderOptions>)>()(input);
 }

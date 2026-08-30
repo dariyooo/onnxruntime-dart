@@ -81,19 +81,15 @@ extension OrtModelEditorApiCoreApi on OrtModelEditorApi {
 
   /// `AddNodeToGraph`
   void addNodeToGraph(Pointer<OrtGraph> graph, Pointer<OrtNode> node) =>
-      withArena((arena) {
-        checkOrtStatus(this.AddNodeToGraph.asFunction<
-            Pointer<OrtStatus> Function(
-                Pointer<OrtGraph>, Pointer<OrtNode>)>()(graph, node));
-      });
+      checkOrtStatus(this.AddNodeToGraph.asFunction<
+          Pointer<OrtStatus> Function(
+              Pointer<OrtGraph>, Pointer<OrtNode>)>()(graph, node));
 
   /// `AddGraphToModel`
   void addGraphToModel(Pointer<OrtModel> model, Pointer<OrtGraph> graph) =>
-      withArena((arena) {
-        checkOrtStatus(this.AddGraphToModel.asFunction<
-            Pointer<OrtStatus> Function(
-                Pointer<OrtModel>, Pointer<OrtGraph>)>()(model, graph));
-      });
+      checkOrtStatus(this.AddGraphToModel.asFunction<
+          Pointer<OrtStatus> Function(
+              Pointer<OrtModel>, Pointer<OrtGraph>)>()(model, graph));
 
   /// `CreateModelEditorSession`
   Pointer<OrtSession> createModelEditorSession(Pointer<OrtEnv> env,
@@ -132,23 +128,19 @@ extension OrtModelEditorApiCoreApi on OrtModelEditorApi {
   /// `ApplyModelToModelEditorSession`
   void applyModelToModelEditorSession(
           Pointer<OrtSession> session, Pointer<OrtModel> model) =>
-      withArena((arena) {
-        checkOrtStatus(this.ApplyModelToModelEditorSession.asFunction<
-            Pointer<OrtStatus> Function(
-                Pointer<OrtSession>, Pointer<OrtModel>)>()(session, model));
-      });
+      checkOrtStatus(this.ApplyModelToModelEditorSession.asFunction<
+          Pointer<OrtStatus> Function(
+              Pointer<OrtSession>, Pointer<OrtModel>)>()(session, model));
 
   /// `FinalizeModelEditorSession`
   void finalizeModelEditorSession(
           Pointer<OrtSession> session,
           Pointer<OrtSessionOptions> options,
           Pointer<OrtPrepackedWeightsContainer> prepackedWeightsContainer) =>
-      withArena((arena) {
-        checkOrtStatus(this.FinalizeModelEditorSession.asFunction<
-                Pointer<OrtStatus> Function(
-                    Pointer<OrtSession>,
-                    Pointer<OrtSessionOptions>,
-                    Pointer<OrtPrepackedWeightsContainer>)>()(
-            session, options, prepackedWeightsContainer));
-      });
+      checkOrtStatus(this.FinalizeModelEditorSession.asFunction<
+              Pointer<OrtStatus> Function(
+                  Pointer<OrtSession>,
+                  Pointer<OrtSessionOptions>,
+                  Pointer<OrtPrepackedWeightsContainer>)>()(
+          session, options, prepackedWeightsContainer));
 }

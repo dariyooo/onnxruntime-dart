@@ -33,16 +33,16 @@ extension OrtApiEpApi on OrtApi {
       });
 
   /// `SessionGetEpDeviceForInputs`
-  Pointer<OrtEpDevice> sessionGetEpDeviceForInputs(
+  List<Pointer<OrtEpDevice>> sessionGetEpDeviceForInputs(
           Pointer<OrtSession> session, int numInputs) =>
       withArena((arena) {
-        final out0 = arena<Pointer<OrtEpDevice>>();
+        final out0 = arena<Pointer<OrtEpDevice>>(numInputs);
         checkOrtStatus(this.SessionGetEpDeviceForInputs.asFunction<
             Pointer<OrtStatus> Function(
                 Pointer<OrtSession>,
                 Pointer<Pointer<OrtEpDevice>>,
                 int)>()(session, out0, numInputs));
-        return out0.value;
+        return List.generate(numInputs, (i) => (out0 + i).value);
       });
 
   /// `CreateSyncStreamForEpDevice`
@@ -60,17 +60,32 @@ extension OrtApiEpApi on OrtApi {
         return out0.value;
       });
 
+  /// `GetModelCompatibilityForEpDevices`
+  int getModelCompatibilityForEpDevices(List<Pointer<OrtEpDevice>> epDevices,
+          int numEpDevices, String compatibilityInfo) =>
+      withArena((arena) {
+        final out0 = arena<UnsignedInt>();
+        checkOrtStatus(this.GetModelCompatibilityForEpDevices.asFunction<
+                Pointer<OrtStatus> Function(Pointer<Pointer<OrtEpDevice>>, int,
+                    Pointer<Char>, Pointer<UnsignedInt>)>()(
+            nativePointers(epDevices, arena),
+            numEpDevices,
+            compatibilityInfo.toNativeUtf8(allocator: arena).cast(),
+            out0));
+        return out0.value;
+      });
+
   /// `SessionGetEpDeviceForOutputs`
-  Pointer<OrtEpDevice> sessionGetEpDeviceForOutputs(
+  List<Pointer<OrtEpDevice>> sessionGetEpDeviceForOutputs(
           Pointer<OrtSession> session, int numOutputs) =>
       withArena((arena) {
-        final out0 = arena<Pointer<OrtEpDevice>>();
+        final out0 = arena<Pointer<OrtEpDevice>>(numOutputs);
         checkOrtStatus(this.SessionGetEpDeviceForOutputs.asFunction<
             Pointer<OrtStatus> Function(
                 Pointer<OrtSession>,
                 Pointer<Pointer<OrtEpDevice>>,
                 int)>()(session, out0, numOutputs));
-        return out0.value;
+        return List.generate(numOutputs, (i) => (out0 + i).value);
       });
 
   /// `GetNumHardwareDevices`
@@ -83,16 +98,16 @@ extension OrtApiEpApi on OrtApi {
       });
 
   /// `GetHardwareDevices`
-  Pointer<OrtHardwareDevice> getHardwareDevices(
+  List<Pointer<OrtHardwareDevice>> getHardwareDevices(
           Pointer<OrtEnv> env, int numDevices) =>
       withArena((arena) {
-        final out0 = arena<Pointer<OrtHardwareDevice>>();
+        final out0 = arena<Pointer<OrtHardwareDevice>>(numDevices);
         checkOrtStatus(this.GetHardwareDevices.asFunction<
             Pointer<OrtStatus> Function(
                 Pointer<OrtEnv>,
                 Pointer<Pointer<OrtHardwareDevice>>,
                 int)>()(env, out0, numDevices));
-        return out0.value;
+        return List.generate(numDevices, (i) => (out0 + i).value);
       });
 
   /// `GetHardwareDeviceEpIncompatibilityDetails`

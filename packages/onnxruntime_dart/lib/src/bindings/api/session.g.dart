@@ -108,11 +108,8 @@ extension OrtApiSessionApi on OrtApi {
 
   /// `DisableProfiling`
   void disableProfiling(Pointer<OrtSessionOptions> options) =>
-      withArena((arena) {
-        checkOrtStatus(this.DisableProfiling.asFunction<
-            Pointer<OrtStatus> Function(
-                Pointer<OrtSessionOptions>)>()(options));
-      });
+      checkOrtStatus(this.DisableProfiling.asFunction<
+          Pointer<OrtStatus> Function(Pointer<OrtSessionOptions>)>()(options));
 
   /// `SessionGetInputCount`
   int sessionGetInputCount(Pointer<OrtSession> session) => withArena((arena) {
@@ -211,13 +208,11 @@ extension OrtApiSessionApi on OrtApi {
           Pointer<OrtSession> session,
           Pointer<OrtRunOptions> runOptions,
           Pointer<OrtIoBinding> bindingPtr) =>
-      withArena((arena) {
-        checkOrtStatus(this.RunWithBinding.asFunction<
-            Pointer<OrtStatus> Function(
-                Pointer<OrtSession>,
-                Pointer<OrtRunOptions>,
-                Pointer<OrtIoBinding>)>()(session, runOptions, bindingPtr));
-      });
+      checkOrtStatus(this.RunWithBinding.asFunction<
+          Pointer<OrtStatus> Function(
+              Pointer<OrtSession>,
+              Pointer<OrtRunOptions>,
+              Pointer<OrtIoBinding>)>()(session, runOptions, bindingPtr));
 
   /// `SessionGetProfilingStartTimeNs`
   int sessionGetProfilingStartTimeNs(Pointer<OrtSession> session) =>
@@ -233,102 +228,81 @@ extension OrtApiSessionApi on OrtApi {
   void sessionOptionsAppendExecutionProvider_CUDA(
           Pointer<OrtSessionOptions> options,
           Pointer<OrtCUDAProviderOptions> cudaOptions) =>
-      withArena((arena) {
-        checkOrtStatus(this
-            .SessionOptionsAppendExecutionProvider_CUDA
-            .asFunction<
-                Pointer<OrtStatus> Function(Pointer<OrtSessionOptions>,
-                    Pointer<OrtCUDAProviderOptions>)>()(options, cudaOptions));
-      });
+      checkOrtStatus(this.SessionOptionsAppendExecutionProvider_CUDA.asFunction<
+          Pointer<OrtStatus> Function(Pointer<OrtSessionOptions>,
+              Pointer<OrtCUDAProviderOptions>)>()(options, cudaOptions));
 
   /// `SessionOptionsAppendExecutionProvider_ROCM`
   void sessionOptionsAppendExecutionProvider_ROCM(
           Pointer<OrtSessionOptions> options,
           Pointer<OrtROCMProviderOptions> rocmOptions) =>
-      withArena((arena) {
-        checkOrtStatus(this
-            .SessionOptionsAppendExecutionProvider_ROCM
-            .asFunction<
-                Pointer<OrtStatus> Function(Pointer<OrtSessionOptions>,
-                    Pointer<OrtROCMProviderOptions>)>()(options, rocmOptions));
-      });
+      checkOrtStatus(this.SessionOptionsAppendExecutionProvider_ROCM.asFunction<
+          Pointer<OrtStatus> Function(Pointer<OrtSessionOptions>,
+              Pointer<OrtROCMProviderOptions>)>()(options, rocmOptions));
 
   /// `SessionOptionsAppendExecutionProvider_OpenVINO`
   void sessionOptionsAppendExecutionProvider_OpenVINO(
           Pointer<OrtSessionOptions> options,
           Pointer<OrtOpenVINOProviderOptions> providerOptions) =>
-      withArena((arena) {
-        checkOrtStatus(this
-                .SessionOptionsAppendExecutionProvider_OpenVINO
-                .asFunction<
-                    Pointer<OrtStatus> Function(Pointer<OrtSessionOptions>,
-                        Pointer<OrtOpenVINOProviderOptions>)>()(
-            options, providerOptions));
-      });
+      checkOrtStatus(this
+              .SessionOptionsAppendExecutionProvider_OpenVINO
+              .asFunction<
+                  Pointer<OrtStatus> Function(Pointer<OrtSessionOptions>,
+                      Pointer<OrtOpenVINOProviderOptions>)>()(
+          options, providerOptions));
 
   /// `SessionOptionsAppendExecutionProvider_TensorRT`
   void sessionOptionsAppendExecutionProvider_TensorRT(
           Pointer<OrtSessionOptions> options,
           Pointer<OrtTensorRTProviderOptions> tensorrtOptions) =>
-      withArena((arena) {
-        checkOrtStatus(this
-                .SessionOptionsAppendExecutionProvider_TensorRT
-                .asFunction<
-                    Pointer<OrtStatus> Function(Pointer<OrtSessionOptions>,
-                        Pointer<OrtTensorRTProviderOptions>)>()(
-            options, tensorrtOptions));
-      });
+      checkOrtStatus(this
+              .SessionOptionsAppendExecutionProvider_TensorRT
+              .asFunction<
+                  Pointer<OrtStatus> Function(Pointer<OrtSessionOptions>,
+                      Pointer<OrtTensorRTProviderOptions>)>()(
+          options, tensorrtOptions));
 
   /// `SessionOptionsAppendExecutionProvider_TensorRT_V2`
   void sessionOptionsAppendExecutionProvider_TensorRT_V2(
           Pointer<OrtSessionOptions> options,
           Pointer<OrtTensorRTProviderOptionsV2> tensorrtOptions) =>
-      withArena((arena) {
-        checkOrtStatus(this
-                .SessionOptionsAppendExecutionProvider_TensorRT_V2
-                .asFunction<
-                    Pointer<OrtStatus> Function(Pointer<OrtSessionOptions>,
-                        Pointer<OrtTensorRTProviderOptionsV2>)>()(
-            options, tensorrtOptions));
-      });
+      checkOrtStatus(this
+              .SessionOptionsAppendExecutionProvider_TensorRT_V2
+              .asFunction<
+                  Pointer<OrtStatus> Function(Pointer<OrtSessionOptions>,
+                      Pointer<OrtTensorRTProviderOptionsV2>)>()(
+          options, tensorrtOptions));
 
   /// `SessionOptionsSetCustomThreadCreationOptions`
   void sessionOptionsSetCustomThreadCreationOptions(
           Pointer<OrtSessionOptions> options,
           Pointer<Void> ortCustomThreadCreationOptions) =>
-      withArena((arena) {
-        checkOrtStatus(this
-            .SessionOptionsSetCustomThreadCreationOptions
-            .asFunction<
-                Pointer<OrtStatus> Function(Pointer<OrtSessionOptions>,
-                    Pointer<Void>)>()(options, ortCustomThreadCreationOptions));
-      });
+      checkOrtStatus(this
+          .SessionOptionsSetCustomThreadCreationOptions
+          .asFunction<
+              Pointer<OrtStatus> Function(Pointer<OrtSessionOptions>,
+                  Pointer<Void>)>()(options, ortCustomThreadCreationOptions));
 
   /// `SessionOptionsAppendExecutionProvider_CUDA_V2`
   void sessionOptionsAppendExecutionProvider_CUDA_V2(
           Pointer<OrtSessionOptions> options,
           Pointer<OrtCUDAProviderOptionsV2> cudaOptions) =>
-      withArena((arena) {
-        checkOrtStatus(this
-                .SessionOptionsAppendExecutionProvider_CUDA_V2
-                .asFunction<
-                    Pointer<OrtStatus> Function(Pointer<OrtSessionOptions>,
-                        Pointer<OrtCUDAProviderOptionsV2>)>()(
-            options, cudaOptions));
-      });
+      checkOrtStatus(this
+          .SessionOptionsAppendExecutionProvider_CUDA_V2
+          .asFunction<
+              Pointer<OrtStatus> Function(Pointer<OrtSessionOptions>,
+                  Pointer<OrtCUDAProviderOptionsV2>)>()(options, cudaOptions));
 
   /// `SessionOptionsAppendExecutionProvider_MIGraphX`
   void sessionOptionsAppendExecutionProvider_MIGraphX(
           Pointer<OrtSessionOptions> options,
           Pointer<OrtMIGraphXProviderOptions> migraphxOptions) =>
-      withArena((arena) {
-        checkOrtStatus(this
-                .SessionOptionsAppendExecutionProvider_MIGraphX
-                .asFunction<
-                    Pointer<OrtStatus> Function(Pointer<OrtSessionOptions>,
-                        Pointer<OrtMIGraphXProviderOptions>)>()(
-            options, migraphxOptions));
-      });
+      checkOrtStatus(this
+              .SessionOptionsAppendExecutionProvider_MIGraphX
+              .asFunction<
+                  Pointer<OrtStatus> Function(Pointer<OrtSessionOptions>,
+                      Pointer<OrtMIGraphXProviderOptions>)>()(
+          options, migraphxOptions));
 
   /// `SessionOptionsAppendExecutionProvider`
   void sessionOptionsAppendExecutionProvider(
@@ -356,25 +330,17 @@ extension OrtApiSessionApi on OrtApi {
   void sessionOptionsAppendExecutionProvider_CANN(
           Pointer<OrtSessionOptions> options,
           Pointer<OrtCANNProviderOptions> cannOptions) =>
-      withArena((arena) {
-        checkOrtStatus(this
-            .SessionOptionsAppendExecutionProvider_CANN
-            .asFunction<
-                Pointer<OrtStatus> Function(Pointer<OrtSessionOptions>,
-                    Pointer<OrtCANNProviderOptions>)>()(options, cannOptions));
-      });
+      checkOrtStatus(this.SessionOptionsAppendExecutionProvider_CANN.asFunction<
+          Pointer<OrtStatus> Function(Pointer<OrtSessionOptions>,
+              Pointer<OrtCANNProviderOptions>)>()(options, cannOptions));
 
   /// `SessionOptionsAppendExecutionProvider_Dnnl`
   void sessionOptionsAppendExecutionProvider_Dnnl(
           Pointer<OrtSessionOptions> options,
           Pointer<OrtDnnlProviderOptions> dnnlOptions) =>
-      withArena((arena) {
-        checkOrtStatus(this
-            .SessionOptionsAppendExecutionProvider_Dnnl
-            .asFunction<
-                Pointer<OrtStatus> Function(Pointer<OrtSessionOptions>,
-                    Pointer<OrtDnnlProviderOptions>)>()(options, dnnlOptions));
-      });
+      checkOrtStatus(this.SessionOptionsAppendExecutionProvider_Dnnl.asFunction<
+          Pointer<OrtStatus> Function(Pointer<OrtSessionOptions>,
+              Pointer<OrtDnnlProviderOptions>)>()(options, dnnlOptions));
 
   /// `SessionOptionsAppendExecutionProvider_OpenVINO_V2`
   void sessionOptionsAppendExecutionProvider_OpenVINO_V2(
@@ -415,11 +381,9 @@ extension OrtApiSessionApi on OrtApi {
   /// `SessionOptionsSetLoadCancellationFlag`
   void sessionOptionsSetLoadCancellationFlag(
           Pointer<OrtSessionOptions> options, bool cancel) =>
-      withArena((arena) {
-        checkOrtStatus(this.SessionOptionsSetLoadCancellationFlag.asFunction<
-            Pointer<OrtStatus> Function(
-                Pointer<OrtSessionOptions>, bool)>()(options, cancel));
-      });
+      checkOrtStatus(this.SessionOptionsSetLoadCancellationFlag.asFunction<
+          Pointer<OrtStatus> Function(
+              Pointer<OrtSessionOptions>, bool)>()(options, cancel));
 
   /// `SessionOptionsAppendExecutionProvider_V2`
   void sessionOptionsAppendExecutionProvider_V2(
@@ -452,11 +416,9 @@ extension OrtApiSessionApi on OrtApi {
   /// `SessionOptionsSetEpSelectionPolicy`
   void sessionOptionsSetEpSelectionPolicy(
           Pointer<OrtSessionOptions> sessionOptions, int policy) =>
-      withArena((arena) {
-        checkOrtStatus(this.SessionOptionsSetEpSelectionPolicy.asFunction<
-            Pointer<OrtStatus> Function(
-                Pointer<OrtSessionOptions>, int)>()(sessionOptions, policy));
-      });
+      checkOrtStatus(this.SessionOptionsSetEpSelectionPolicy.asFunction<
+          Pointer<OrtStatus> Function(
+              Pointer<OrtSessionOptions>, int)>()(sessionOptions, policy));
 
   /// `RunOptionsEnableProfiling`
   void runOptionsEnableProfiling(
@@ -470,34 +432,28 @@ extension OrtApiSessionApi on OrtApi {
 
   /// `RunOptionsDisableProfiling`
   void runOptionsDisableProfiling(Pointer<OrtRunOptions> options) =>
-      withArena((arena) {
-        checkOrtStatus(this.RunOptionsDisableProfiling.asFunction<
-            Pointer<OrtStatus> Function(Pointer<OrtRunOptions>)>()(options));
-      });
+      checkOrtStatus(this.RunOptionsDisableProfiling.asFunction<
+          Pointer<OrtStatus> Function(Pointer<OrtRunOptions>)>()(options));
 
   /// `SessionReleaseCapturedGraph`
   void sessionReleaseCapturedGraph(
           Pointer<OrtSession> session, int graphAnnotationId) =>
-      withArena((arena) {
-        checkOrtStatus(this.SessionReleaseCapturedGraph.asFunction<
-            Pointer<OrtStatus> Function(
-                Pointer<OrtSession>, int)>()(session, graphAnnotationId));
-      });
+      checkOrtStatus(this.SessionReleaseCapturedGraph.asFunction<
+          Pointer<OrtStatus> Function(
+              Pointer<OrtSession>, int)>()(session, graphAnnotationId));
 
   /// `SessionOptionsSetWeightlessSourceModelBuffer`
   void sessionOptionsSetWeightlessSourceModelBuffer(
           Pointer<OrtSessionOptions> options,
           Pointer<Void> sourceModelData,
           int sourceModelDataLength) =>
-      withArena((arena) {
-        checkOrtStatus(this
-            .SessionOptionsSetWeightlessSourceModelBuffer
-            .asFunction<
-                Pointer<OrtStatus> Function(
-                    Pointer<OrtSessionOptions>,
-                    Pointer<Void>,
-                    int)>()(options, sourceModelData, sourceModelDataLength));
-      });
+      checkOrtStatus(this
+          .SessionOptionsSetWeightlessSourceModelBuffer
+          .asFunction<
+              Pointer<OrtStatus> Function(
+                  Pointer<OrtSessionOptions>,
+                  Pointer<Void>,
+                  int)>()(options, sourceModelData, sourceModelDataLength));
 
   /// `ReleaseSession`
   void releaseSession(Pointer<OrtSession> input) => this

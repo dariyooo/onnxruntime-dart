@@ -38,11 +38,9 @@ extension OrtApiTrainingApi on OrtApi {
   /// `RunOptionsAddActiveLoraAdapter`
   void runOptionsAddActiveLoraAdapter(
           Pointer<OrtRunOptions> options, Pointer<OrtLoraAdapter> adapter) =>
-      withArena((arena) {
-        checkOrtStatus(this.RunOptionsAddActiveLoraAdapter.asFunction<
-            Pointer<OrtStatus> Function(Pointer<OrtRunOptions>,
-                Pointer<OrtLoraAdapter>)>()(options, adapter));
-      });
+      checkOrtStatus(this.RunOptionsAddActiveLoraAdapter.asFunction<
+          Pointer<OrtStatus> Function(Pointer<OrtRunOptions>,
+              Pointer<OrtLoraAdapter>)>()(options, adapter));
 
   /// `ReleaseLoraAdapter`
   void releaseLoraAdapter(Pointer<OrtLoraAdapter> input) => this

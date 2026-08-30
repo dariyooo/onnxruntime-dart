@@ -31,6 +31,7 @@ final class CParameter {
     required this.direction,
     this.arrayLengthParameter,
     this.isOptional = false,
+    this.isEnum = false,
   });
 
   final String name;
@@ -45,6 +46,9 @@ final class CParameter {
 
   /// `_In_opt_`, so null is allowed.
   final bool isOptional;
+
+  /// Whether [type] names a C enum, which crosses as its underlying integer.
+  final bool isEnum;
 
   bool get isPointer => type.endsWith('*');
 
@@ -80,11 +84,13 @@ final class CFunction {
 
 /// Reads every API struct in [header], keyed by struct name.
 ///
-/// Both declaration forms are collected: `ORT_API2_STATUS`, which returns a
-/// status, and `ORT_CLASS_RELEASE(X)`, which declares
-/// `void ReleaseX(OrtX*)` and cannot fail.
+/// Three declaration forms are collected: `ORT_API2_STATUS`, which returns a
+/// status; `ORT_CLASS_RELEASE(X)`, which declares `void ReleaseX(OrtX*)`; and
+/// plain `void(ORT_API_CALL* Name)(params)` members, which are how the header
+/// spells a call that cannot fail but still takes parameters.
 Map<String, List<CFunction>> parseApis(String header) {
   final structs = _structSpans(header);
+  final enums = parseEnums(header);
   final apis = <String, List<CFunction>>{};
 
   void add(int offset, CFunction function) {
@@ -96,9 +102,26 @@ Map<String, List<CFunction>> parseApis(String header) {
     r'ORT_API2_STATUS\(\s*(\w+)\s*,([^;]*)\)\s*;',
     multiLine: true,
   ).allMatches(header)) {
-    final parameters = _parseParameters(match.group(2)!);
+    final parameters = _parseParameters(match.group(2)!, enums);
     if (parameters == null) continue;
     add(match.start, CFunction(name: match.group(1)!, parameters: parameters));
+  }
+
+  for (final match in RegExp(
+    r'void\s*\(\s*ORT_API_CALL\s*\*\s*(\w+)\s*\)\s*\(([^;]*?)\)'
+    r'(?:\s*NO_EXCEPTION)?(?:\s*ORT_ALL_ARGS_NONNULL)?\s*;',
+    multiLine: true,
+  ).allMatches(header)) {
+    final parameters = _parseParameters(match.group(2)!, enums);
+    if (parameters == null) continue;
+    add(
+      match.start,
+      CFunction(
+        name: match.group(1)!,
+        parameters: parameters,
+        returnsStatus: false,
+      ),
+    );
   }
 
   for (final match
@@ -178,21 +201,73 @@ List<String> _splitParameters(String text) {
   return parts.map((p) => p.trim()).where((p) => p.isNotEmpty).toList();
 }
 
-List<CParameter>? _parseParameters(String text) {
+/// The names of every `typedef enum { ... } Name;` in [header].
+///
+/// Read rather than listed: an enum added by a new ORT version would otherwise
+/// silently drop every function that takes one.
+Set<String> parseEnums(String header) => {
+      for (final match in RegExp(
+        r'typedef\s+enum\s*\w*\s*\{[^}]*\}\s*(\w+)\s*;',
+        dotAll: true,
+      ).allMatches(header))
+        match.group(1)!,
+    };
+
+List<CParameter>? _parseParameters(String text, Set<String> enums) {
   if (text.contains('...')) return null;
 
   final parameters = <CParameter>[];
   for (final raw in _splitParameters(text)) {
-    final parameter = _parseParameter(raw);
+    final parameter = _parseParameter(raw, enums);
     if (parameter == null) return null;
     parameters.add(parameter);
   }
-  return parameters;
+  return _withArrayLengths(parameters);
 }
 
-final _sal = RegExp(r'_(In|Out|Inout|Outptr)\w*_(?:\(([^)]*)\))?');
+/// Suffixes naming the length of another parameter.
+const _lengthSuffixes = ['_length', '_len', '_count'];
 
-CParameter? _parseParameter(String raw) {
+/// Pairs an out-pointer with its length parameter.
+///
+/// `GetDimensions(info, _Out_ int64_t* dim_values, size_t dim_values_length)`
+/// predates `_Out_writes_`, so the annotation does not say it writes an array.
+/// The naming does, and reading it as a single value would return one dimension
+/// of a shape.
+List<CParameter> _withArrayLengths(List<CParameter> parameters) {
+  final names = {for (final p in parameters) p.name};
+  final result = <CParameter>[];
+  for (final parameter in parameters) {
+    final length = parameter.direction == Direction.output &&
+            parameter.arrayLengthParameter == null
+        ? _lengthOf(parameter.name, names)
+        : null;
+    result.add(
+      length == null
+          ? parameter
+          : CParameter(
+              name: parameter.name,
+              type: parameter.type,
+              direction: parameter.direction,
+              arrayLengthParameter: length,
+              isOptional: parameter.isOptional,
+            ),
+    );
+  }
+  return result;
+}
+
+String? _lengthOf(String name, Set<String> names) {
+  for (final suffix in _lengthSuffixes) {
+    if (names.contains('$name$suffix')) return '$name$suffix';
+  }
+  return null;
+}
+
+/// `_Frees_ptr_opt_` marks a release parameter, which goes in like any other.
+final _sal = RegExp(r'_(In|Out|Inout|Outptr|Frees_ptr)\w*_(?:\(([^)]*)\))?');
+
+CParameter? _parseParameter(String raw, Set<String> enums) {
   var text = raw.replaceAll('\n', ' ').trim();
   if (text.isEmpty || text == 'void') return null;
 
@@ -208,7 +283,9 @@ CParameter? _parseParameter(String raw) {
       direction = Direction.inout;
     }
     if (annotation.contains('_opt_')) optional = true;
-    if (annotation.startsWith('_In_reads') && match.group(2) != null) {
+    if ((annotation.startsWith('_In_reads') ||
+            annotation.startsWith('_Out_writes')) &&
+        match.group(2) != null) {
       arrayLength = match.group(2)!.trim();
     }
   }
@@ -226,5 +303,8 @@ CParameter? _parseParameter(String raw) {
     direction: direction,
     arrayLengthParameter: arrayLength,
     isOptional: optional,
+    isEnum: enums.contains(
+      type.replaceAll(RegExp(r'^(?:const\s+)?(?:enum\s+)?|\s*\*$'), '').trim(),
+    ),
   );
 }

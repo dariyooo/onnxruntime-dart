@@ -4,28 +4,22 @@ Each needs a hand-written wrapper, or a rule in tool/src/types.dart.
 OrtApi.AddExternalInitializersFromFilesInMemory: input char* const*
 OrtApi.CreateEnvWithCustomLogger: input OrtLoggingFunction
 OrtApi.CreateEnvWithCustomLoggerAndGlobalThreadPools: input OrtLoggingFunction
-OrtApi.CreateMemoryInfo_V2: input enum OrtMemoryInfoDeviceType
-OrtApi.CreateOp: input const char**, input const ONNXTensorElementDataType*
-OrtApi.CreateOpAttr: input OrtOpAttrType
+OrtApi.CreateOp: input const char**
 OrtApi.EpAssignedSubgraph_GetNodes: output const OrtEpAssignedNode* const**
 OrtApi.FillSparseTensorBlockSparse: input const int32_t*
 OrtApi.GetAvailableProviders: output char***
 OrtApi.GetBoundOutputNames: output size_t**
 OrtApi.GetBoundOutputValues: output OrtValue***
 OrtApi.GetCurrentGpuDeviceId: input int*
-OrtApi.GetDenotationFromTypeInfo: output const char** const
 OrtApi.GetEpDevices: output const OrtEpDevice* const**
-OrtApi.GetExecutionProviderApi: output const void**
-OrtApi.GetModelCompatibilityForEpDevices: output OrtCompiledModelCompatibility*
+OrtApi.GetKeyValuePairs: output const char* const**, output const char* const**
 OrtApi.GetOpaqueValue: output void*
 OrtApi.GetResizedStringTensorElementBuffer: input char**
 OrtApi.GetSessionConfigEntry: output char*
-OrtApi.GetSparseTensorIndices: input enum OrtSparseIndicesFormat, output const void**
+OrtApi.GetSparseTensorIndices: input enum OrtSparseIndicesFormat
 OrtApi.GetSparseTensorIndicesTypeShape: input enum OrtSparseIndicesFormat
-OrtApi.GetSparseTensorValues: output const void**
 OrtApi.GetStringTensorContent: output void*
 OrtApi.GetStringTensorElement: output void*
-OrtApi.GetTensorData: output const void**
 OrtApi.GetTensorElementTypeAndShapeDataReference: output const int64_t**
 OrtApi.Graph_GetModelPath: output const ORTCHAR_T**
 OrtApi.KernelInfoGetAttributeArray_string: output char***
@@ -36,8 +30,6 @@ OrtApi.KernelInfo_GetOperatorDomain: output char*
 OrtApi.KernelInfo_GetOperatorType: output char*
 OrtApi.KernelInfo_GetOutputName: output char*
 OrtApi.ModelMetadataGetCustomMetadataMapKeys: output char***
-OrtApi.OpAttr_GetType: output OrtOpAttrType*
-OrtApi.ReadOpAttr: input OrtOpAttrType
 OrtApi.ReleaseAvailableProviders: input char**
 OrtApi.RunAsync: input RunAsyncCallbackFn
 OrtApi.SessionOptionsSetCustomCreateThreadFn: input OrtCustomCreateThreadFn
@@ -50,6 +42,4 @@ OrtApi.SetUserLoggingFunction: input OrtLoggingFunction
 OrtApi.UseBlockSparseIndices: input int32_t*
 OrtCompileApi.ModelCompilationOptions_SetOutputModelGetInitializerLocationFunc: input OrtGetInitializerLocationFunc
 OrtCompileApi.ModelCompilationOptions_SetOutputModelWriteFunc: input OrtWriteBufferFunc
-OrtInteropApi.CanImportMemory: input OrtExternalMemoryHandleType
-OrtInteropApi.CanImportSemaphore: input OrtExternalSemaphoreType
 OrtModelEditorApi.CreateModel: input const int*
