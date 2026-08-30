@@ -168,9 +168,9 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: onnxruntime-${{ matrix.artifact }}
-          path: .local/ort/${{ matrix.artifact }}
+          path: .local/artifacts
 
-      - name: Point the suite at our library
+      - name: Point the suite at our build
         shell: bash
         run: python3 .github/scripts/locate_library.py "${{ matrix.artifact }}"
 

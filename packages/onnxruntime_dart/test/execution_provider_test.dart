@@ -11,6 +11,8 @@ import 'package:onnxruntime_dart/src/ffi/execution_provider.dart';
 import 'package:onnxruntime_dart/src/ffi/status.dart';
 import 'package:test/test.dart';
 
+import 'src/ort_library.dart';
+
 void main() {
   group('environment', () {
     test('is the same instance every time', () {
@@ -74,4 +76,60 @@ void main() {
           greaterThanOrEqualTo(1));
     });
   });
+
+  group('the WebGPU plugin we build', () {
+    late final OrtEnvironment env;
+    setUpAll(() => env = OrtEnvironment.instance());
+
+    test('registers and adds its devices', () {
+      final before = executionProviderDeviceCount(env.api, env.handle);
+
+      registerExecutionProviderLibrary(
+        env.api,
+        env.handle,
+        name: 'webgpu',
+        path: findWebGpuPlugin()!,
+      );
+      addTearDown(
+        () => unregisterExecutionProviderLibrary(
+          env.api,
+          env.handle,
+          name: 'webgpu',
+        ),
+      );
+
+      // Registration succeeding proves the library loaded and exported
+      // CreateEpFactories. Its devices appearing proves the factory ran.
+      expect(
+        executionProviderDeviceCount(env.api, env.handle),
+        greaterThan(before),
+      );
+    });
+
+    test('registering the same name twice is refused', () {
+      registerExecutionProviderLibrary(
+        env.api,
+        env.handle,
+        name: 'webgpu-dup',
+        path: findWebGpuPlugin()!,
+      );
+      addTearDown(
+        () => unregisterExecutionProviderLibrary(
+          env.api,
+          env.handle,
+          name: 'webgpu-dup',
+        ),
+      );
+
+      expect(
+        () => registerExecutionProviderLibrary(
+          env.api,
+          env.handle,
+          name: 'webgpu-dup',
+          path: findWebGpuPlugin()!,
+        ),
+        throwsA(isA<OrtException>()),
+      );
+    });
+  }, skip: skipWithoutWebGpuPlugin);
 }
