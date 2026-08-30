@@ -70,9 +70,11 @@ jobs:
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 180
     strategy:
-      # One platform failing must not hide the state of the other thirteen.
+      # One platform failing must not hide the state of the other fourteen.
       fail-fast: false
       matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    env:
+      MATRIX_ID: ${{ matrix.id }}
     steps:
       - uses: actions/checkout@v5
         with:
@@ -151,7 +153,6 @@ jobs:
         if: steps.cached.outputs.cache-hit != 'true'
         shell: bash
         env:
-          MATRIX_ID: ${{ matrix.id }}
           ANDROID_NDK_HOME: ${{ steps.ndk.outputs.ndk-path }}
         run: python3 .github/scripts/build_runtime.py
 
