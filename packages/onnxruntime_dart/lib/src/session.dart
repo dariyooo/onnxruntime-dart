@@ -47,6 +47,16 @@ final class SessionOptions {
     this.config = const {},
     this.freeDimensionOverrides = const {},
     this.intraOpNumThreads,
+    this.interOpNumThreads,
+    this.optimizationLevel,
+    this.executionMode,
+    this.logLevel,
+    this.logId,
+    this.optimizedModelPath,
+    this.profileFilePrefix,
+    this.deterministicCompute,
+    this.memoryPattern,
+    this.cpuMemoryArena,
   });
 
   /// Execution providers to try, in order, each with its own configuration.
@@ -72,6 +82,91 @@ final class SessionOptions {
   /// dispatches onto this pool, so with one thread there is nothing to dispatch
   /// to.
   final int? intraOpNumThreads;
+
+  /// Threads for running independent branches of the graph at the same time.
+  ///
+  /// Only used when [executionMode] is [OrtExecutionMode.parallel], and only
+  /// helps a graph that branches.
+  final int? interOpNumThreads;
+
+  /// How much the graph is rewritten before it runs.
+  final OrtOptimizationLevel? optimizationLevel;
+
+  final OrtExecutionMode? executionMode;
+
+  /// How much this session logs. Null leaves the environment's level.
+  final OrtLogLevel? logLevel;
+
+  /// Tags this session's log lines, which is how you tell two apart.
+  final String? logId;
+
+  /// Writes the optimised graph here, to inspect or to load instead later.
+  final String? optimizedModelPath;
+
+  /// Turns on profiling, writing files starting with this prefix.
+  ///
+  /// [Session.endProfiling] stops it and returns the file it wrote.
+  final String? profileFilePrefix;
+
+  /// Trades speed for reproducible results between runs.
+  final bool? deterministicCompute;
+
+  /// Reuses one allocation across a run, planned from the graph's shapes.
+  ///
+  /// On by default, and worth turning off only for a model whose shapes change
+  /// every run, where the plan is recomputed and never reused.
+  final bool? memoryPattern;
+
+  /// Keeps an arena for CPU allocations rather than returning them each time.
+  final bool? cpuMemoryArena;
+
+  /// Applies every setting that was given, leaving the rest at the runtime's
+  /// default. Null means "not asked for", which is not the same as false.
+  void _applyTo(OrtCalls calls, OrtPtr options) {
+    for (final provider in providers) {
+      calls.appendExecutionProvider(
+        options,
+        provider.name,
+        provider.configuration,
+      );
+    }
+    for (final entry in config.entries) {
+      calls.addSessionConfigEntry(options, entry.key, entry.value);
+    }
+    for (final entry in freeDimensionOverrides.entries) {
+      calls.addFreeDimensionOverride(options, entry.key, entry.value);
+    }
+
+    if (intraOpNumThreads case final threads?) {
+      calls.setIntraOpNumThreads(options, threads);
+    }
+    if (interOpNumThreads case final threads?) {
+      calls.setInterOpNumThreads(options, threads);
+    }
+    if (optimizationLevel case final level?) {
+      calls.setOptimizationLevel(options, level);
+    }
+    if (executionMode case final mode?) {
+      calls.setExecutionMode(options, mode);
+    }
+    if (logLevel case final level?) calls.setLogLevel(options, level);
+    if (logId case final id?) calls.setLogId(options, id);
+    if (optimizedModelPath case final path?) {
+      calls.setOptimizedModelPath(options, path);
+    }
+    if (profileFilePrefix case final prefix?) {
+      calls.enableProfiling(options, prefix);
+    }
+    if (deterministicCompute case final deterministic?) {
+      calls.setDeterministicCompute(options, deterministic: deterministic);
+    }
+    if (memoryPattern case final enabled?) {
+      calls.setMemoryPattern(options, enabled: enabled);
+    }
+    if (cpuMemoryArena case final enabled?) {
+      calls.setCpuMemoryArena(options, enabled: enabled);
+    }
+  }
 }
 
 /// A loaded model.
@@ -99,22 +194,7 @@ final class Session {
     final calls = createCalls()..init();
     final optionsPtr = calls.createSessionOptions();
     try {
-      for (final provider in options.providers) {
-        calls.appendExecutionProvider(
-          optionsPtr,
-          provider.name,
-          provider.configuration,
-        );
-      }
-      for (final entry in options.config.entries) {
-        calls.addSessionConfigEntry(optionsPtr, entry.key, entry.value);
-      }
-      for (final entry in options.freeDimensionOverrides.entries) {
-        calls.addFreeDimensionOverride(optionsPtr, entry.key, entry.value);
-      }
-
-      final threads = options.intraOpNumThreads;
-      if (threads != null) calls.setIntraOpNumThreads(optionsPtr, threads);
+      options._applyTo(calls, optionsPtr);
 
       final session = calls.createSession(model, optionsPtr);
       final handle = OrtHandle(session, calls.releaseSession, 'OrtSession');
@@ -122,7 +202,7 @@ final class Session {
       return Session._(
         calls,
         handle,
-        threads,
+        options.intraOpNumThreads,
         [
           for (var i = 0; i < inputCount; i++)
             calls.inputOutputMetadata(session, i, input: true),
