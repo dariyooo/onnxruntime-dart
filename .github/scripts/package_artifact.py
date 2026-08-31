@@ -32,6 +32,12 @@ DIST = REPO_ROOT / "dist"
 # symlink is not always present in what CMake leaves behind. Archives therefore
 # carry the real bytes under the unversioned name the loader asks for, which is
 # also the name the build hook looks up.
+# The build flag that makes a component appear. A component missing when its
+# flag was passed is a failure, not an absence: see _collect.
+COMPONENT_FLAGS = {
+    ort_matrix.EP_WEBGPU: "--use_webgpu",
+}
+
 ARTIFACT_PATTERNS = {
     "android": {
         ort_matrix.RUNTIME: {
@@ -120,7 +126,17 @@ def package(config: ort_matrix.Config) -> None:
                 raise SystemExit(
                     f"no artifact matching {members} under {build_dir}"
                 )
-            # An optional component simply was not built for this configuration.
+            # Optional only when the configuration did not ask for it. If it
+            # did, the library was either not produced or not found, and both
+            # publish a release with a hole in it that 404s at install time.
+            flag = COMPONENT_FLAGS.get(component)
+            if flag and flag in " ".join(config.build_args()):
+                raise SystemExit(
+                    f"{config.id} was built with {flag}, but nothing under "
+                    f"{build_dir} matches {members}. Either the build stopped "
+                    f"producing it, or this platform cannot and the provider's "
+                    f"target list claims otherwise."
+                )
             continue
         _archive(config, component, found)
 
