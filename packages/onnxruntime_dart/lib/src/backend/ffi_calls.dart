@@ -118,6 +118,10 @@ final class FfiCalls implements OrtCalls, OrtAsyncCalls {
       );
 
   @override
+  void addCustomOpsLibrary(OrtPtr options, String path) =>
+      _api.registerCustomOpsLibrary_V2(_as<OrtSessionOptions>(options), path);
+
+  @override
   void setIntraOpNumThreads(OrtPtr options, int threads) =>
       _api.setIntraOpNumThreads(_as<OrtSessionOptions>(options), threads);
 

@@ -57,6 +57,7 @@ final class SessionOptions {
     this.deterministicCompute,
     this.memoryPattern,
     this.cpuMemoryArena,
+    this.customOpsLibraries = const [],
   });
 
   /// Execution providers to try, in order, each with its own configuration.
@@ -120,6 +121,28 @@ final class SessionOptions {
   /// Keeps an arena for CPU allocations rather than returning them each time.
   final bool? cpuMemoryArena;
 
+  /// Libraries of custom operators to load, by path.
+  ///
+  /// A model can name operators ONNX Runtime does not have. Anyone can build
+  /// one: it is a shared library exporting `RegisterCustomOps`, and nothing
+  /// about it is specific to this package.
+  ///
+  /// A package shipping one as a code asset does not know where it landed, so
+  /// ask the loader rather than guessing at a layout:
+  ///
+  /// ```dart
+  /// @Native<Void Function()>(
+  ///   symbol: 'RegisterCustomOps',
+  ///   assetId: 'package:my_ops/library',
+  /// )
+  /// external void _entryPoint();
+  ///
+  /// final path = libraryPathOf(
+  ///   Native.addressOf<NativeFunction<Void Function()>>(_entryPoint).cast(),
+  /// );
+  /// ```
+  final List<String> customOpsLibraries;
+
   /// Applies every setting that was given, leaving the rest at the runtime's
   /// default. Null means "not asked for", which is not the same as false.
   void _applyTo(OrtCalls calls, OrtPtr options) {
@@ -165,6 +188,9 @@ final class SessionOptions {
     }
     if (cpuMemoryArena case final enabled?) {
       calls.setCpuMemoryArena(options, enabled: enabled);
+    }
+    for (final path in customOpsLibraries) {
+      calls.addCustomOpsLibrary(options, path);
     }
   }
 }

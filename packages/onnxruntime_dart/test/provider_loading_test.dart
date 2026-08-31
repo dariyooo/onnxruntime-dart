@@ -12,9 +12,11 @@ library;
 import 'dart:ffi';
 
 import 'package:onnxruntime_dart/native.dart';
+import 'package:onnxruntime_dart/onnxruntime_dart.dart';
 import 'package:test/test.dart';
 
 import 'src/ort_library.dart';
+import 'src/test_models.dart';
 
 void main() {
   group('recovering a library path from the loader', () {
@@ -73,6 +75,31 @@ void main() {
       // onnxruntime_ep is not a dependency of the test suite. If this starts
       // failing, a provider is being installed and the test should say so.
       expect(registerBundledProviders(), isEmpty);
+    });
+  }, skip: skipWithoutOrt ?? skipWithoutNativeAsset);
+
+  group('bringing your own library', () {
+    test('a custom operator library is refused when it is not one', () {
+      // Nothing about a custom ops library is specific to this package: it is
+      // a shared library exporting RegisterCustomOps, and anyone can build
+      // one. What is checked here is that the path reaches ONNX Runtime and
+      // that a library without the entry point is reported rather than
+      // silently ignored.
+      final runtime = libraryPathOf(ortApi().ref.GetTrainingApi.cast<Void>())!;
+
+      expect(
+        () => Session.fromBytes(
+          voiceCommands.model(),
+          options: SessionOptions(customOpsLibraries: [runtime]),
+        ),
+        throwsA(isA<OrtException>()),
+      );
+    });
+
+    test('a model loads normally when none are given', () {
+      final session = Session.fromBytes(voiceCommands.model());
+      addTearDown(session.release);
+      expect(session.inputs, hasLength(1));
     });
   }, skip: skipWithoutOrt ?? skipWithoutNativeAsset);
 
