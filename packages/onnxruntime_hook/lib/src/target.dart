@@ -137,7 +137,10 @@ enum OrtProvider {
   /// NVIDIA TensorRT, redistributed for the same reason.
   tensorrt('onnxruntime_providers_tensorrt'),
 
-  /// Qualcomm NPUs.
+  /// Qualcomm NPUs, redistributed from the wheel ONNX Runtime publishes.
+  /// Building it is not an option: the Qualcomm SDK it links against is behind
+  /// an authenticated download, and the wheel carries that SDK's runtime with
+  /// a licence to pass it on.
   qnn('onnxruntime_providers_qnn');
 
   const OrtProvider(this.libraryStem);
@@ -214,7 +217,16 @@ enum OrtProvider {
             'windows-x64',
             'windows-arm64',
           ],
-        OrtProvider.qnn => const ['android-arm64-v8a', 'windows-arm64'],
+        // What the wheels cover. Not Android: there QNN is linked into a
+        // whole runtime rather than published as a plugin, so it cannot layer
+        // on ours. The x64 hosts have no NPU and are there to compile graphs
+        // ahead of time for one that does.
+        OrtProvider.qnn => const [
+            'linux-x64',
+            'linux-arm64',
+            'windows-x64',
+            'windows-arm64',
+          ],
       };
 
   /// Whether this provider exists for [target].

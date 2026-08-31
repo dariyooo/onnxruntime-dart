@@ -219,6 +219,17 @@ class ProviderTargets(unittest.TestCase):
             for target in self._claimed(provider):
                 self.assertIn(target, every, f"{provider} claims {target}")
 
+    def test_the_dart_side_agrees_about_the_targets(self):
+        # The hook asks for an asset per target from this table, so a target
+        # here that the matrix does not publish is a download that will 404,
+        # and one missing here is a platform silently left without a provider.
+        for provider in ep_matrix.fetched():
+            self.assertEqual(
+                self._claimed(provider.name),
+                set(provider.targets),
+                provider.name,
+            )
+
 
 class Providers(unittest.TestCase):
     """Execution providers, each on its own release stream."""
@@ -271,8 +282,32 @@ class Providers(unittest.TestCase):
         for provider in ep_matrix.fetched():
             named = {target for _, target, _ in provider.upstream_assets}
             self.assertEqual(named, set(provider.targets), provider.name)
-            self.assertTrue(provider.upstream_tag, provider.name)
+            # Whichever host it comes from has to be identified.
+            source = (
+                provider.pypi_project
+                if provider.source == ep_matrix.PYPI
+                else provider.upstream_tag
+            )
+            self.assertTrue(source, provider.name)
 
+    def test_qnn_is_mirrored_whole(self):
+        # The plugin dlopens the Qualcomm runtime by bare name, so unlike CUDA
+        # the sibling libraries are part of the artifact rather than the
+        # machine's job. It ships one build, so no build appears in the name.
+        qnn = ep_matrix.by_name("qnn")
+        self.assertEqual(qnn.source, ep_matrix.PYPI)
+        self.assertTrue(qnn.bundles_runtime)
+        self.assertEqual(qnn.builds, ())
+        self.assertEqual(qnn.asset_name("", "linux-x64"), "qnn-linux-x64.tar.gz")
+        # Not versioned in our tree, because it is not built from it.
+        self.assertFalse((ep_matrix.SUBMODULE / "plugin-ep-qnn").exists())
+        self.assertTrue(qnn.pinned_version)
+
+    def test_qnn_does_not_claim_android(self):
+        # There QNN is linked into a whole runtime rather than published as a
+        # plugin, so it cannot layer on ours.
+        qnn = ep_matrix.by_name("qnn")
+        self.assertFalse([t for t in qnn.targets if t.startswith("android")])
 
     def test_cuda_ships_both_toolkits(self):
         # CUDA 13 needs an R580 driver, which a machine nobody has updated
