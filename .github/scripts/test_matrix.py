@@ -186,6 +186,11 @@ class ProviderTargets(unittest.TestCase):
         source = (
             REPO_ROOT / "packages" / "onnxruntime_hook" / "lib" / "src" / "target.dart"
         ).read_text(encoding="utf-8")
+        # Only the targets getter. Others switch on the same enum and would
+        # otherwise be read as targets, which is how "cuda13" once became one.
+        source = source.split("List<String> get targets")[1].split(
+            "bool isAvailableOn"
+        )[0]
         for arm in re.finditer(
             r"((?:OrtProvider\.\w+\s*\|\|\s*)*OrtProvider\.\w+)\s*=>\s*const \[([^\]]*)\]",
             source,
@@ -261,10 +266,30 @@ class Providers(unittest.TestCase):
         self.assertEqual(set(webgpu.targets), matrix)
 
     def test_a_fetched_provider_names_an_asset_for_every_target(self):
+        # Across all its builds, a fetched provider must cover every target it
+        # claims. One build need not: CUDA 12 has no arm64 upstream.
         for provider in ep_matrix.fetched():
-            named = {target for target, _ in provider.upstream_assets}
+            named = {target for _, target, _ in provider.upstream_assets}
             self.assertEqual(named, set(provider.targets), provider.name)
             self.assertTrue(provider.upstream_tag, provider.name)
+
+
+    def test_cuda_ships_both_toolkits(self):
+        # CUDA 13 needs an R580 driver, which a machine nobody has updated
+        # will not have, so the older toolkit has to stay available.
+        cuda = ep_matrix.by_name("cuda")
+        self.assertEqual(cuda.builds, ("cuda12", "cuda13"))
+        self.assertEqual(
+            set(cuda.targets_for("cuda12")), {"linux-x64", "windows-x64"}
+        )
+
+    def test_the_dart_side_agrees_about_the_builds(self):
+        source = (
+            REPO_ROOT / "packages" / "onnxruntime_hook" / "lib" / "src" / "target.dart"
+        ).read_text(encoding="utf-8")
+        for provider in ep_matrix.fetched():
+            for build in provider.builds:
+                self.assertIn(f"'{build}'", source, f"{provider.name} {build}")
 
 
 class WebPackages(unittest.TestCase):

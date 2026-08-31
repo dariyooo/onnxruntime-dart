@@ -91,14 +91,17 @@ def main() -> None:
 
     with tempfile.TemporaryDirectory() as scratch:
         staging = pathlib.Path(scratch)
-        for target, asset in provider.upstream_assets:
-            print(f"{target}: {asset}")
+        for build, target, asset in provider.upstream_assets:
+            print(f"{build} {target}: {asset}")
+
+            # One flat archive per build and target, holding the library under
+            # the name the hook asks for. The build is in the archive name only
+            # where the provider ships more than one, differing in what they
+            # need from the machine rather than in what they do.
+            archive = out / provider.asset_name(build, target)
+
             upstream = download(provider.upstream_tag, asset, staging)
             name, payload = library_in(upstream, provider.library_stem)
-
-            # One flat archive, named for the target, holding the library under
-            # the name the hook asks for.
-            archive = out / f"{provider.name}-{target}.tar.gz"
             with tarfile.open(archive, "w:gz") as tar:
                 info = tarfile.TarInfo(name)
                 info.size = len(payload)

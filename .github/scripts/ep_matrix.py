@@ -36,9 +36,30 @@ class Provider:
     targets: tuple[str, ...]
     # Extra flags for a `build` provider, on top of the runtime's own.
     args: tuple[str, ...] = ()
-    # For a `fetch` provider: the upstream release and its asset names.
+    # For a `fetch` provider: the upstream release, and its assets as
+    # (build, target, asset). The build distinguishes otherwise-identical
+    # providers that differ in what they need from the machine, such as the
+    # CUDA toolkit version.
     upstream_tag: str = ""
-    upstream_assets: tuple[tuple[str, str], ...] = ()
+    upstream_assets: tuple[tuple[str, str, str], ...] = ()
+
+    @property
+    def builds(self) -> tuple[str, ...]:
+        """The distinct builds published, in the order they were listed."""
+        seen: list[str] = []
+        for build, _, _ in self.upstream_assets:
+            if build not in seen:
+                seen.append(build)
+        return tuple(seen)
+
+    def targets_for(self, build: str) -> tuple[str, ...]:
+        return tuple(t for b, t, _ in self.upstream_assets if b == build)
+
+    def asset_name(self, build: str, target: str) -> str:
+        """What we publish it as. Mirrors providerAssetFileName on the Dart
+        side, which has to ask for the same name."""
+        stem = f"{self.name}-{build}-{target}" if build else f"{self.name}-{target}"
+        return f"{stem}.tar.gz"
 
     @property
     def library_stem(self) -> str:
@@ -92,14 +113,19 @@ PROVIDERS: tuple[Provider, ...] = (
         source=FETCH,
         targets=("linux-x64", "linux-arm64", "windows-x64", "windows-arm64"),
         upstream_tag="plugin-ep-cuda/v0.1.0",
-        # CUDA 13 rather than 12: less than half the size, at the cost of
-        # needing an R580 driver. The 12 builds stay available upstream for
-        # anyone who cannot move.
+        # Both toolkits, because the choice is real. CUDA 13 is less than half
+        # the size, and needs an R580 driver: an old card runs it, an
+        # un-updated machine does not, and plenty of managed fleets are years
+        # behind. CUDA 12 asks far less of the driver and costs the size.
+        #
+        # Only 13 exists for arm64 upstream, so that is not a choice there.
         upstream_assets=(
-            ("linux-x64", "cuda_ep_cuda13_0.1.0_linux-x64.tar.gz"),
-            ("linux-arm64", "cuda_ep_cuda13_0.1.0_linux-aarch64.tar.gz"),
-            ("windows-x64", "cuda_ep_cuda13_0.1.0_win-x64.zip"),
-            ("windows-arm64", "cuda_ep_cuda13_0.1.0_win-arm64.zip"),
+            ("cuda12", "linux-x64", "cuda_ep_cuda12_0.1.0_linux-x64.tar.gz"),
+            ("cuda12", "windows-x64", "cuda_ep_cuda12_0.1.0_win-x64.zip"),
+            ("cuda13", "linux-x64", "cuda_ep_cuda13_0.1.0_linux-x64.tar.gz"),
+            ("cuda13", "linux-arm64", "cuda_ep_cuda13_0.1.0_linux-aarch64.tar.gz"),
+            ("cuda13", "windows-x64", "cuda_ep_cuda13_0.1.0_win-x64.zip"),
+            ("cuda13", "windows-arm64", "cuda_ep_cuda13_0.1.0_win-arm64.zip"),
         ),
     ),
 )
