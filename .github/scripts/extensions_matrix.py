@@ -51,7 +51,12 @@ class Build:
     args: tuple[str, ...] = ()
 
     def cmake_args(self) -> tuple[str, ...]:
-        return COMMON + self.args
+        """Configuration for this target, with environment references resolved.
+
+        These reach CMake through subprocess rather than a shell, so anything
+        of the form $NAME has to be expanded here or it arrives verbatim.
+        """
+        return COMMON + tuple(os.path.expandvars(a) for a in self.args)
 
 
 def version() -> str:
