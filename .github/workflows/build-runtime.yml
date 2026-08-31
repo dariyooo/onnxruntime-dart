@@ -39,7 +39,11 @@ permissions:
   contents: read
 
 concurrency:
-  group: build-runtime-${{ github.ref }}
+  # The event is part of the group because this workflow runs two ways on the
+  # same ref: called by ci, and dispatched by hand to try something. Sharing a
+  # group meant one queued behind the other with no cancellation, so a manual
+  # run blocked every push for as long as a full matrix takes, which is hours.
+  group: build-runtime-${{ github.ref }}-${{ github.event_name }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
