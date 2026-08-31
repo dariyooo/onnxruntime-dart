@@ -16,6 +16,11 @@ environment:
 dependencies:
   flutter: { sdk: flutter }
 
+# The analysis options include package:lints, which has to resolve for
+# `flutter analyze` to read them.
+dev_dependencies:
+  lints: ^6.0.0
+
 # Flutter bundles every declared asset, so each build is its own package. One
 # package carrying all three would serve every browser twenty-five megabytes to
 # use one of them.
