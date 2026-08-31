@@ -185,7 +185,8 @@ jobs:
   test-on-device:
     name: test · ${{ matrix.name }} · device
     needs: build-runtime
-    if: ${{ !cancelled() }}
+    # As above: a cancelled build leaves nothing to test against.
+    if: ${{ !cancelled() && needs.build-runtime.result != 'cancelled' }}
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
@@ -262,11 +263,12 @@ jobs:
   test-against-our-build:
     name: test · ${{ matrix.name }} · our build
     needs: build-runtime
-    # Runs even when part of the matrix failed. These six need only their own
+    # Runs even when part of the matrix failed: these six need only their own
     # native artifact, and gating them on every configuration means one web
     # variant that will not link hides whether the libraries we ship work at
-    # all. The download step fails loudly if the artifact is genuinely absent.
-    if: ${{ !cancelled() }}
+    # all. Not when the build was cancelled, though, because then there is no
+    # artifact to download and the failure says nothing.
+    if: ${{ !cancelled() && needs.build-runtime.result != 'cancelled' }}
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
