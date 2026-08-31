@@ -52,6 +52,13 @@ abstract interface class OrtCalls {
 
   void addSessionConfigEntry(OrtPtr options, String key, String value);
 
+  /// Loads a library of custom operators into these options.
+  ///
+  /// A model can name operators ONNX Runtime does not have, and this is how
+  /// they arrive. The library is opened by path, so a package shipping one as
+  /// a code asset finds its path with `libraryPathOf`.
+  void addCustomOpsLibrary(OrtPtr options, String path);
+
   void addFreeDimensionOverride(OrtPtr options, String name, int dimension);
 
   /// Threads ONNX Runtime may use within a single operator.
