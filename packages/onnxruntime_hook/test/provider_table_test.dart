@@ -41,9 +41,12 @@ void main() {
       expect(OrtProvider.cuda.isAvailableOn('ios-device-arm64'), isFalse);
     });
 
-    test('QNN is where Qualcomm hardware is', () {
-      expect(OrtProvider.qnn.isAvailableOn('android-arm64-v8a'), isTrue);
-      expect(OrtProvider.qnn.isAvailableOn('linux-x64'), isFalse);
+    test('QNN is where the wheels are, which is not Android', () {
+      // On Android QNN is linked into a whole runtime rather than published
+      // as a plugin, so it cannot layer on ours.
+      expect(OrtProvider.qnn.isAvailableOn('windows-arm64'), isTrue);
+      expect(OrtProvider.qnn.isAvailableOn('linux-x64'), isTrue);
+      expect(OrtProvider.qnn.isAvailableOn('android-arm64-v8a'), isFalse);
     });
   });
 
