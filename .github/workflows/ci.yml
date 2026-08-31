@@ -222,6 +222,13 @@ jobs:
     permissions:
       contents: write
 
+  build-extensions:
+    name: extensions
+    needs: static
+    uses: ./.github/workflows/build-extensions.yml
+    permissions:
+      contents: write
+
   # Stage 2b. The suite again, this time against the library we actually ship,
   # so the ABI and operator-coverage tests run instead of skipping.
   #

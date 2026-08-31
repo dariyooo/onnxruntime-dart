@@ -109,14 +109,15 @@ String libraryFileName(OS os) => switch (os) {
     };
 
 /// Release asset holding the library for [targetId].
+/// Where every asset this hook downloads is published.
+const _releases =
+    'https://github.com/dariyooo/onnxruntime-dart/releases/download';
+
 String assetFileName(String targetId) => '$targetId.tar.gz';
 
 /// URL of the release asset for [targetId] at [releaseTag].
 Uri assetUrl({required String releaseTag, required String targetId}) =>
-    Uri.parse(
-      'https://github.com/dariyooo/onnxruntime-dart/releases/download'
-      '/$releaseTag/${assetFileName(targetId)}',
-    );
+    Uri.parse('$_releases/$releaseTag/${assetFileName(targetId)}');
 
 /// An execution provider shipped as a separate loadable library.
 ///
@@ -267,6 +268,41 @@ enum OrtProvider {
 /// [build] distinguishes providers that do the same thing but ask different
 /// things of the machine, such as which CUDA toolkit is installed. Providers
 /// with only one build leave it out.
+/// The onnxruntime-extensions operator library, which is not a provider.
+///
+/// A provider gives ONNX Runtime somewhere to run an operator it already has.
+/// This gives it operators it does not: tokenizers, text, image and audio
+/// preprocessing that would otherwise be rewritten in Dart. It loads through
+/// `RegisterCustomOpsLibrary_V2` rather than the provider machinery.
+abstract final class OrtExtensions {
+  /// The library name without prefix or extension.
+  static const libraryStem = 'ortextensions';
+
+  /// Every native target. Not the web, where the library cannot be shared:
+  /// under Emscripten the operators have to be compiled into the runtime.
+  static List<String> get targets =>
+      supportedTargets.where((t) => !t.startsWith('web-')).toList();
+
+  static bool isAvailableOn(String target) => targets.contains(target);
+
+  static String fileName(OS os) => switch (os) {
+        OS.windows => '$libraryStem.dll',
+        OS.macOS || OS.iOS => 'lib$libraryStem.dylib',
+        _ => 'lib$libraryStem.so',
+      };
+}
+
+/// Asset name for the extensions library on [targetId].
+String extensionsAssetFileName(String targetId) =>
+    'extensions-$targetId.tar.gz';
+
+/// URL of the extensions asset for [targetId] at [releaseTag].
+Uri extensionsAssetUrl({
+  required String releaseTag,
+  required String targetId,
+}) =>
+    Uri.parse('$_releases/$releaseTag/${extensionsAssetFileName(targetId)}');
+
 String providerAssetFileName(String provider, String targetId,
         {String? build}) =>
     build == null
@@ -281,6 +317,6 @@ Uri providerAssetUrl({
   String? build,
 }) =>
     Uri.parse(
-      'https://github.com/dariyooo/onnxruntime-dart/releases/download'
-      '/$releaseTag/${providerAssetFileName(provider, targetId, build: build)}',
+      '$_releases/$releaseTag/'
+      '${providerAssetFileName(provider, targetId, build: build)}',
     );

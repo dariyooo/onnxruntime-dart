@@ -1,19 +1,24 @@
 /// Support for the packages that ship the ONNX Runtime binaries.
 ///
-/// `onnxruntime_binaries` and `onnxruntime_binaries` are the same build hook
-/// with a different variant, so the hook itself lives here and each of them is
-/// a few lines naming which library it installs. Nothing in the ordinary API
+/// The runtime, the providers and the extensions library all install the same
+/// way: resolve a target, take a local build if one was configured, otherwise
+/// download and cache a release asset. That work lives here, and each package
+/// is a few lines naming what it installs. Nothing in the ordinary API
 /// needs this library.
 library;
 
-export 'src/install.dart' show installProvider, installRuntime;
+export 'src/install.dart'
+    show installExtensions, installProvider, installRuntime;
 export 'src/target.dart'
     show
+        OrtExtensions,
         OrtProvider,
         OrtVariant,
         UnsupportedTarget,
         assetFileName,
         assetUrl,
+        extensionsAssetFileName,
+        extensionsAssetUrl,
         libraryFileName,
         supportedTargets,
         targetId;
