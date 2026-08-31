@@ -211,6 +211,28 @@ class ProviderTargets(unittest.TestCase):
     def test_webgpu_targets_match_the_matrix(self):
         self.assertEqual(self._claimed("webgpu"), self._built("--use_webgpu"))
 
+    def test_a_built_provider_is_packaged_everywhere_it_is_claimed(self):
+        # Building with the flag is not the same as collecting the library
+        # afterwards. A platform can compile the provider and have no pattern
+        # to pick it up, which publishes nothing and 404s at install time
+        # while every other check still passes.
+        import package_artifact
+
+        for provider in ep_matrix.built():
+            component = f"ep-{provider.name}"
+            for target in provider.targets:
+                config = next(
+                    (c for c in m.all_configurations() if c.id == target), None
+                )
+                self.assertIsNotNone(config, f"{target} is not a configuration")
+                patterns = package_artifact.ARTIFACT_PATTERNS[config.platform]
+                self.assertIn(
+                    component,
+                    patterns,
+                    f"{provider.name} claims {target}, but nothing collects "
+                    f"its library on {config.platform}",
+                )
+
     def test_redistributed_providers_name_real_targets(self):
         # CUDA and TensorRT are redistributed rather than built, so they are
         # not in the matrix. They must still name targets we actually support.
