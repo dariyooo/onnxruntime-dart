@@ -201,15 +201,18 @@ class ProviderTargets(unittest.TestCase):
         raise AssertionError(f"no targets listed for {provider}")
 
     @staticmethod
-    def _built(flag: str) -> set[str]:
+    def _built(component: str) -> set[str]:
+        """Targets the matrix builds `component` for, named as the runtime
+        configuration each is derived from."""
+        suffix = "-" + component.removeprefix("ep-")
         return {
-            c.id
+            c.id.removesuffix(suffix)
             for c in m.all_configurations()
-            if c.variant == m.BASE and flag in " ".join(c.args) and c.platform != "web"
+            if c.component == component
         }
 
     def test_webgpu_targets_match_the_matrix(self):
-        self.assertEqual(self._claimed("webgpu"), self._built("--use_webgpu"))
+        self.assertEqual(self._claimed("webgpu"), self._built(m.EP_WEBGPU))
 
     def test_a_built_provider_is_packaged_everywhere_it_is_claimed(self):
         # Building with the flag is not the same as collecting the library
@@ -284,19 +287,19 @@ class Providers(unittest.TestCase):
                 self.assertIn(target, every, f"{provider.name} -> {target}")
 
     def test_a_built_provider_is_built_where_the_runtime_matrix_says(self):
-        # WebGPU comes out of an ONNX Runtime build, so it can only exist for a
-        # target that build runs on. Only the shared_lib builds: the web ones
-        # compile it in, where there is no library to load and nothing to ship
-        # separately.
+        # WebGPU comes out of an ONNX Runtime build, so it can only exist for
+        # a target that build runs on. Its own configuration per target, never
+        # the web ones: there it is compiled into the wasm, with no library to
+        # load and nothing to ship separately.
         webgpu = ep_matrix.by_name("webgpu")
         matrix = {
-            c.id
+            c.id.removesuffix("-webgpu")
             for c in m.all_configurations()
-            if c.variant == m.BASE
-            and "shared_lib" in c.args
-            and "--use_webgpu" in c.args
+            if c.component == m.EP_WEBGPU
         }
         self.assertEqual(set(webgpu.targets), matrix)
+        self.assertFalse([c for c in m.all_configurations()
+                          if c.component == m.EP_WEBGPU and c.platform == "web"])
 
     def test_a_fetched_provider_names_an_asset_for_every_target(self):
         # Across all its builds, a fetched provider must cover every target it
@@ -508,6 +511,8 @@ class MatrixHygiene(unittest.TestCase):
                 "macos-x86_64",
                 "macos-arm64-full",
                 "macos-x86_64-full",
+                "macos-arm64-webgpu",
+                "macos-x86_64-webgpu",
             },
         )
         # A variant can be selected on its own.
@@ -524,6 +529,66 @@ class MatrixHygiene(unittest.TestCase):
                 self.assertEqual(m.by_id(config.id).id, config.id)
         with self.assertRaises(SystemExit):
             m.by_id("nope")
+
+
+class Pipelines(unittest.TestCase):
+    """Every thing that ships on its own is built on its own.
+
+    A provider sharing a pipeline with a runtime means the provider can stop
+    the runtime from being built at all, which is what happened when WebGPU was
+    a flag on the runtime configurations rather than configurations of its own.
+    """
+
+    @staticmethod
+    def _ci() -> dict:
+        import yaml
+
+        return yaml.safe_load(
+            (REPO_ROOT / ".github" / "workflows" / "ci.yml").read_text(
+                encoding="utf-8"
+            )
+        )
+
+    def test_every_stream_is_its_own_pipeline(self):
+        jobs = self._ci()["jobs"]
+        called = {
+            job.get("with", {}).get("stream")
+            for job in jobs.values()
+            if str(job.get("uses", "")).endswith("build-runtime.yml")
+        }
+        self.assertEqual(called, {c.stream for c in m.all_configurations()})
+
+    def test_every_mirrored_provider_has_a_workflow_and_a_job(self):
+        jobs = self._ci()["jobs"]
+        for provider in ep_matrix.fetched():
+            workflow = (
+                REPO_ROOT / ".github" / "workflows" / f"build-ep-{provider.name}.yml"
+            )
+            self.assertTrue(workflow.is_file(), workflow.name)
+            self.assertTrue(
+                any(
+                    str(job.get("uses", "")).endswith(workflow.name)
+                    for job in jobs.values()
+                ),
+                f"nothing in ci calls {workflow.name}",
+            )
+
+    def test_a_provider_never_gates_a_runtime(self):
+        jobs = self._ci()["jobs"]
+        providers = {
+            name
+            for name, job in jobs.items()
+            if job.get("with", {}).get("stream") not in (None, "base", "full")
+            or "build-ep-" in str(job.get("uses", ""))
+        }
+        for name, job in jobs.items():
+            if job.get("with", {}).get("stream") in ("base", "full"):
+                needs = job.get("needs", [])
+                needs = [needs] if isinstance(needs, str) else needs
+                self.assertFalse(
+                    providers.intersection(needs),
+                    f"{name} waits on a provider",
+                )
 
 
 if __name__ == "__main__":

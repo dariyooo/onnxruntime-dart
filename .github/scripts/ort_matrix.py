@@ -93,6 +93,20 @@ class Config:
     unproven: bool = False
 
     @property
+    def stream(self) -> str:
+        """Which pipeline builds this.
+
+        One per thing that fails on its own and ships on its own: the two
+        runtime variants, and each provider. They share no build directory and
+        no dependency cache, so there is nothing for them to gain by sharing a
+        run, and plenty to lose: a provider that will not compile used to take
+        the runtime for that platform down with it.
+        """
+        if self.component != RUNTIME:
+            return self.component.removeprefix("ep-")
+        return self.variant
+
+    @property
     def is_native(self) -> bool:
         return self.platform != "web"
 
@@ -115,9 +129,8 @@ _WEBGPU = ("--use_webgpu", "shared_lib")
 
 
 def _android(abi: str) -> Config:
-    # No --use_nnapi: deprecated in Android 15, and WebGPU is what replaces it,
-    # which is why it is here. Dawn uses Vulkan on Android. Only on the 64-bit
-    # ABIs, where Vulkan is universal on anything running Android 15.
+    # No --use_nnapi: deprecated in Android 15. WebGPU replaces it and is built
+    # separately, as its own component.
     return Config(
         id=f"android-{abi}",
         platform="android",
@@ -128,7 +141,6 @@ def _android(abi: str) -> Config:
             "--android_abi", abi,
             "--android_api", "24",
             "--use_xnnpack",
-            *(_WEBGPU if abi in ("arm64-v8a", "x86_64") else ()),
         ),
     )
 
@@ -191,10 +203,6 @@ CONFIGURATIONS: tuple[Config, ...] = (
         args=(
             "--osx_arch", "arm64",
             "--use_coreml", "--use_xnnpack",
-            # Dawn's Apple backend is Metal. ONNX Runtime has no Metal
-            # provider of its own, so this is how a WebGPU pipeline reaches
-            # the GPU here. Microsoft builds the same configuration.
-            "--use_webgpu", "shared_lib",
         ),
     ),
     Config(
@@ -206,7 +214,6 @@ CONFIGURATIONS: tuple[Config, ...] = (
         args=(
             "--osx_arch", "x86_64",
             "--use_coreml", "--use_xnnpack",
-            "--use_webgpu", "shared_lib",
         ),
     ),
 
@@ -216,14 +223,14 @@ CONFIGURATIONS: tuple[Config, ...] = (
         platform="linux",
         arch="x86_64",
         runner="ubuntu-24.04",
-        args=("--use_xnnpack", "--use_webgpu", "shared_lib"),
+        args=("--use_xnnpack",),
     ),
     Config(
         id="linux-arm64",
         platform="linux",
         arch="arm64",
         runner="ubuntu-24.04-arm",
-        args=("--use_xnnpack", "--use_webgpu", "shared_lib"),
+        args=("--use_xnnpack",),
     ),
 
     # Windows.
@@ -234,7 +241,6 @@ CONFIGURATIONS: tuple[Config, ...] = (
         runner="windows-2022",
         args=(
             "--use_xnnpack",
-            "--use_webgpu", "shared_lib",
             # ORT's own sources trip MSVC's C4267 (size_t narrowed to
             # flatbuffers::uoffset_t in graph_flatbuffers_utils.cc), and only
             # in the full variant, where the training sources are compiled.
@@ -251,7 +257,6 @@ CONFIGURATIONS: tuple[Config, ...] = (
         runner="windows-11-arm",
         args=(
             "--use_xnnpack",
-            "--use_webgpu", "shared_lib",
             "--compile_no_warning_as_error",
             # XNNPACK's scalar fp16 microkernels include arm_fp16.h, which MSVC
             # does not ship. Disabling that one family keeps the rest of
@@ -307,6 +312,25 @@ CONFIGURATIONS: tuple[Config, ...] = (
 )
 
 
+def _provider(config: Config) -> Config:
+    """The WebGPU provider built from a `base` runtime configuration.
+
+    Its own configuration rather than a flag on the runtime's, because it is a
+    separate library on a separate release stream and it fails separately. Dawn
+    not compiling on a platform used to take that platform's runtime down with
+    it, which is a provider deciding whether the base library exists.
+
+    One per target rather than per variant: the provider is the same library
+    either way, since training changes the runtime and not the GPU backend.
+    """
+    return dataclasses.replace(
+        config,
+        id=f"{config.id}-webgpu",
+        component=EP_WEBGPU,
+        args=config.args + _WEBGPU,
+    )
+
+
 def _full(config: Config) -> Config:
     """The `full` counterpart of a `base` configuration."""
     return dataclasses.replace(
@@ -318,8 +342,14 @@ def _full(config: Config) -> Config:
 
 
 def all_configurations() -> list[Config]:
-    """Every configuration, both variants."""
-    return [c for base in CONFIGURATIONS for c in (base, _full(base))]
+    """Every configuration: both runtime variants, plus the providers."""
+    import ep_matrix
+
+    webgpu = set(ep_matrix.by_name("webgpu").targets)
+    every = [c for base in CONFIGURATIONS for c in (base, _full(base))]
+    return every + [
+        _provider(base) for base in CONFIGURATIONS if base.id in webgpu
+    ]
 
 
 def assert_complete_build(args) -> None:

@@ -179,13 +179,46 @@ jobs:
         run: dart test -p ${{ matrix.browser }} --reporter expanded
 
   # Stage 2a. Our binaries, built from the pinned submodule.
+  #
+  # One pipeline per thing that ships on its own. They share no build
+  # directory and no dependency cache, so there is nothing to gain by
+  # combining them and one thing to lose: a provider that will not compile
+  # taking a runtime down with it, which is what used to happen on iOS.
+  #
+  # A called workflow cannot request more than its caller grants, and each
+  # release job needs to create a release. Without the permission the whole
+  # run is rejected before any job starts.
   build-runtime:
-    name: build
+    name: build · base
     needs: static
     uses: ./.github/workflows/build-runtime.yml
-    # A called workflow cannot request more than its caller grants, and its
-    # release job needs to create a release. Without this the whole run is
-    # rejected before any job starts.
+    with:
+      stream: base
+    permissions:
+      contents: write
+
+  build-runtime-full:
+    name: build · full
+    needs: static
+    uses: ./.github/workflows/build-runtime.yml
+    with:
+      stream: full
+    permissions:
+      contents: write
+
+  build-ep-webgpu:
+    name: build · webgpu
+    needs: static
+    uses: ./.github/workflows/build-runtime.yml
+    with:
+      stream: webgpu
+    permissions:
+      contents: write
+
+  build-ep-qnn:
+    name: ep-qnn
+    needs: static
+    uses: ./.github/workflows/build-ep-qnn.yml
     permissions:
       contents: write
 
@@ -297,7 +330,7 @@ jobs:
 
   test-against-our-build:
     name: test · ${{ matrix.name }} · our build
-    needs: build-runtime
+    needs: [build-runtime, build-ep-webgpu]
     # Runs even when part of the matrix failed: these six need only their own
     # native artifact, and gating them on every configuration means one web
     # variant that will not link hides whether the libraries we ship work at
@@ -325,6 +358,13 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: onnxruntime-${{ matrix.artifact }}
+          path: .local/artifacts
+
+      # Its own pipeline, so its own artifact. Merged into the same tree
+      # because locate_library.py reads both out of one place.
+      - uses: actions/download-artifact@v4
+        with:
+          name: onnxruntime-${{ matrix.artifact }}-webgpu
           path: .local/artifacts
 
       - name: Point the suite at our build
