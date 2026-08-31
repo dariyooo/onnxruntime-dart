@@ -106,8 +106,18 @@ class Config:
         return base + self.args
 
 
+# Dawn reaches the GPU on every platform we build for: Vulkan on Linux and
+# Android, D3D12 or Vulkan on Windows, Metal on Apple. ONNX Runtime does not
+# exclude mobile, and the provider source explicitly handles __APPLE__, which
+# covers iOS. What upstream does not do is test mobile, so ours is the build
+# that finds out.
+_WEBGPU = ("--use_webgpu", "shared_lib")
+
+
 def _android(abi: str) -> Config:
-    # No --use_nnapi. Deprecated in Android 15, WebGPU replaces it.
+    # No --use_nnapi: deprecated in Android 15, and WebGPU is what replaces it,
+    # which is why it is here. Dawn uses Vulkan on Android. Only on the 64-bit
+    # ABIs, where Vulkan is universal on anything running Android 15.
     return Config(
         id=f"android-{abi}",
         platform="android",
@@ -118,6 +128,7 @@ def _android(abi: str) -> Config:
             "--android_abi", abi,
             "--android_api", "24",
             "--use_xnnpack",
+            *(_WEBGPU if abi in ("arm64-v8a", "x86_64") else ()),
         ),
     )
 
@@ -142,6 +153,10 @@ def _ios(name: str, sysroot: str, arch: str) -> Config:
             "--use_coreml",
             "--use_xnnpack",
             "--no_kleidiai",
+            # Dawn's Apple backend is Metal, and the provider source handles
+            # __APPLE__ explicitly, which covers iOS. CoreML reaches the ANE;
+            # this is for a pipeline written against WebGPU.
+            *_WEBGPU,
         ),
         unproven=True,
     )
@@ -165,7 +180,14 @@ CONFIGURATIONS: tuple[Config, ...] = (
         platform="macos",
         arch="arm64",
         runner="macos-15",
-        args=("--osx_arch", "arm64", "--use_coreml", "--use_xnnpack"),
+        args=(
+            "--osx_arch", "arm64",
+            "--use_coreml", "--use_xnnpack",
+            # Dawn's Apple backend is Metal. ONNX Runtime has no Metal
+            # provider of its own, so this is how a WebGPU pipeline reaches
+            # the GPU here. Microsoft builds the same configuration.
+            "--use_webgpu", "shared_lib",
+        ),
     ),
     Config(
         id="macos-x86_64",
@@ -173,7 +195,11 @@ CONFIGURATIONS: tuple[Config, ...] = (
         arch="x86_64",
         # macos-13 was retired from actions/runner-images.
         runner="macos-15-intel",
-        args=("--osx_arch", "x86_64", "--use_coreml", "--use_xnnpack"),
+        args=(
+            "--osx_arch", "x86_64",
+            "--use_coreml", "--use_xnnpack",
+            "--use_webgpu", "shared_lib",
+        ),
     ),
 
     # Linux.

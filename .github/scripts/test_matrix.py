@@ -9,13 +9,20 @@ from __future__ import annotations
 
 import fnmatch
 import os
+import re
+import pathlib
+import subprocess
 import sys
+import tempfile
 import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import ort_matrix as m
+
+REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 import package_artifact
+import release_identity
 
 
 class CompleteBuilds(unittest.TestCase):
@@ -113,6 +120,98 @@ class WindowsWarnings(unittest.TestCase):
             if config.platform != "windows":
                 continue
             self.assertIn("--compile_no_warning_as_error", config.args, config.id)
+
+
+class ReleaseIdentity(unittest.TestCase):
+    """The release is named for whatever ONNX Runtime commit is pinned."""
+
+    @staticmethod
+    def _repo(tag=None, version="1.29.0"):
+        directory = pathlib.Path(tempfile.mkdtemp())
+        (directory / "VERSION_NUMBER").write_text(version + "\n", encoding="utf-8")
+
+        def run(*args):
+            subprocess.run(
+                ("git", "-C", str(directory)) + args, check=True, capture_output=True
+            )
+
+        run("init", "-q")
+        run("config", "user.email", "test@example.com")
+        run("config", "user.name", "test")
+        run("add", ".")
+        run("commit", "-qm", "pin")
+        if tag:
+            run("tag", tag)
+        return directory
+
+    def test_a_release_tag_names_the_release(self):
+        self.assertEqual(
+            release_identity.identity(self._repo(tag="v1.29.0")), ("v1.29.0", False)
+        )
+
+    def test_an_untagged_commit_is_named_for_itself_and_is_a_prerelease(self):
+        # Trying an upstream fix that is not in a release yet must produce
+        # something that cannot be mistaken for a version.
+        version, prerelease = release_identity.identity(self._repo())
+        self.assertTrue(prerelease)
+        self.assertTrue(version.startswith("v1.29.0-g"), version)
+
+    def test_a_tag_that_is_not_a_version_is_ignored(self):
+        # Upstream carries tags other than releases. Only vX.Y.Z names one.
+        version, prerelease = release_identity.identity(self._repo(tag="rel-1.29.0"))
+        self.assertTrue(prerelease)
+        self.assertIn("-g", version)
+
+    def test_the_version_comes_from_the_pinned_tree(self):
+        version, _ = release_identity.identity(self._repo(version="1.30.1"))
+        self.assertTrue(version.startswith("v1.30.1-g"), version)
+
+
+class ProviderTargets(unittest.TestCase):
+    """The Dart provider table and the build matrix must agree.
+
+    onnxruntime_ep refuses a provider the target has no build for, so a target
+    listed in Dart but absent from the matrix means a download that 404s, and
+    one built but not listed means a plugin nobody can install.
+    """
+
+    @staticmethod
+    def _claimed(provider: str) -> set[str]:
+        """Targets the Dart table lists for `provider`.
+
+        Arms are read generically because several providers can share one:
+        `OrtProvider.cuda || OrtProvider.tensorrt => const [...]`.
+        """
+        source = (
+            REPO_ROOT / "packages" / "onnxruntime_hook" / "lib" / "src" / "target.dart"
+        ).read_text(encoding="utf-8")
+        for arm in re.finditer(
+            r"((?:OrtProvider\.\w+\s*\|\|\s*)*OrtProvider\.\w+)\s*=>\s*const \[([^\]]*)\]",
+            source,
+        ):
+            names = re.findall(r"OrtProvider\.(\w+)", arm.group(1))
+            if provider in names:
+                return set(re.findall(r"'([^']+)'", arm.group(2)))
+        raise AssertionError(f"no targets listed for {provider}")
+
+    @staticmethod
+    def _built(flag: str) -> set[str]:
+        return {
+            c.id
+            for c in m.all_configurations()
+            if c.variant == m.BASE and flag in " ".join(c.args) and c.platform != "web"
+        }
+
+    def test_webgpu_targets_match_the_matrix(self):
+        self.assertEqual(self._claimed("webgpu"), self._built("--use_webgpu"))
+
+    def test_redistributed_providers_name_real_targets(self):
+        # CUDA and TensorRT are redistributed rather than built, so they are
+        # not in the matrix. They must still name targets we actually support.
+        every = {c.id for c in m.all_configurations() if c.variant == m.BASE}
+        for provider in ("cuda", "tensorrt", "qnn"):
+            for target in self._claimed(provider):
+                self.assertIn(target, every, f"{provider} claims {target}")
 
 
 class Packaging(unittest.TestCase):
