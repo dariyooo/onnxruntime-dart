@@ -1,0 +1,28 @@
+name: onnxruntime_harness
+description: >-
+  Runs the suite on a real Android device and a real iOS device. Not published.
+publish_to: none
+version: 1.0.0
+
+environment:
+  sdk: ^3.6.0
+
+# Deliberately not a workspace member. Flutter resolves this app on its own, and
+# the point is to exercise the packages the way an application does.
+dependencies:
+  flutter: { sdk: flutter }
+  onnxruntime_dart: { path: ../../packages/onnxruntime_dart }
+  onnxruntime_binaries: { path: ../../packages/onnxruntime_binaries }
+
+dev_dependencies:
+  flutter_test: { sdk: flutter }
+  integration_test: { sdk: flutter }
+  lints: ^6.0.0
+
+dependency_overrides:
+  # The published constraints name hosted versions that do not exist yet.
+  onnxruntime_hook: { path: ../../packages/onnxruntime_hook }
+
+flutter:
+  assets:
+    - assets/

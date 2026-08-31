@@ -17,12 +17,15 @@ environment:
 resolution: workspace
 
 dependencies:
-  # code_assets and hooks are for lib/hook.dart, the build hook the runtime
-  # packages share. This package has no hook of its own and ships no binaries.
-  code_assets: ^1.2.1
+  # No code_assets or hooks: this package has no build hook and ships no
+  # binaries. They live in onnxruntime_hook, which the binary packages use.
+  # Keeping them here would drag record_use in, which pins a newer meta than
+  # Flutter ships, making this package unusable from any Flutter app.
   ffi: ^2.1.0
-  hooks: ^2.2.0
-  meta: ^1.19.0
+  # Wide on purpose. Flutter pins meta to whatever its SDK ships, so a tight
+  # constraint here makes the package unusable from any Flutter app. We use
+  # @visibleForTesting and TargetKind, both long-standing.
+  meta: '>=1.15.0 <2.0.0'
 
 dev_dependencies:
   # The generator formats its own output, so what it writes is final.

@@ -41,7 +41,9 @@ export 'src/ffi/runtime.dart'
     show
         OrtAbiMismatch,
         OrtRuntimeMissing,
+        OrtTrainingUnavailable,
         ortApi,
         runtimeVersion,
+        trainingApi,
         trainingIsAvailable;
 export 'src/ffi/status.dart';

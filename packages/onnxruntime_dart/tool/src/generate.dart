@@ -13,6 +13,7 @@ import 'package:pub_semver/pub_semver.dart';
 import 'c_api.dart';
 import 'emit.dart';
 import 'ffigen_api.dart';
+import 'paths.dart';
 import 'types.dart';
 
 /// The generator's output: files to write, and what it could not handle.
@@ -37,9 +38,27 @@ final class Generated {
 /// writes needs no follow-up pass and can be compared byte for byte.
 final _formatter = DartFormatter(languageVersion: Version(3, 6, 0));
 
+/// Generates from the pinned sources.
+///
+/// The one definition of what the generator reads, so the command and the test
+/// that checks its output cannot disagree about the inputs. They did once: a
+/// header added to the command alone made the test call the new files orphans.
+Generated generateFromPinnedSources() => generate(
+      header: File(ortHeader),
+      bindings: File(ortBindings),
+      extraHeaders: [File(ortTrainingHeader)],
+    );
+
 /// Generates wrappers for every API struct declared in [header].
-Generated generate({required File header, required File bindings}) {
+Generated generate({
+  required File header,
+  required File bindings,
+  List<File> extraHeaders = const [],
+}) {
   final apis = parseApis(header.readAsStringSync());
+  for (final extra in extraHeaders) {
+    apis.addAll(parseApis(extra.readAsStringSync()));
+  }
   final signatures = readApiSignatures(bindings);
 
   // Keyed by (struct, group), because a wrapper is an extension on the struct

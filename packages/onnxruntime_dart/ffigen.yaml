@@ -12,8 +12,13 @@ headers:
     - '../../third_party/onnxruntime/include/onnxruntime/core/session/onnxruntime_c_api.h'
     - '../../third_party/onnxruntime/include/onnxruntime/core/providers/coreml/coreml_provider_factory.h'
     - '../../third_party/onnxruntime/include/onnxruntime/core/providers/cpu/cpu_provider_factory.h'
+    # On-device training. A separate header, and separately compiled: only the
+    # `full` build has it, and GetTrainingApi returns null without it. Binding
+    # it here costs nothing in a build that lacks it.
+    - '../../third_party/onnxruntime/orttraining/orttraining/training_api/include/onnxruntime_training_c_api.h'
   include-directives:
     - '**onnxruntime_c_api.h'
+    - '**onnxruntime_training_c_api.h'
     - '**coreml_provider_factory.h'
     - '**cpu_provider_factory.h'
 

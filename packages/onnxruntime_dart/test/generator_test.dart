@@ -27,10 +27,24 @@ void main() {
   );
   final bindings = File(fromPackage('lib/src/bindings/ort_bindings.g.dart'));
 
+  /// Every API struct the generator sees, from every header it reads. On-device
+  /// training is declared in its own header, so reading only the main one
+  /// counts fewer functions than the generator emits.
+  Map<String, List<CFunction>> allApis() => {
+        ...parseApis(header.readAsStringSync()),
+        ...parseApis(
+          File(
+            fromRoot('third_party/onnxruntime/orttraining/orttraining/'
+                'training_api/include/onnxruntime_training_c_api.h'),
+          ).readAsStringSync(),
+        ),
+      };
+
   group('output', () {
     late final Generated generated;
 
-    setUpAll(() => generated = generate(header: header, bindings: bindings));
+    // The same inputs the command uses, so the two cannot drift.
+    setUpAll(() => generated = generateFromPinnedSources());
 
     test('matches what is checked in', () {
       for (final entry in generated.files.entries) {
@@ -53,7 +67,7 @@ void main() {
     test('wraps every function it can map', () {
       // Grouping decides which file a wrapper lands in. It once decided
       // whether one was emitted at all, which silently dropped 165 functions.
-      final apis = parseApis(header.readAsStringSync());
+      final apis = allApis();
       final signatures = readApiSignatures(bindings);
       final emitted = generated.files.values
           .expand((source) => RegExp(r'/// `(\w+)`').allMatches(source))
@@ -76,9 +90,10 @@ void main() {
     });
 
     test('every function is either wrapped or explained', () {
-      final apis = parseApis(header.readAsStringSync());
-      final total = apis.entries
-          .where((e) => readApiSignatures(bindings).containsKey(e.key))
+      final signatures = readApiSignatures(bindings);
+      final total = allApis()
+          .entries
+          .where((e) => signatures.containsKey(e.key))
           .fold(0, (n, e) => n + e.value.length);
       expect(generated.wrappers + generated.skipped.length, total);
     });

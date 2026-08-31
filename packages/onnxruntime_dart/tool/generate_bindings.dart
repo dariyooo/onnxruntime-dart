@@ -13,15 +13,11 @@
 import 'dart:io';
 
 import 'src/generate.dart';
-import 'src/paths.dart';
 
 const _outputDirectory = 'lib/src/bindings/api';
 
 void main() {
-  final generated = generate(
-    header: File(ortHeader),
-    bindings: File(ortBindings),
-  );
+  final generated = generateFromPinnedSources();
 
   // Delete only what this tool produces. The directory also holds hand-written
   // support code, and wiping it wholesale once destroyed that.
