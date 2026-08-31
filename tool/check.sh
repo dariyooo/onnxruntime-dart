@@ -21,6 +21,9 @@ dart analyze --fatal-infos > /dev/null
 echo "matrix"
 python3 .github/scripts/test_matrix.py > /dev/null 2>&1
 
+echo "test      hook"
+dart test packages/onnxruntime_hook --reporter failures-only
+
 cd packages/onnxruntime_dart
 echo "test      default"
 dart test --exclude-tags exclusive --reporter failures-only

@@ -36,6 +36,27 @@ def release_exists(tag: str) -> bool:
     )
 
 
+def prune(tag: str, keep: set[str]) -> None:
+    """Drops assets the release still carries that we no longer publish.
+
+    Uploading clobbers by name, so a renaming leaves the old names in place
+    looking current while nothing asks for them any more. That is worse than a
+    missing asset: it reads as a working download right up until someone
+    depends on it."""
+    listed = subprocess.run(
+        ("gh", "release", "view", tag, "--json", "assets", "--jq", ".assets[].name"),
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.split()
+
+    for name in listed:
+        if name in keep:
+            continue
+        print(f"  dropping stale {name}")
+        subprocess.run(("gh", "release", "delete-asset", tag, name, "-y"), check=True)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("provider")
@@ -49,11 +70,14 @@ def main() -> None:
     if not assets:
         raise SystemExit(f"nothing staged in {staged}")
 
-    source = (
-        f"mirrored from onnxruntime {provider.upstream_tag}"
-        if provider.source == ep_matrix.FETCH
-        else "built from the pinned submodule"
-    )
+    if provider.source == ep_matrix.FETCH:
+        source = f"mirrored from onnxruntime {provider.upstream_tag}"
+    elif provider.source == ep_matrix.PYPI:
+        source = (
+            f"mirrored from the {provider.pypi_project} {provider.version} wheels"
+        )
+    else:
+        source = "built from the pinned submodule"
     notes = (
         f"The {provider.name} execution provider, version {provider.version}, "
         f"{source}.\n\n"
@@ -69,6 +93,7 @@ def main() -> None:
             ("gh", "release", "upload", tag, *map(str, assets), "--clobber"),
             check=True,
         )
+        prune(tag, {a.name for a in assets})
         subprocess.run(("gh", "release", "edit", tag, "--notes", notes), check=True)
     else:
         print(f"creating {tag}")

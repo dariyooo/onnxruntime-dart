@@ -61,6 +61,12 @@ jobs:
       - run: dart analyze --fatal-infos
       - run: python3 .github/scripts/test_matrix.py
 
+      # The hook decides asset names, targets and builds, so drift here is a
+      # download that never happens. Pure logic, no platform to vary, and it
+      # gates the builds from the one job that runs before them.
+      - name: Test the build hook
+        run: dart test packages/onnxruntime_hook --reporter expanded
+
   bindings-are-current:
     name: bindings match the submodule
     runs-on: ubuntu-24.04
