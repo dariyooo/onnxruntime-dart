@@ -36,9 +36,10 @@ library;
 export 'src/bindings/api/api.g.dart';
 export 'src/bindings/api/support.dart' show withArena;
 export 'src/bindings/ort_bindings.g.dart';
-export 'src/ffi/environment.dart';
+export 'src/ffi/bundled_extensions.dart' show extensionsLibraryPath;
 export 'src/ffi/bundled_provider.dart'
     show OrtExecutionProvider, bundledProviderPath, registerBundledProviders;
+export 'src/ffi/environment.dart';
 export 'src/ffi/execution_provider.dart';
 export 'src/ffi/library_path.dart' show libraryPathOf;
 export 'src/ffi/ort_path.dart' show allocateOrtPath, ortPathIsWide, readOrtPath;

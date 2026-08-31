@@ -1,0 +1,20 @@
+name: onnxruntime_extensions
+description: >-
+  Pre and post-processing operators for onnxruntime_dart: tokenizers, text, image and audio ops that run inside the graph instead of in Dart.
+# From version.txt in the pinned tree, which is what the built library reports
+# in its soname. Upstream's release tags disagree with it, so the source wins.
+# It versions separately from the runtime and negotiates its API version at
+# load, so this does not move when ONNX Runtime does.
+version: 0.15.0
+repository: https://github.com/dariyooo/onnxruntime-dart
+issue_tracker: https://github.com/dariyooo/onnxruntime-dart/issues
+
+environment:
+  sdk: ^3.6.0
+
+resolution: workspace
+
+dependencies:
+  code_assets: '>=1.0.0 <2.0.0'
+  hooks: '>=1.0.0 <3.0.0'
+  onnxruntime_hook: ^1.29.0

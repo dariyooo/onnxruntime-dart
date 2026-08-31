@@ -531,6 +531,60 @@ class MatrixHygiene(unittest.TestCase):
             m.by_id("nope")
 
 
+class Extensions(unittest.TestCase):
+    """The operator library, which is its own project and its own pipeline."""
+
+    def setUp(self):
+        import extensions_matrix
+
+        self.ext = extensions_matrix
+
+    def test_it_covers_every_native_runtime_target(self):
+        # An operator library is only useful beside a runtime for the same
+        # target, and a target with a runtime and no operators is a download
+        # that 404s at install time.
+        self.assertEqual(
+            sorted(self.ext.targets()), sorted(self.ext.runtime_targets())
+        )
+
+    def test_it_does_not_claim_the_web(self):
+        # Upstream refuses a shared library under Emscripten: there the
+        # operators are compiled into the runtime instead of loaded beside it.
+        self.assertFalse([t for t in self.ext.targets() if t.startswith("web")])
+
+    def test_the_version_comes_from_the_pinned_source(self):
+        # Upstream tags v0.14.0 on a commit whose version.txt says 0.15.0, and
+        # the built library follows the file, so the file is what we publish.
+        version = self.ext.version()
+        pubspec = (
+            REPO_ROOT / "packages" / "onnxruntime_extensions" / "pubspec.yaml"
+        ).read_text(encoding="utf-8")
+        self.assertIn(f"version: {version}", pubspec)
+
+    def test_the_dart_side_agrees_about_the_targets(self):
+        source = (
+            REPO_ROOT / "packages" / "onnxruntime_hook" / "lib" / "src" / "target.dart"
+        ).read_text(encoding="utf-8")
+        self.assertIn("abstract final class OrtExtensions", source)
+        self.assertIn("'ortextensions'", source)
+
+    def test_it_has_its_own_pipeline(self):
+        import yaml
+
+        ci = yaml.safe_load(
+            (REPO_ROOT / ".github" / "workflows" / "ci.yml").read_text(
+                encoding="utf-8"
+            )
+        )
+        self.assertTrue(
+            any(
+                str(job.get("uses", "")).endswith("build-extensions.yml")
+                for job in ci["jobs"].values()
+            ),
+            "nothing in ci builds the extensions library",
+        )
+
+
 class Pipelines(unittest.TestCase):
     """Every thing that ships on its own is built on its own.
 

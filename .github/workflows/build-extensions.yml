@@ -1,0 +1,107 @@
+# Builds the onnxruntime-extensions operator library.
+#
+# Its own pipeline because it is its own project: a separate submodule, a
+# separate CMake, and nothing shared with an ONNX Runtime build but the target
+# names. It fails on its own too, which is the point.
+#
+# Not the web. Under Emscripten upstream refuses a shared library, because
+# there the operators have to be compiled into the runtime instead.
+name: build-extensions
+
+on:
+  workflow_call:
+  workflow_dispatch:
+    inputs:
+      targets:
+        description: 'Subset to build (regex over the target id), or "all"'
+        type: string
+        default: all
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/build-extensions.yml'
+      - '.github/scripts/extensions_matrix.py'
+      - '.github/scripts/build_extensions.py'
+      - 'third_party/onnxruntime-extensions'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-extensions-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  plan:
+    name: plan
+    runs-on: ubuntu-24.04
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v5
+      - id: plan
+        env:
+          FILTER: ${{ inputs.targets || 'all' }}
+        shell: bash
+        run: |
+          python3 - >> "$GITHUB_OUTPUT" <<'PY'
+          import json, os, re, sys
+          sys.path.insert(0, '.github/scripts')
+          import extensions_matrix as m
+          pattern = os.environ.get('FILTER', 'all')
+          builds = m.BUILDS if pattern in ('', 'all') else [
+              b for b in m.BUILDS if re.search(pattern, b.id)
+          ]
+          if not builds:
+              raise SystemExit(f'no extensions build matches {pattern!r}')
+          include = [
+              {'id': b.id, 'platform': b.platform, 'runner': b.runner}
+              for b in builds
+          ]
+          print('matrix=' + json.dumps({'include': include}, separators=(',', ':')))
+          PY
+
+  build:
+    name: ${{ matrix.id }}
+    needs: plan
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v5
+        with: { submodules: true }
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+
+      - name: Build
+        run: python3 .github/scripts/build_extensions.py ${{ matrix.id }}
+
+      - name: Package
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd dist/extensions
+          tar czf "extensions-${{ matrix.id }}.tar.gz" libortextensions.* ortextensions.* 2>/dev/null || \
+            tar czf "extensions-${{ matrix.id }}.tar.gz" *
+          shasum -a 256 "extensions-${{ matrix.id }}.tar.gz" \
+            > "extensions-${{ matrix.id }}.tar.gz.sha256"
+          ls -la
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: extensions-${{ matrix.id }}
+          path: dist/extensions/extensions-${{ matrix.id }}.tar.gz*
+          if-no-files-found: error
+          retention-days: 1
+
+  all-green:
+    name: every extensions target built
+    needs: build
+    if: always()
+    runs-on: ubuntu-24.04
+    steps:
+      - run: |
+          [ "${{ needs.build.result }}" = "success" ] || exit 1
+          echo "all extensions targets built"

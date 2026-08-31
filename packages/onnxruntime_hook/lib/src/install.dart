@@ -292,6 +292,77 @@ String? _build(BuildInput input, OrtProvider provider, String target) {
 }
 
 /// Finds a provider library the same way the runtime is found.
+/// Installs the onnxruntime-extensions operator library for this target.
+///
+/// Not a provider: it gives ONNX Runtime operators it does not have rather
+/// than somewhere to run the ones it does, and it loads through
+/// `RegisterCustomOpsLibrary_V2`. Same shape of work, so the same downloading,
+/// caching and local_build override apply.
+Future<void> installExtensions(List<String> args) async {
+  await build(args, (input, output) async {
+    if (!input.config.buildCodeAssets) return;
+
+    final code = input.config.code;
+    final target = targetId(
+      os: code.targetOS,
+      architecture: code.targetArchitecture,
+      iosSdk: code.targetOS == OS.iOS ? code.iOS.targetSdk : null,
+    );
+
+    if (!OrtExtensions.isAvailableOn(target)) {
+      throw StateError(
+        '${input.packageName}: there is no extensions library for $target. '
+        'It is published for ${OrtExtensions.targets.join(', ')}.',
+      );
+    }
+
+    final library = await _resolveExtensions(input, target, code.targetOS);
+    if (library == null) return;
+
+    output.assets.code.add(
+      CodeAsset(
+        package: input.packageName,
+        name: 'extensions',
+        linkMode: DynamicLoadingBundled(),
+        file: library.uri,
+      ),
+    );
+  });
+}
+
+Future<File?> _resolveExtensions(
+  BuildInput input,
+  String target,
+  OS os,
+) async {
+  final fileName = OrtExtensions.fileName(os);
+
+  final override = input.userDefines.path('local_build');
+  if (override != null) {
+    final file = File.fromUri(_asDirectory(override).resolve(fileName));
+    if (file.existsSync()) return file;
+    stderr.writeln(
+      '${input.packageName}: local_build holds no $fileName, so the '
+      'extensions library is not installed.',
+    );
+    return null;
+  }
+
+  final tag = releaseTag(input, component: 'extensions');
+  final cached = File.fromUri(
+    input.outputDirectoryShared.resolve('$tag/$target/$fileName'),
+  );
+  if (cached.existsSync()) return cached;
+
+  return _download(
+    url: extensionsAssetUrl(releaseTag: tag, targetId: target),
+    into: cached,
+    fileName: fileName,
+    target: target,
+    package: input.packageName,
+  );
+}
+
 Future<File?> _resolveProvider(
   BuildInput input,
   OrtProvider provider,
