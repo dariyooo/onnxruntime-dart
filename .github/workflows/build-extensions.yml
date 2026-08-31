@@ -78,17 +78,6 @@ jobs:
       - name: Build
         run: python3 .github/scripts/build_extensions.py ${{ matrix.id }}
 
-      - name: Package
-        shell: bash
-        run: |
-          set -euo pipefail
-          cd dist/extensions
-          tar czf "extensions-${{ matrix.id }}.tar.gz" libortextensions.* ortextensions.* 2>/dev/null || \
-            tar czf "extensions-${{ matrix.id }}.tar.gz" *
-          shasum -a 256 "extensions-${{ matrix.id }}.tar.gz" \
-            > "extensions-${{ matrix.id }}.tar.gz.sha256"
-          ls -la
-
       - uses: actions/upload-artifact@v4
         with:
           name: extensions-${{ matrix.id }}
