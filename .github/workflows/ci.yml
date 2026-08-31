@@ -161,6 +161,104 @@ jobs:
   # second, so it runs here every time. The expensive half is the build, which
   # is cached on the ORT commit and build flags, so a full rebuild and full
   # verification happen exactly when the submodule pin moves.
+  # Nothing is compiled: ONNX Runtime publishes this plugin itself and we
+  # mirror it. Separate from the runtime build because it shares nothing with
+  # one, and finishes in minutes rather than hours.
+  build-ep-cuda:
+    name: ep-cuda
+    needs: static
+    uses: ./.github/workflows/build-ep-cuda.yml
+    permissions:
+      contents: write
+
+  # Stage 2c. The suite on real devices.
+  #
+  # `dart test` cannot run here: there is no Dart SDK for Android or iOS,
+  # `dart compile exe` rejects both, and package:test has no mobile platform.
+  # Flutter's integration_test is the only way to execute Dart on a phone, so
+  # everything mobile is claimed rather than measured without this job.
+  #
+  # What it is really for: the execution provider design recovers a library's
+  # path by asking the loader where a symbol came from. Android maps libraries
+  # out of the APK rather than unpacking them, and iOS repackages each one into
+  # a code-signed framework. Neither resembles the desktop layout.
+  test-on-device:
+    name: test · ${{ matrix.name }} · device
+    needs: build-runtime
+    if: ${{ !cancelled() }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # The emulator is x86_64, so that is the library it needs.
+          - { name: android, runner: ubuntu-24.04, artifact: android-x86_64 }
+          - { name: ios, runner: macos-15, artifact: ios-sim-arm64 }
+    steps:
+      - uses: actions/checkout@v5
+        with: { submodules: true }
+      - uses: subosito/flutter-action@v2
+        with: { channel: stable }
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: onnxruntime-${{ matrix.artifact }}
+          path: .local/artifacts
+
+      - name: Unpack the library this device needs
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .local/ort/device/lib
+          tar xzf .local/artifacts/runtime/${{ matrix.artifact }}.tar.gz \
+            -C .local/ort/device/lib
+          ls -la .local/ort/device/lib
+
+      # The harness is not a workspace member, so it carries its own override.
+      # One platform per job, so a single local_build is enough.
+      - name: Point the harness at it
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat >> integration/harness/pubspec.yaml <<'YAML'
+
+          hooks:
+            user_defines:
+              onnxruntime_binaries:
+                local_build: ../../.local/ort/device/lib
+          YAML
+          tail -6 integration/harness/pubspec.yaml
+
+      - name: Set up Java
+        if: matrix.name == 'android'
+        uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '17' }
+
+      - name: Run on an Android emulator
+        if: matrix.name == 'android'
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          target: google_apis
+          # KVM is available on the Linux runners, so this is not glacial.
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          working-directory: integration/harness
+          script: flutter test integration_test --reporter expanded
+
+      - name: Run on an iOS simulator
+        if: matrix.name == 'ios'
+        working-directory: integration/harness
+        run: |
+          set -euo pipefail
+          simulator=$(xcrun simctl list devices available -j \
+            | python3 -c "import json,sys; d=json.load(sys.stdin)['devices']; \
+              print(next(x['udid'] for k,v in d.items() if 'iOS' in k \
+                for x in v if x['name'].startswith('iPhone')))")
+          echo "booting $simulator"
+          xcrun simctl boot "$simulator" || true
+          flutter test integration_test -d "$simulator" --reporter expanded
+
   test-against-our-build:
     name: test · ${{ matrix.name }} · our build
     needs: build-runtime

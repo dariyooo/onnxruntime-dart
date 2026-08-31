@@ -41,6 +41,12 @@ class Provider:
     upstream_assets: tuple[tuple[str, str], ...] = ()
 
     @property
+    def library_stem(self) -> str:
+        """The library name without prefix or extension, which is what the
+        build hook looks for and what the Dart provider table checks."""
+        return f"onnxruntime_providers_{self.name}"
+
+    @property
     def version(self) -> str:
         """The plugin's own version, from the pinned tree."""
         return (SUBMODULE / f"plugin-ep-{self.name}" / "VERSION_NUMBER").read_text(
