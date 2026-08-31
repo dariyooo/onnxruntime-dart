@@ -145,6 +145,35 @@ enum OrtProvider {
   /// The library name without prefix or extension.
   final String libraryStem;
 
+  /// The builds published for this provider, or empty when there is only one.
+  ///
+  /// CUDA ships against two toolkits. They do the same thing and differ in
+  /// what they ask of the machine, so which to install is the application's
+  /// choice rather than ours.
+  List<String> get builds => switch (this) {
+        OrtProvider.cuda => const ['cuda12', 'cuda13'],
+        _ => const [],
+      };
+
+  /// The build to install when the application does not say.
+  ///
+  /// CUDA 12 for CUDA, because CUDA 13 needs an R580 driver. An old card runs
+  /// it happily; a machine nobody has updated does not, and that is the common
+  /// case. CUDA 13 is less than half the size and is one line away.
+  String? get defaultBuild => switch (this) {
+        OrtProvider.cuda => 'cuda12',
+        _ => null,
+      };
+
+  /// Targets [build] is published for.
+  ///
+  /// Only CUDA 13 exists for arm64 upstream, so asking for 12 there is a
+  /// mistake worth naming rather than a download that will not be found.
+  List<String> targetsFor(String? build) => switch ((this, build)) {
+        (OrtProvider.cuda, 'cuda12') => const ['linux-x64', 'windows-x64'],
+        _ => targets,
+      };
+
   static OrtProvider byName(String name) => values.firstWhere(
         (p) => p.name == name,
         orElse: () => throw ArgumentError.value(
@@ -203,16 +232,24 @@ enum OrtProvider {
 }
 
 /// Release asset holding [provider] for [targetId].
-String providerAssetFileName(String provider, String targetId) =>
-    '$provider-$targetId.tar.gz';
+///
+/// [build] distinguishes providers that do the same thing but ask different
+/// things of the machine, such as which CUDA toolkit is installed. Providers
+/// with only one build leave it out.
+String providerAssetFileName(String provider, String targetId,
+        {String? build}) =>
+    build == null
+        ? '$provider-$targetId.tar.gz'
+        : '$provider-$build-$targetId.tar.gz';
 
 /// URL of the provider asset for [targetId] at [releaseTag].
 Uri providerAssetUrl({
   required String releaseTag,
   required String provider,
   required String targetId,
+  String? build,
 }) =>
     Uri.parse(
       'https://github.com/dariyooo/onnxruntime-dart/releases/download'
-      '/$releaseTag/${providerAssetFileName(provider, targetId)}',
+      '/$releaseTag/${providerAssetFileName(provider, targetId, build: build)}',
     );

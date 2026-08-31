@@ -221,16 +221,24 @@ Future<void> installProvider(List<String> args, OrtProvider provider) async {
       iosSdk: code.targetOS == OS.iOS ? code.iOS.targetSdk : null,
     );
 
-    if (!provider.isAvailableOn(target)) {
+    final build = _build(input, provider);
+    final available = provider.targetsFor(build);
+    if (!available.contains(target)) {
       throw StateError(
-        '${input.packageName}: there is no ${provider.name} provider for '
-        '$target. It is published for ${provider.targets.join(', ')}. Depend '
-        'on it only for the platforms that have it, or drop it.',
+        '${input.packageName}: there is no ${provider.name}'
+        '${build == null ? '' : ' $build'} provider for $target. It is '
+        'published for ${available.join(', ')}. Depend on it only for the '
+        'platforms that have it, or choose another build.',
       );
     }
 
-    final library =
-        await _resolveProvider(input, provider, target, code.targetOS);
+    final library = await _resolveProvider(
+      input,
+      provider,
+      target,
+      code.targetOS,
+      build,
+    );
     if (library == null) return;
 
     output.assets.code.add(
@@ -258,12 +266,38 @@ OrtVariant _variant(BuildInput input) {
   return OrtVariant.byName(name);
 }
 
+/// Which build of [provider] to install, from user-defines.
+///
+/// Providers with one build ignore this. CUDA has two, differing in the driver
+/// they need rather than in what they do, so the application chooses:
+///
+/// ```yaml
+/// hooks:
+///   user_defines:
+///     onnxruntime_ep_cuda:
+///       build: cuda13
+/// ```
+String? _build(BuildInput input, OrtProvider provider) {
+  if (provider.builds.isEmpty) return null;
+
+  final requested = input.userDefines['build'];
+  if (requested == null) return provider.defaultBuild;
+  if (requested is! String || !provider.builds.contains(requested)) {
+    throw StateError(
+      '${input.packageName}: build must be one of '
+      '${provider.builds.join(', ')}, got "$requested".',
+    );
+  }
+  return requested;
+}
+
 /// Finds a provider library the same way the runtime is found.
 Future<File?> _resolveProvider(
   BuildInput input,
   OrtProvider provider,
   String target,
   OS os,
+  String? build,
 ) async {
   final fileName = provider.libraryFileName(os);
 
@@ -280,7 +314,8 @@ Future<File?> _resolveProvider(
 
   final tag = releaseTag(input, component: 'ep-${provider.name}');
   final cached = File.fromUri(
-    input.outputDirectoryShared.resolve('$tag/$target/$fileName'),
+    input.outputDirectoryShared
+        .resolve('$tag/${build ?? 'default'}/$target/$fileName'),
   );
   if (cached.existsSync()) return cached;
 
@@ -289,6 +324,7 @@ Future<File?> _resolveProvider(
       releaseTag: tag,
       provider: provider.name,
       targetId: target,
+      build: build,
     ),
     into: cached,
     fileName: fileName,
