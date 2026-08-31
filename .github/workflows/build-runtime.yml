@@ -105,11 +105,14 @@ jobs:
           # and is paid once now that all four ABIs share this job.
           local-cache: false
 
-      # The wasm link is one whole-program LTO step over every kernel, and with
-      # WebGPU and WebNN both compiled in it exceeds the runner's 16 GB. The
-      # runner is killed mid-link and the job reports "received a shutdown
-      # signal" rather than an error, which is why this looks like a platform
-      # fault instead of a memory one. Swap makes it finish, slowly.
+      # WebGPU and WebNN both force `-s ASYNCIFY=1`, and that link needs more
+      # than 39 GB: measured, it fills the runner's 16 GB in forty seconds and
+      # then consumes swap at ~4.6 GB/min until there is none left. What it
+      # looks like from outside is the runner vanishing mid-link, or make
+      # losing a child with no exit status, neither of which says "memory".
+      #
+      # So take most of the ephemeral disk. Swapping is slow, and finishing
+      # slowly is the whole point.
       - name: Give the linker room
         if: matrix.platform == 'web'
         run: |
@@ -122,7 +125,17 @@ jobs:
           target=/mnt
           [ -d "$target" ] || target=/
           available=$(df --output=avail -BG "$target" | tail -1 | tr -dc '0-9')
-          size=$(( available > 40 ? 24 : available / 2 ))
+          # Leave room for anything else that writes there, and cap the file at
+          # a size mkswap handles comfortably.
+          # Written as ifs, not `[ ] && x=y`: under `set -e` a false test is a
+          # non-zero status and aborts the step.
+          if [ "$available" -lt 24 ]; then
+            echo "::warning::only ${available}G free on $target, skipping swap"
+            free -h
+            exit 0
+          fi
+          size=$(( available - 15 ))
+          if [ "$size" -gt 64 ]; then size=64; fi
           echo "$target has ${available}G free; adding ${size}G of swap"
 
           sudo swapoff -a || true
