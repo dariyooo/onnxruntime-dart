@@ -1,7 +1,8 @@
-name: onnxruntime_full
+name: onnxruntime_binaries
 description: >-
-  ONNX Runtime binaries for onnxruntime_dart: the same as the base library plus on-device training, which cannot be loaded at run time and so has to be compiled in.
-  The package version is the ONNX Runtime version it installs.
+  The ONNX Runtime shared library for onnxruntime_dart. Every operator and
+  every execution provider we build, with on-device training available as a
+  variant. The package version is the ONNX Runtime version it installs.
 # The version IS the ONNX Runtime version. Depend on 1.29.1 to run on 1.29.1.
 # No Dart API lives here; the bindings are in onnxruntime_dart.
 version: 1.29.0
@@ -16,6 +17,4 @@ resolution: workspace
 dependencies:
   code_assets: ^1.2.1
   hooks: ^2.2.0
-  # The shared build hook. Not onnxruntime_dart: that package dev-depends on
-  # this one, and the hook runner refuses a cycle.
   onnxruntime_hook: ^1.29.0

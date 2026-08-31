@@ -1,6 +1,6 @@
 /// The build hook the runtime packages share.
 ///
-/// `onnxruntime_base` and `onnxruntime_full` differ only in which
+/// `onnxruntime_binaries` and `onnxruntime_binaries` differ only in which
 /// library they install, so the work lives here and each of them is a few lines
 /// naming its variant. Neither package holds a binary: the library is fetched
 /// from the release named for the package's own version, which is the ONNX
@@ -18,12 +18,21 @@ import 'target.dart';
 
 /// Declares the ONNX Runtime library for the target being built.
 ///
-/// Call from a runtime package's `hook/build.dart`. [variant] says which
-/// library to install, and the asset is named for the calling package, so the
-/// bindings can tell base from full by which id resolves.
-Future<void> installRuntime(List<String> args, OrtVariant variant) async {
+/// The variant comes from user-defines rather than from which package was
+/// depended on, because exactly one may be installed and pub cannot express
+/// that two packages are mutually exclusive:
+///
+/// ```yaml
+/// hooks:
+///   user_defines:
+///     onnxruntime_binaries:
+///       variant: full
+/// ```
+Future<void> installRuntime(List<String> args) async {
   await build(args, (input, output) async {
     if (!input.config.buildCodeAssets) return;
+
+    final variant = _variant(input);
 
     final code = input.config.code;
     final target = targetId(
@@ -233,6 +242,20 @@ Future<void> installProvider(List<String> args, OrtProvider provider) async {
       ),
     );
   });
+}
+
+/// Which library to install, from user-defines. The default is the one almost
+/// every application wants.
+OrtVariant _variant(BuildInput input) {
+  final name = input.userDefines['variant'];
+  if (name == null) return OrtVariant.base;
+  if (name is! String) {
+    throw StateError(
+      '${input.packageName}: variant must be a string, got '
+      '${name.runtimeType}. For example: variant: full',
+    );
+  }
+  return OrtVariant.byName(name);
 }
 
 /// Finds a provider library the same way the runtime is found.

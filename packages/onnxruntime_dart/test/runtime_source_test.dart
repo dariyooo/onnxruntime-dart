@@ -42,8 +42,8 @@ void main() {
       expect(
         const OrtRuntimeMissing().toString(),
         allOf(
-          contains('onnxruntime_base'),
-          contains('onnxruntime_full'),
+          contains('onnxruntime_binaries'),
+          contains('onnxruntime_binaries'),
           contains('ships the bindings but no binaries'),
         ),
       );
@@ -67,7 +67,7 @@ void main() {
       // did not choose, and choosing would stop working.
       final pubspec = File(fromPackage('pubspec.yaml')).readAsStringSync();
       final dependencies = pubspec.split('dev_dependencies:').first;
-      expect(dependencies, isNot(contains('onnxruntime_base')));
+      expect(dependencies, isNot(contains('onnxruntime_binaries')));
     });
   });
 }

@@ -30,7 +30,7 @@ dev_dependencies:
   # So this package's own tests have a runtime to load. A dev dependency is
   # not transitive, so an application still chooses its own and is never
   # handed one by depending on the bindings.
-  onnxruntime_base: ^1.29.0
+  onnxruntime_binaries: ^1.29.0
   ffigen: ^21.0.0
   lints: ^6.0.0
   pub_semver: ^2.1.0

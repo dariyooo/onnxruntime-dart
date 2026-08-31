@@ -18,6 +18,7 @@ import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+import ep_matrix
 import ort_matrix as m
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
@@ -212,6 +213,58 @@ class ProviderTargets(unittest.TestCase):
         for provider in ("cuda", "tensorrt", "qnn"):
             for target in self._claimed(provider):
                 self.assertIn(target, every, f"{provider} claims {target}")
+
+
+class Providers(unittest.TestCase):
+    """Execution providers, each on its own release stream."""
+
+    def test_versions_come_from_the_pinned_tree(self):
+        # Read, never written down: a plugin's version is ONNX Runtime's to
+        # choose, and the Dart package that installs it carries the same one.
+        for provider in ep_matrix.PROVIDERS:
+            self.assertRegex(provider.version, r"^\d+\.\d+\.\d+$")
+            self.assertEqual(
+                provider.release_tag, f"ep-{provider.name}-v{provider.version}"
+            )
+
+    def test_every_provider_outlives_the_runtime_we_ship(self):
+        ours = (
+            ep_matrix.SUBMODULE / "VERSION_NUMBER"
+        ).read_text(encoding="utf-8").strip()
+        for provider in ep_matrix.PROVIDERS:
+            self.assertLessEqual(
+                tuple(int(x) for x in provider.minimum_runtime.split(".")),
+                tuple(int(x) for x in ours.split(".")),
+                provider.name,
+            )
+
+    def test_targets_are_ones_we_support(self):
+        every = {c.id for c in m.all_configurations() if c.variant == m.BASE}
+        for provider in ep_matrix.PROVIDERS:
+            self.assertTrue(provider.targets, provider.name)
+            for target in provider.targets:
+                self.assertIn(target, every, f"{provider.name} -> {target}")
+
+    def test_a_built_provider_is_built_where_the_runtime_matrix_says(self):
+        # WebGPU comes out of an ONNX Runtime build, so it can only exist for a
+        # target that build runs on. Only the shared_lib builds: the web ones
+        # compile it in, where there is no library to load and nothing to ship
+        # separately.
+        webgpu = ep_matrix.by_name("webgpu")
+        matrix = {
+            c.id
+            for c in m.all_configurations()
+            if c.variant == m.BASE
+            and "shared_lib" in c.args
+            and "--use_webgpu" in c.args
+        }
+        self.assertEqual(set(webgpu.targets), matrix)
+
+    def test_a_fetched_provider_names_an_asset_for_every_target(self):
+        for provider in ep_matrix.fetched():
+            named = {target for target, _ in provider.upstream_assets}
+            self.assertEqual(named, set(provider.targets), provider.name)
+            self.assertTrue(provider.upstream_tag, provider.name)
 
 
 class Packaging(unittest.TestCase):
