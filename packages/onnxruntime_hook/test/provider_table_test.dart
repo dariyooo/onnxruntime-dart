@@ -81,4 +81,36 @@ void main() {
       );
     });
   });
+
+  group('the build chosen for a target', () {
+    test('prefers the safer toolkit where it is published', () {
+      expect(OrtProvider.cuda.buildFor('linux-x64'), 'cuda12');
+      expect(OrtProvider.cuda.buildFor('windows-x64'), 'cuda12');
+    });
+
+    test('falls back where the preferred one does not exist', () {
+      // Upstream builds CUDA 12 for x64 only. Refusing to install on arm64
+      // would be reporting no provider while one sits in the release.
+      expect(OrtProvider.cuda.buildFor('linux-arm64'), 'cuda13');
+      expect(OrtProvider.cuda.buildFor('windows-arm64'), 'cuda13');
+    });
+
+    test('is nothing for a provider that ships one build', () {
+      expect(OrtProvider.qnn.buildFor('linux-x64'), isNull);
+      expect(OrtProvider.webgpu.buildFor('macos-arm64'), isNull);
+    });
+
+    test('covers every target every provider claims', () {
+      for (final provider in OrtProvider.values) {
+        for (final target in provider.targets) {
+          final build = provider.buildFor(target);
+          expect(
+            provider.targetsFor(build),
+            contains(target),
+            reason: '${provider.name} claims $target but no build has it',
+          );
+        }
+      }
+    });
+  });
 }
