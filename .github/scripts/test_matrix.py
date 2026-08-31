@@ -315,6 +315,19 @@ class Providers(unittest.TestCase):
             )
             self.assertTrue(source, provider.name)
 
+    def test_a_provider_without_a_package_still_resolves_to_nothing(self):
+        # TensorRT is in the enum with no package behind it, because upstream
+        # ships only the bridge ABI. That is safe rather than broken: a missing
+        # asset falls back to a process-wide symbol lookup, and every provider
+        # exports the same entry point, so the file name is checked against the
+        # provider's own library stem before a path is believed.
+        source = (
+            REPO_ROOT / "packages" / "onnxruntime_dart" / "lib" / "src" / "ffi"
+            / "bundled_provider.dart"
+        ).read_text(encoding="utf-8")
+        self.assertIn("fileName.contains(provider.libraryStem)", source)
+        self.assertIn("tensorrt(", source)
+
     def test_qnn_is_mirrored_whole(self):
         # The plugin dlopens the Qualcomm runtime by bare name, so unlike CUDA
         # the sibling libraries are part of the artifact rather than the

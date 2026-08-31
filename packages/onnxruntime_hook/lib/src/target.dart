@@ -135,7 +135,9 @@ enum OrtProvider {
   /// than built here: it takes hours to compile and needs the CUDA toolkit.
   cuda('onnxruntime_providers_cuda'),
 
-  /// NVIDIA TensorRT, redistributed for the same reason.
+  /// NVIDIA TensorRT. Not published by us: upstream ships it only inside
+  /// onnxruntime-gpu, in the older provider-bridge form, so there is nothing
+  /// plugin-shaped to mirror. Kept so a hand-placed library still has a name.
   tensorrt('onnxruntime_providers_tensorrt'),
 
   /// Qualcomm NPUs, redistributed from the wheel ONNX Runtime publishes.
