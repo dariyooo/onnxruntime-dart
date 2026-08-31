@@ -158,15 +158,34 @@ enum OrtProvider {
         _ => const [],
       };
 
-  /// The build to install when the application does not say.
+  /// The build preferred when the application does not say.
   ///
-  /// CUDA 12 for CUDA, because CUDA 13 needs an R580 driver. An old card runs
-  /// it happily; a machine nobody has updated does not, and that is the common
-  /// case. CUDA 13 is less than half the size and is one line away.
+  /// CUDA 12 for CUDA, because CUDA 13 needs an R580 driver and drops Maxwell,
+  /// Pascal and Volta. An old card runs CUDA 12 happily, a machine nobody has
+  /// updated runs only CUDA 12, and that is the common case. CUDA 13 is around
+  /// half the size and is one line away.
+  ///
+  /// A preference, not a guarantee: see [buildFor], which is what installs.
   String? get defaultBuild => switch (this) {
         OrtProvider.cuda => 'cuda12',
         _ => null,
       };
+
+  /// The build to install for [target] when the application does not say.
+  ///
+  /// The preferred build is not published everywhere. Upstream builds CUDA 12
+  /// for x64 only, so on arm64 the preference cannot be honoured and the only
+  /// build that exists there is the right one to take. Falling back beats
+  /// failing, because the alternative is telling somebody their platform is
+  /// unsupported when a provider for it is sitting in the release.
+  String? buildFor(String target) {
+    if (builds.isEmpty) return null;
+    if (targetsFor(defaultBuild).contains(target)) return defaultBuild;
+    return builds.firstWhere(
+      (b) => targetsFor(b).contains(target),
+      orElse: () => defaultBuild!,
+    );
+  }
 
   /// Targets [build] is published for.
   ///

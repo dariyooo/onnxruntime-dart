@@ -221,7 +221,7 @@ Future<void> installProvider(List<String> args, OrtProvider provider) async {
       iosSdk: code.targetOS == OS.iOS ? code.iOS.targetSdk : null,
     );
 
-    final build = _build(input, provider);
+    final build = _build(input, provider, target);
     final available = provider.targetsFor(build);
     if (!available.contains(target)) {
       throw StateError(
@@ -277,11 +277,11 @@ OrtVariant _variant(BuildInput input) {
 ///     onnxruntime_ep_cuda:
 ///       build: cuda13
 /// ```
-String? _build(BuildInput input, OrtProvider provider) {
+String? _build(BuildInput input, OrtProvider provider, String target) {
   if (provider.builds.isEmpty) return null;
 
   final requested = input.userDefines['build'];
-  if (requested == null) return provider.defaultBuild;
+  if (requested == null) return provider.buildFor(target);
   if (requested is! String || !provider.builds.contains(requested)) {
     throw StateError(
       '${input.packageName}: build must be one of '
