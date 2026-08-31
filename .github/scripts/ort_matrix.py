@@ -335,6 +335,23 @@ CONFIGURATIONS: tuple[Config, ...] = (
 )
 
 
+# ONNX Runtime's own WebGPU sources call std::to_chars on a float, which libc++
+# only exposes from iOS 16.3. It costs nothing to the runtime, which does not
+# compile them, so only the provider carries the higher floor: an application on
+# iOS 15 keeps working and simply has no WebGPU.
+_WEBGPU_IOS_DEPLOY_TARGET = "16.3"
+
+
+def _retarget_apple(args: tuple[str, ...], target: str) -> tuple[str, ...]:
+    """Replaces the Apple deployment target, rather than appending a second."""
+    out = list(args)
+    for i, arg in enumerate(out):
+        if arg == "--apple_deploy_target":
+            out[i + 1] = target
+            return tuple(out)
+    return tuple(out) + ("--apple_deploy_target", target)
+
+
 def _provider(config: Config) -> Config:
     """The WebGPU provider built from a `base` runtime configuration.
 
@@ -346,11 +363,14 @@ def _provider(config: Config) -> Config:
     One per target rather than per variant: the provider is the same library
     either way, since training changes the runtime and not the GPU backend.
     """
+    args = config.args + _WEBGPU + _PROVIDER_ONLY.get(config.platform, ())
+    if config.platform == "ios":
+        args = _retarget_apple(args, _WEBGPU_IOS_DEPLOY_TARGET)
     return dataclasses.replace(
         config,
         id=f"{config.id}-webgpu",
         component=EP_WEBGPU,
-        args=config.args + _WEBGPU + _PROVIDER_ONLY.get(config.platform, ()),
+        args=args,
     )
 
 
