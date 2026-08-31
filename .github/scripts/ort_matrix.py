@@ -153,20 +153,18 @@ def _ios(name: str, sysroot: str, arch: str) -> Config:
             "--use_coreml",
             "--use_xnnpack",
             "--no_kleidiai",
-            # WebGPU reaches Metal here, which ONNX Runtime documents as
-            # supported. Getting it to compile is the problem: Dawn's
-            # ObjCUtils.mm is written for manual reference counting, and
-            # cmake/onnxruntime_ios.toolchain.cmake forces CLANG_ENABLE_OBJC_ARC
-            # on for the whole build, so Dawn fails with "ARC forbids explicit
-            # message send of 'retain'". The Xcode generator is mandatory for
-            # iOS (build.py refuses any other), so the attribute always applies.
+            # No WebGPU here, though ONNX Runtime documents Metal as
+            # supported. Dawn's ObjCUtils.mm is written for manual reference
+            # counting, and cmake/onnxruntime_ios.toolchain.cmake forces
+            # CLANG_ENABLE_OBJC_ARC on for the whole build, so Dawn fails with
+            # "ARC forbids explicit message send of 'retain'". The Xcode
+            # generator is mandatory for iOS, so the attribute always applies.
             #
-            # This asks CMake to turn it back off. Whether it wins is the
-            # question: the toolchain uses a plain set(), which normally beats a
-            # cache entry.
-            *_WEBGPU,
-            "--cmake_extra_defines",
-            "CMAKE_XCODE_ATTRIBUTE_CLANG_ENABLE_OBJC_ARC=NO",
+            # Passing CMAKE_XCODE_ATTRIBUTE_CLANG_ENABLE_OBJC_ARC=NO to turn it
+            # back off was tried and does not win: the toolchain's plain set()
+            # beats the cache entry, and the same ObjCUtils.mm errors came back.
+            # Until Dawn compiles under ARC, this costs the whole iOS runtime
+            # rather than only the provider, so it stays off.
         ),
         unproven=True,
     )
