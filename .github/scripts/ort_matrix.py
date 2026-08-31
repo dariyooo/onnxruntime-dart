@@ -153,18 +153,28 @@ def _ios(name: str, sysroot: str, arch: str) -> Config:
             "--use_coreml",
             "--use_xnnpack",
             "--no_kleidiai",
-            # No WebGPU here, though ONNX Runtime documents Metal as
-            # supported. Dawn's ObjCUtils.mm is written for manual reference
-            # counting, and cmake/onnxruntime_ios.toolchain.cmake forces
-            # CLANG_ENABLE_OBJC_ARC on for the whole build, so Dawn fails with
-            # "ARC forbids explicit message send of 'retain'". The Xcode
-            # generator is mandatory for iOS, so the attribute always applies.
+            # WebGPU reaches Metal here, which ONNX Runtime documents as
+            # supported. The obstacle is only how ARC gets turned on.
             #
-            # Passing CMAKE_XCODE_ATTRIBUTE_CLANG_ENABLE_OBJC_ARC=NO to turn it
-            # back off was tried and does not win: the toolchain's plain set()
-            # beats the cache entry, and the same ObjCUtils.mm errors came back.
-            # Until Dawn compiles under ARC, this costs the whole iOS runtime
-            # rather than only the provider, so it stays off.
+            # Dawn's ObjCUtils.mm uses explicit retain and release, and
+            # cmake/onnxruntime_ios.toolchain.cmake line 11 does a plain
+            # SET(CMAKE_XCODE_ATTRIBUTE_CLANG_ENABLE_OBJC_ARC "YES"). A plain
+            # set() shadows a cache entry, so passing that attribute as NO does
+            # nothing, which was measured rather than assumed.
+            #
+            # So do not fight the attribute, outrank it. -fno-objc-arc lands in
+            # the compiler's own flags, after the ones Xcode derives from the
+            # build setting, and the last -f wins.
+            #
+            # Safe for the rest of the build because macOS already proves it:
+            # it compiles the same CoreML and WebGPU sources with the default
+            # generator, where CMAKE_XCODE_ATTRIBUTE_* is ignored entirely and
+            # ARC is therefore off.
+            *_WEBGPU,
+            "--cmake_extra_defines",
+            "CMAKE_OBJCXX_FLAGS=-fno-objc-arc",
+            "--cmake_extra_defines",
+            "CMAKE_OBJC_FLAGS=-fno-objc-arc",
         ),
         unproven=True,
     )
