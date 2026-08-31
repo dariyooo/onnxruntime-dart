@@ -127,6 +127,29 @@ class Config:
 # that finds out.
 _WEBGPU = ("--use_webgpu", "shared_lib")
 
+# Flags only the provider build needs, since only it compiles Dawn.
+_PROVIDER_ONLY = {
+    # Dawn's ObjCUtils.mm uses explicit retain and release, and
+    # cmake/onnxruntime_ios.toolchain.cmake line 11 does a plain
+    # SET(CMAKE_XCODE_ATTRIBUTE_CLANG_ENABLE_OBJC_ARC "YES"). A plain set()
+    # shadows a cache entry, so passing that attribute as NO does nothing:
+    # measured, twice.
+    #
+    # So outrank it instead. Xcode puts flags from CMAKE_CXX_FLAGS after the
+    # ones it derives from the build setting, and the last -f wins. The same
+    # build log shows Dawn's own targets carrying "-fobjc-arc ... -fno-objc-arc"
+    # and compiling, which is what this reproduces for the ones that lack it.
+    #
+    # Not CMAKE_OBJCXX_FLAGS, which was tried and never arrived: ONNX Runtime
+    # does not enable the OBJCXX language, so .mm files compile through the C++
+    # toolchain and the ObjC++ variable is never read.
+    #
+    # Safe for the rest of this build because macOS already proves it: the same
+    # CoreML and WebGPU sources compile there under the default generator,
+    # where CMAKE_XCODE_ATTRIBUTE_* is ignored and ARC is therefore off.
+    "ios": ("--cmake_extra_defines", "CMAKE_CXX_FLAGS=-fno-objc-arc"),
+}
+
 
 def _android(abi: str) -> Config:
     # No --use_nnapi: deprecated in Android 15. WebGPU replaces it and is built
@@ -327,7 +350,7 @@ def _provider(config: Config) -> Config:
         config,
         id=f"{config.id}-webgpu",
         component=EP_WEBGPU,
-        args=config.args + _WEBGPU,
+        args=config.args + _WEBGPU + _PROVIDER_ONLY.get(config.platform, ()),
     )
 
 
