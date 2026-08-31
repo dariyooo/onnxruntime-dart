@@ -10,11 +10,12 @@ and the configuration lives in extensions_matrix.py where it can be read.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import os
 import pathlib
-import shutil
 import subprocess
 import sys
+import tarfile
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -67,18 +68,33 @@ def main() -> None:
 
     library = find_library(build_dir, build.platform)
 
-    # Under the name the hook asks for, without the version the soname carries.
-    out = REPO_ROOT / "dist" / extensions_matrix.COMPONENT
-    out.mkdir(parents=True, exist_ok=True)
+    # One flat archive holding the library under the name the hook asks for,
+    # with a SHA-256 sidecar. Same shape as every other component we publish.
+    # Done here rather than in the workflow because the shell has to guess at
+    # the file name and this does not: a glob that matched nothing on Linux
+    # once tarred the archive into itself.
     suffix = {"windows": ".dll", "macos": ".dylib", "ios": ".dylib"}.get(
         build.platform, ".so"
     )
     stem = "ortextensions" if build.platform == "windows" else "libortextensions"
-    staged = out / f"{stem}{suffix}"
-    shutil.copy2(library, staged)
+    member = f"{stem}{suffix}"
 
-    print(f"{build.id}: {library.name} -> {staged.name} "
-          f"({staged.stat().st_size / 1e6:.1f} MB)")
+    out = REPO_ROOT / "dist" / extensions_matrix.COMPONENT
+    out.mkdir(parents=True, exist_ok=True)
+    archive = out / f"extensions-{build.id}.tar.gz"
+    with tarfile.open(archive, "w:gz") as tar:
+        info = tar.gettarinfo(str(library), arcname=member)
+        info.mode = 0o755
+        with library.open("rb") as handle:
+            tar.addfile(info, handle)
+
+    digest = hashlib.sha256(archive.read_bytes()).hexdigest()
+    (out / f"{archive.name}.sha256").write_text(
+        f"{digest}  {archive.name}\n", encoding="utf-8"
+    )
+
+    print(f"{build.id}: {library.name} -> {archive.name} as {member} "
+          f"({archive.stat().st_size / 1e6:.1f} MB)")
 
 
 if __name__ == "__main__":
