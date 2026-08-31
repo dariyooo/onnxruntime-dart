@@ -32,6 +32,7 @@ jobs:
   static:
     name: format, analyze, matrix
     runs-on: ubuntu-24.04
+    timeout-minutes: 20
     concurrency:
       group: static-${{ github.ref }}
       cancel-in-progress: true
@@ -79,6 +80,7 @@ jobs:
   analyze-flutter:
     name: analyze · flutter packages
     runs-on: ubuntu-24.04
+    timeout-minutes: 20
     concurrency:
       group: analyze-flutter-${{ github.ref }}
       cancel-in-progress: true
@@ -102,6 +104,7 @@ jobs:
   bindings-are-current:
     name: bindings match the submodule
     runs-on: ubuntu-24.04
+    timeout-minutes: 20
     concurrency:
       group: bindings-${{ github.ref }}
       cancel-in-progress: true
@@ -126,6 +129,7 @@ jobs:
   test:
     name: test · ${{ matrix.name }}
     runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
     concurrency:
       group: test-${{ github.ref }}-${{ matrix.name }}
       cancel-in-progress: true
@@ -158,6 +162,7 @@ jobs:
   test-web:
     name: test · web · ${{ matrix.browser }}
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     concurrency:
       group: test-web-${{ github.ref }}-${{ matrix.browser }}
       cancel-in-progress: true
@@ -266,6 +271,9 @@ jobs:
     # As above: a cancelled build leaves nothing to test against.
     if: ${{ !cancelled() && needs.build-runtime.result != 'cancelled' }}
     runs-on: ${{ matrix.runner }}
+    # A booted emulator running a handful of tests takes minutes. Without this
+    # a hung one ran to the six hour default, twice.
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -313,6 +321,18 @@ jobs:
         uses: actions/setup-java@v4
         with: { distribution: temurin, java-version: '17' }
 
+      # The runner has KVM but the runner user cannot open it, and the emulator
+      # quietly falls back to software emulation rather than saying so. That is
+      # the difference between six minutes and six hours.
+      - name: Let the emulator use KVM
+        if: matrix.name == 'android'
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          test -w /dev/kvm && echo "kvm is writable"
+
       - name: Run on an Android emulator
         if: matrix.name == 'android'
         uses: reactivecircus/android-emulator-runner@v2
@@ -320,7 +340,8 @@ jobs:
           api-level: 34
           arch: x86_64
           target: google_apis
-          # KVM is available on the Linux runners, so this is not glacial.
+          emulator-boot-timeout: 900
+          disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
           working-directory: integration/harness
           script: flutter test integration_test --reporter expanded
@@ -348,6 +369,7 @@ jobs:
     # artifact to download and the failure says nothing.
     if: ${{ !cancelled() && needs.build-runtime.result != 'cancelled' }}
     runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
