@@ -127,6 +127,29 @@ class Config:
 # that finds out.
 _WEBGPU = ("--use_webgpu", "shared_lib")
 
+# Flags only the provider build needs, since only it compiles Dawn.
+_PROVIDER_ONLY = {
+    # Dawn's ObjCUtils.mm uses explicit retain and release, and
+    # cmake/onnxruntime_ios.toolchain.cmake line 11 does a plain
+    # SET(CMAKE_XCODE_ATTRIBUTE_CLANG_ENABLE_OBJC_ARC "YES"). A plain set()
+    # shadows a cache entry, so passing that attribute as NO does nothing:
+    # measured, twice.
+    #
+    # So outrank it instead. Xcode puts flags from CMAKE_CXX_FLAGS after the
+    # ones it derives from the build setting, and the last -f wins. The same
+    # build log shows Dawn's own targets carrying "-fobjc-arc ... -fno-objc-arc"
+    # and compiling, which is what this reproduces for the ones that lack it.
+    #
+    # Not CMAKE_OBJCXX_FLAGS, which was tried and never arrived: ONNX Runtime
+    # does not enable the OBJCXX language, so .mm files compile through the C++
+    # toolchain and the ObjC++ variable is never read.
+    #
+    # Safe for the rest of this build because macOS already proves it: the same
+    # CoreML and WebGPU sources compile there under the default generator,
+    # where CMAKE_XCODE_ATTRIBUTE_* is ignored and ARC is therefore off.
+    "ios": ("--cmake_extra_defines", "CMAKE_CXX_FLAGS=-fno-objc-arc"),
+}
+
 
 def _android(abi: str) -> Config:
     # No --use_nnapi: deprecated in Android 15. WebGPU replaces it and is built
@@ -312,6 +335,23 @@ CONFIGURATIONS: tuple[Config, ...] = (
 )
 
 
+# ONNX Runtime's own WebGPU sources call std::to_chars on a float, which libc++
+# only exposes from iOS 16.3. It costs nothing to the runtime, which does not
+# compile them, so only the provider carries the higher floor: an application on
+# iOS 15 keeps working and simply has no WebGPU.
+_WEBGPU_IOS_DEPLOY_TARGET = "16.3"
+
+
+def _retarget_apple(args: tuple[str, ...], target: str) -> tuple[str, ...]:
+    """Replaces the Apple deployment target, rather than appending a second."""
+    out = list(args)
+    for i, arg in enumerate(out):
+        if arg == "--apple_deploy_target":
+            out[i + 1] = target
+            return tuple(out)
+    return tuple(out) + ("--apple_deploy_target", target)
+
+
 def _provider(config: Config) -> Config:
     """The WebGPU provider built from a `base` runtime configuration.
 
@@ -323,11 +363,14 @@ def _provider(config: Config) -> Config:
     One per target rather than per variant: the provider is the same library
     either way, since training changes the runtime and not the GPU backend.
     """
+    args = config.args + _WEBGPU + _PROVIDER_ONLY.get(config.platform, ())
+    if config.platform == "ios":
+        args = _retarget_apple(args, _WEBGPU_IOS_DEPLOY_TARGET)
     return dataclasses.replace(
         config,
         id=f"{config.id}-webgpu",
         component=EP_WEBGPU,
-        args=config.args + _WEBGPU,
+        args=args,
     )
 
 
