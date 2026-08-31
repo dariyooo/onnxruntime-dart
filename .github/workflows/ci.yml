@@ -67,6 +67,35 @@ jobs:
       - name: Test the build hook
         run: dart test packages/onnxruntime_hook --reporter expanded
 
+  # The Flutter packages sit outside the workspace and outside `dart analyze`,
+  # which excludes them on the grounds that Flutter analyses them instead.
+  # Nothing did. This is the job that makes that comment true.
+  #
+  # Separate from `static` because it needs Flutter, and the point of keeping
+  # these out of the workspace is that the other jobs do not.
+  analyze-flutter:
+    name: analyze · flutter packages
+    runs-on: ubuntu-24.04
+    concurrency:
+      group: analyze-flutter-${{ github.ref }}
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@v5
+      - uses: subosito/flutter-action@v2
+        with: { channel: stable }
+      - name: Analyze each one on its own
+        shell: bash
+        run: |
+          set -euo pipefail
+          for dir in packages/onnxruntime_web \
+                     packages/onnxruntime_web_webgpu \
+                     packages/onnxruntime_web_webgpu_webnn \
+                     integration/harness; do
+            echo "::group::$dir"
+            ( cd "$dir" && flutter pub get && flutter analyze )
+            echo "::endgroup::"
+          done
+
   bindings-are-current:
     name: bindings match the submodule
     runs-on: ubuntu-24.04

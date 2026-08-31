@@ -5,8 +5,8 @@ include: package:lints/recommended.yaml
 analyzer:
   exclude:
     # Flutter, not Dart. `dart analyze` cannot resolve package:flutter, and CI
-    # analyses this repository with the Dart SDK alone. Flutter analyses these
-    # itself, in the jobs that install it.
+    # analyses this repository with the Dart SDK alone. The analyze-flutter job
+    # covers these with Flutter's own analyser.
     - 'integration/**'
     - 'packages/onnxruntime_web/**'
     - 'packages/onnxruntime_web_webgpu/**'
