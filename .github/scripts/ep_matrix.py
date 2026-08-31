@@ -13,6 +13,11 @@ Two sources, and the difference is only in how the artifact is obtained:
     building it needs the CUDA toolkit and hours of compute: Microsoft budgets
     240 minutes on Linux and 360 on Windows, against a six hour ceiling on four
     cores, and a Windows runner has 14 GB of disk against a 2.3 GB toolkit.
+  * `pypi` is the same idea against a different host. QNN is published as a
+    Python wheel rather than a release asset, and building it is not an option
+    at all: the Qualcomm SDK it links against is behind an authenticated
+    download, while the wheel carries that SDK's runtime already licensed for
+    redistribution.
 """
 
 from __future__ import annotations
@@ -25,6 +30,7 @@ SUBMODULE = REPO_ROOT / "third_party" / "onnxruntime"
 
 BUILD = "build"
 FETCH = "fetch"
+PYPI = "pypi"
 
 
 @dataclasses.dataclass(frozen=True)
@@ -42,17 +48,28 @@ class Provider:
     # CUDA toolkit version.
     upstream_tag: str = ""
     upstream_assets: tuple[tuple[str, str, str], ...] = ()
+    # For a `pypi` provider, the project whose wheels we mirror.
+    pypi_project: str = ""
+    # Whether the upstream artifact carries libraries the plugin loads itself,
+    # which have to travel with it rather than being picked out of it.
+    bundles_runtime: bool = False
+    # Set when the plugin is not versioned in our pinned tree, which is the
+    # case for anything not built from it.
+    pinned_version: str = ""
+    pinned_minimum_runtime: str = ""
 
     @property
     def builds(self) -> tuple[str, ...]:
         """The distinct builds published, in the order they were listed."""
         seen: list[str] = []
         for build, _, _ in self.upstream_assets:
-            if build not in seen:
+            if build and build not in seen:
                 seen.append(build)
         return tuple(seen)
 
-    def targets_for(self, build: str) -> tuple[str, ...]:
+    def targets_for(self, build: str | None) -> tuple[str, ...]:
+        if not self.builds:
+            return tuple(t for _, t, _ in self.upstream_assets)
         return tuple(t for b, t, _ in self.upstream_assets if b == build)
 
     def asset_name(self, build: str, target: str) -> str:
@@ -69,13 +86,18 @@ class Provider:
 
     @property
     def version(self) -> str:
-        """The plugin's own version, from the pinned tree."""
+        """The plugin's own version, from the pinned tree where it is built
+        from that tree, and pinned here where it is not."""
+        if self.pinned_version:
+            return self.pinned_version
         return (SUBMODULE / f"plugin-ep-{self.name}" / "VERSION_NUMBER").read_text(
             encoding="utf-8"
         ).strip()
 
     @property
     def minimum_runtime(self) -> str:
+        if self.pinned_minimum_runtime:
+            return self.pinned_minimum_runtime
         return (
             SUBMODULE / f"plugin-ep-{self.name}" / "MIN_ONNXRUNTIME_VERSION"
         ).read_text(encoding="utf-8").strip()
@@ -128,6 +150,30 @@ PROVIDERS: tuple[Provider, ...] = (
             ("cuda13", "windows-arm64", "cuda_ep_cuda13_0.1.0_win-arm64.zip"),
         ),
     ),
+    Provider(
+        name="qnn",
+        source=PYPI,
+        # What the wheels cover. Not Android: there QNN is linked into a whole
+        # runtime rather than published as a plugin, so it cannot layer on
+        # ours and is a runtime variant question instead.
+        targets=("linux-x64", "linux-arm64", "windows-x64", "windows-arm64"),
+        pypi_project="onnxruntime-qnn",
+        pinned_version="2.5.0",
+        # onnxruntime>=1.24.2, from the wheel's own requirements.
+        pinned_minimum_runtime="1.24.2",
+        # The plugin dlopens libQnnHtp and friends by bare name and carries
+        # RUNPATH $ORIGIN, so the Qualcomm runtime has to sit beside it. That
+        # is what the wheel ships and what we repackage, licence files and all.
+        bundles_runtime=True,
+        # One build. The wheel filename fragment identifies the platform; the
+        # Python tag is noise, since none of these are Python extensions.
+        upstream_assets=(
+            ("", "linux-x64", "manylinux_2_35_x86_64"),
+            ("", "linux-arm64", "manylinux_2_34_aarch64"),
+            ("", "windows-x64", "win_amd64"),
+            ("", "windows-arm64", "win_arm64"),
+        ),
+    ),
 )
 
 
@@ -143,4 +189,5 @@ def built() -> list[Provider]:
 
 
 def fetched() -> list[Provider]:
-    return [p for p in PROVIDERS if p.source == FETCH]
+    """Providers taken from someone else's build, wherever it is hosted."""
+    return [p for p in PROVIDERS if p.source in (FETCH, PYPI)]

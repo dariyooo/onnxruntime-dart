@@ -1,10 +1,16 @@
 #!/usr/bin/env python3
 """Mirrors an execution provider ONNX Runtime publishes itself.
 
-Their asset layout is their own: a tarball on Linux, a zip on Windows, each
-holding the provider library and a version marker. Ours is one flat archive per
-target named the way the build hook looks for it, with a SHA-256 sidecar, the
-same as everything else we publish. This turns one into the other.
+Their asset layout is their own: a tarball on Linux, a zip on Windows, a Python
+wheel on PyPI, each holding the provider library and whatever else it needs.
+Ours is one flat archive per target named the way the build hook looks for it,
+with a SHA-256 sidecar, the same as everything else we publish. This turns one
+into the other.
+
+Two shapes come out of that. CUDA needs its toolkit from the machine, so only
+the plugin travels. QNN carries the Qualcomm runtime it dlopens, so the whole
+set travels together and their library paths are rewritten to point beside
+themselves rather than into a layout only Python would produce.
 
 Nothing is compiled. See .github/workflows/build-ep-cuda.yml for why.
 """
@@ -14,17 +20,26 @@ from __future__ import annotations
 import argparse
 import hashlib
 import io
+import json
 import os
 import pathlib
+import shutil
 import subprocess
 import sys
 import tarfile
 import tempfile
+import urllib.request
 import zipfile
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+import elf_rpath  # noqa: E402
 import ep_matrix  # noqa: E402
+
+# Carried alongside the libraries because redistributing them is conditional on
+# it. The Qualcomm runtime in the QNN wheel is licensed, not public domain.
+LICENCE_FILES = ("LICENSE", "NOTICE", "ThirdPartyNotices.txt", "Privacy.md")
+LIBRARY_SUFFIXES = (".dll", ".dylib", ".pdb")
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 
@@ -35,6 +50,68 @@ def sha256(path: pathlib.Path) -> str:
         for chunk in iter(lambda: handle.read(1 << 20), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def is_library(name: str) -> bool:
+    """Shared libraries, including the versioned `.so.1.0` names auditwheel
+    produces, which a plain suffix test misses."""
+    base = pathlib.PurePath(name).name
+    return base.endswith(LIBRARY_SUFFIXES) or ".so" in base
+
+
+def download_wheel(
+    project: str, version: str, fragment: str, into: pathlib.Path
+) -> pathlib.Path:
+    """The wheel for one platform. The Python tag in the filename is noise
+    here, since none of these are Python extension modules, so any wheel
+    carrying the platform fragment will do and we take the first by name to
+    stay reproducible."""
+    into.mkdir(parents=True, exist_ok=True)
+    url = f"https://pypi.org/pypi/{project}/{version}/json"
+    with urllib.request.urlopen(url) as response:
+        files = json.load(response)["urls"]
+
+    matches = sorted(
+        (f["filename"], f["url"]) for f in files if fragment in f["filename"]
+    )
+    if not matches:
+        raise SystemExit(f"{project} {version} publishes no wheel matching {fragment}")
+
+    filename, source = matches[0]
+    destination = into / filename
+    with urllib.request.urlopen(source) as response, destination.open("wb") as handle:
+        shutil.copyfileobj(response, handle)
+    return destination
+
+
+def unpack_bundle(wheel: pathlib.Path, into: pathlib.Path) -> list[pathlib.Path]:
+    """Every library and licence in a wheel, flattened into one directory.
+
+    The wheel splits libraries across a package directory and an auditwheel
+    sibling, and points the RPATHs across that gap. Flattening closes it, so
+    the RPATHs are rewritten to match. Bundling steps downstream are free to
+    move these files as a set, which they would not be otherwise."""
+    into.mkdir(parents=True, exist_ok=True)
+    written: list[pathlib.Path] = []
+
+    with zipfile.ZipFile(wheel) as zipped:
+        for entry in zipped.namelist():
+            base = pathlib.PurePath(entry).name
+            keep = is_library(entry) or base in LICENCE_FILES or base.endswith(".pdf")
+            if entry.endswith("/") or ".dist-info/" in entry or not keep:
+                continue
+            destination = into / base
+            if destination.exists():
+                raise SystemExit(f"{wheel.name}: two entries named {base}")
+            destination.write_bytes(zipped.read(entry))
+            written.append(destination)
+
+    for path in written:
+        if is_library(path.name):
+            was = elf_rpath.flatten(path)
+            if was:
+                print(f"    {path.name}: RPATH {was} -> $ORIGIN")
+    return written
 
 
 def download(tag: str, asset: str, into: pathlib.Path) -> pathlib.Path:
@@ -83,7 +160,7 @@ def main() -> None:
     args = parser.parse_args()
 
     provider = ep_matrix.by_name(args.provider)
-    if provider.source != ep_matrix.FETCH:
+    if provider.source == ep_matrix.BUILD:
         raise SystemExit(f"{provider.name} is built here, not fetched")
 
     out = REPO_ROOT / "dist" / f"ep-{provider.name}"
@@ -92,7 +169,7 @@ def main() -> None:
     with tempfile.TemporaryDirectory() as scratch:
         staging = pathlib.Path(scratch)
         for build, target, asset in provider.upstream_assets:
-            print(f"{build} {target}: {asset}")
+            print(f"{build or provider.name} {target}: {asset}")
 
             # One flat archive per build and target, holding the library under
             # the name the hook asks for. The build is in the archive name only
@@ -100,13 +177,25 @@ def main() -> None:
             # need from the machine rather than in what they do.
             archive = out / provider.asset_name(build, target)
 
-            upstream = download(provider.upstream_tag, asset, staging)
-            name, payload = library_in(upstream, provider.library_stem)
-            with tarfile.open(archive, "w:gz") as tar:
-                info = tarfile.TarInfo(name)
-                info.size = len(payload)
-                info.mode = 0o755
-                tar.addfile(info, io.BytesIO(payload))
+            if provider.source == ep_matrix.PYPI:
+                wheel = download_wheel(
+                    provider.pypi_project, provider.version, asset, staging
+                )
+                unpacked = staging / f"{provider.name}-{target}"
+                files = unpack_bundle(wheel, unpacked)
+                if not any(provider.library_stem in f.name for f in files):
+                    raise SystemExit(f"{wheel.name} holds no {provider.library_stem}")
+                with tarfile.open(archive, "w:gz") as tar:
+                    for path in sorted(files):
+                        tar.add(path, arcname=path.name)
+            else:
+                upstream = download(provider.upstream_tag, asset, staging)
+                name, payload = library_in(upstream, provider.library_stem)
+                with tarfile.open(archive, "w:gz") as tar:
+                    info = tarfile.TarInfo(name)
+                    info.size = len(payload)
+                    info.mode = 0o755
+                    tar.addfile(info, io.BytesIO(payload))
 
             digest = sha256(archive)
             (out / f"{archive.name}.sha256").write_text(
