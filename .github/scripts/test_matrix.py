@@ -267,6 +267,64 @@ class Providers(unittest.TestCase):
             self.assertTrue(provider.upstream_tag, provider.name)
 
 
+class WebPackages(unittest.TestCase):
+    """The Flutter web packages and the wasm builds must agree.
+
+    Each package hardcodes the file name Flutter will serve, and that name is
+    ONNX Runtime's, set by which features are compiled in. Two of the three
+    builds produce the same file name with different contents, which is why
+    each build is its own package rather than one package with three assets.
+    """
+
+    WEB = {
+        "onnxruntime_web": ("web-wasm", "ort-wasm-simd-threaded"),
+        "onnxruntime_web_webgpu": (
+            "web-wasm-webgpu",
+            "ort-wasm-simd-threaded.asyncify",
+        ),
+        "onnxruntime_web_webgpu_webnn": (
+            "web-wasm-webgpu-webnn",
+            "ort-wasm-simd-threaded.asyncify",
+        ),
+    }
+
+    def _asset_source(self, package: str) -> str:
+        return (
+            REPO_ROOT / "packages" / package / "lib" / "src" / "asset.dart"
+        ).read_text(encoding="utf-8")
+
+    def test_every_web_build_has_a_package(self):
+        built = {
+            c.id for c in m.all_configurations()
+            if c.platform == "web" and c.variant == m.BASE
+        }
+        claimed = {build for build, _ in self.WEB.values()}
+        self.assertEqual(claimed, built)
+
+    def test_each_package_names_its_own_build(self):
+        for package, (build, _) in self.WEB.items():
+            self.assertIn(f"'{build}'", self._asset_source(package), package)
+
+    def test_asset_urls_use_the_package_own_name(self):
+        # Flutter serves a package's assets under its own name. Getting this
+        # wrong yields a 404 at run time and nothing at build time.
+        for package in self.WEB:
+            source = self._asset_source(package)
+            self.assertIn(f"assets/packages/{package}/assets/", source, package)
+
+    def test_file_names_match_what_the_build_produces(self):
+        for package, (_, stem) in self.WEB.items():
+            source = self._asset_source(package)
+            self.assertIn(f"{stem}.wasm", source, package)
+            self.assertIn(f"{stem}.mjs", source, package)
+
+    def test_the_colliding_builds_are_separate_packages(self):
+        # webgpu and webgpu-webnn produce the same file name and different
+        # binaries, so one package could not carry both.
+        stems = [stem for _, stem in self.WEB.values()]
+        self.assertNotEqual(len(set(stems)), len(stems))
+
+
 class Packaging(unittest.TestCase):
     """The globs that decide what ends up in an archive."""
 

@@ -14,6 +14,11 @@ workspace:
   - packages/onnxruntime_binaries
   - packages/onnxruntime_ep_webgpu
   - packages/onnxruntime_ep_cuda
+  # Flutter packages: they carry assets rather than Dart, and only Flutter can
+  # resolve them, so they are members for tooling but never built by dart test.
+  - packages/onnxruntime_web
+  - packages/onnxruntime_web_webgpu
+  - packages/onnxruntime_web_webgpu_webnn
 
 # Development only, and never published: this file is the workspace root, not a
 # package. Points the runtime packages at a local ONNX Runtime so they can be

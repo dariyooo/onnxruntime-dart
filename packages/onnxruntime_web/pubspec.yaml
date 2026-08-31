@@ -1,0 +1,24 @@
+name: onnxruntime_web
+description: >-
+  The ONNX Runtime WebAssembly build for Flutter web: XNNPACK only, and the smallest. Bundled as an
+  asset so an application does not serve it by hand. The version is the ONNX
+  Runtime version it carries.
+version: 1.29.0
+repository: https://github.com/dariyooo/onnxruntime-dart
+issue_tracker: https://github.com/dariyooo/onnxruntime-dart/issues
+
+environment:
+  sdk: ^3.6.0
+  flutter: '>=3.10.0'
+
+resolution: workspace
+
+dependencies:
+  flutter: { sdk: flutter }
+
+# Flutter bundles every declared asset, so each build is its own package. One
+# package carrying all three would serve every browser twenty-five megabytes to
+# use one of them.
+flutter:
+  assets:
+    - assets/
