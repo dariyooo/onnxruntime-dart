@@ -182,12 +182,36 @@ jobs:
           path: dist
           key: ${{ steps.key.outputs.value }}
 
+      # The wasm link dies with "the runner has received a shutdown signal",
+      # which says nothing about why. Sampling memory and disk means the next
+      # failure names its own cause rather than being guessed at.
+      - name: Watch memory and disk
+        if: matrix.platform == 'web' && steps.cached.outputs.cache-hit != 'true'
+        run: |
+          cat > /tmp/sample.sh <<'SCRIPT'
+          while true; do
+            mem=$(free -m | awk '/^Mem:/ {print $3"/"$2"MB"}')
+            swap=$(free -m | awk '/^Swap:/ {print $3"/"$2"MB"}')
+            root=$(df -m --output=avail / | tail -1 | tr -d ' ')
+            echo "$(date -u +%H:%M:%S) mem=$mem swap=$swap rootfree=${root}MB"
+            sleep 20
+          done
+          SCRIPT
+          chmod +x /tmp/sample.sh
+          nohup bash /tmp/sample.sh > /tmp/resources.log 2>&1 &
+          echo "sampling to /tmp/resources.log"
+
       - name: Build
         if: steps.cached.outputs.cache-hit != 'true'
         shell: bash
         env:
           ANDROID_NDK_HOME: ${{ steps.ndk.outputs.ndk-path }}
         run: python3 .github/scripts/build_runtime.py
+
+      # always(), because the interesting case is the one that did not finish.
+      - name: What memory and disk did
+        if: always() && matrix.platform == 'web' && steps.cached.outputs.cache-hit != 'true'
+        run: tail -40 /tmp/resources.log || echo "no samples"
 
       - name: Collect artifacts and SHA-256 sidecars
         if: steps.cached.outputs.cache-hit != 'true'
