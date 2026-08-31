@@ -59,6 +59,9 @@ jobs:
           dart format --output=none --set-exit-if-changed $files
 
       - run: dart analyze --fatal-infos
+      # The matrix tests read the workflow files to check that each thing that
+      # ships has its own pipeline.
+      - run: pip install pyyaml
       - run: python3 .github/scripts/test_matrix.py
 
       # The hook decides asset names, targets and builds, so drift here is a

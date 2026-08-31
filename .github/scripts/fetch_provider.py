@@ -39,6 +39,15 @@ import ep_matrix  # noqa: E402
 # Carried alongside the libraries because redistributing them is conditional on
 # it. The Qualcomm runtime in the QNN wheel is licensed, not public domain.
 LICENCE_FILES = ("LICENSE", "NOTICE", "ThirdPartyNotices.txt", "Privacy.md")
+
+# Some wheels carry more than one architecture. The Windows x64 QNN wheel has
+# libs/amd64 and libs/arm64ec, which flatten onto each other, so the target
+# says which one it wants. arm64ec is an interop ABI, not what a native arm64
+# build wants, and that comes from the win_arm64 wheel instead.
+WHEEL_ARCH_DIRS = {
+    "windows-x64": "amd64",
+    "windows-arm64": "arm64",
+}
 LIBRARY_SUFFIXES = (".dll", ".dylib", ".pdb")
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
@@ -84,7 +93,21 @@ def download_wheel(
     return destination
 
 
-def unpack_bundle(wheel: pathlib.Path, into: pathlib.Path) -> list[pathlib.Path]:
+def _arch_directories(names: list[str]) -> set[str]:
+    """The `libs/<arch>/` directories a wheel is split across, if any."""
+    found = set()
+    for name in names:
+        parts = pathlib.PurePath(name).parts
+        if "libs" in parts:
+            at = parts.index("libs")
+            if at + 2 < len(parts):
+                found.add(parts[at + 1])
+    return found
+
+
+def unpack_bundle(
+    wheel: pathlib.Path, into: pathlib.Path, target: str = ""
+) -> list[pathlib.Path]:
     """Every library and licence in a wheel, flattened into one directory.
 
     The wheel splits libraries across a package directory and an auditwheel
@@ -95,7 +118,21 @@ def unpack_bundle(wheel: pathlib.Path, into: pathlib.Path) -> list[pathlib.Path]
     written: list[pathlib.Path] = []
 
     with zipfile.ZipFile(wheel) as zipped:
-        for entry in zipped.namelist():
+        names = zipped.namelist()
+        architectures = _arch_directories(names)
+        wanted = ""
+        if len(architectures) > 1:
+            wanted = WHEEL_ARCH_DIRS.get(target, "")
+            if wanted not in architectures:
+                raise SystemExit(
+                    f"{wheel.name} carries {', '.join(sorted(architectures))} "
+                    f"and nothing says which {target} wants"
+                )
+
+        for entry in names:
+            if wanted and f"/libs/{wanted}/" not in f"/{entry}":
+                if f"/libs/" in f"/{entry}":
+                    continue
             base = pathlib.PurePath(entry).name
             keep = is_library(entry) or base in LICENCE_FILES or base.endswith(".pdf")
             if entry.endswith("/") or ".dist-info/" in entry or not keep:
@@ -182,7 +219,7 @@ def main() -> None:
                     provider.pypi_project, provider.version, asset, staging
                 )
                 unpacked = staging / f"{provider.name}-{target}"
-                files = unpack_bundle(wheel, unpacked)
+                files = unpack_bundle(wheel, unpacked, target)
                 if not any(provider.library_stem in f.name for f in files):
                     raise SystemExit(f"{wheel.name} holds no {provider.library_stem}")
                 with tarfile.open(archive, "w:gz") as tar:
