@@ -14,6 +14,7 @@ library;
 
 import 'dart:io';
 
+import 'package:onnxruntime_dart/native.dart';
 import 'package:test/test.dart';
 
 import 'src/paths.dart';
@@ -45,7 +46,7 @@ void main() {
       );
     });
 
-    for (final package in ['onnxruntime_base', 'onnxruntime_full']) {
+    for (final package in ['onnxruntime_binaries', 'onnxruntime_binaries']) {
       test('$package is versioned as the runtime it installs', () {
         final version =
             _field(fromRoot('packages/$package/pubspec.yaml'), 'version');
@@ -63,9 +64,10 @@ void main() {
       // Base and full differ in what is compiled in, never in which ONNX
       // Runtime, so an application swapping one for the other keeps its ABI.
       expect(
-        _field(fromRoot('packages/onnxruntime_base/pubspec.yaml'), 'version'),
         _field(
-          fromRoot('packages/onnxruntime_full/pubspec.yaml'),
+            fromRoot('packages/onnxruntime_binaries/pubspec.yaml'), 'version'),
+        _field(
+          fromRoot('packages/onnxruntime_binaries/pubspec.yaml'),
           'version',
         ),
       );
@@ -93,6 +95,36 @@ void main() {
         );
       });
     }
+
+    test('the minimum runtime is inherited, not invented', () {
+      // ONNX Runtime compiles each plugin's MIN_ONNXRUNTIME_VERSION into the
+      // library and checks it on load. We keep a copy so the mismatch can be
+      // reported first and better, which is only useful while it agrees.
+      for (final provider in OrtExecutionProvider.values) {
+        final file = File(
+          fromRoot('third_party/onnxruntime/plugin-ep-${provider.name}/'
+              'MIN_ONNXRUNTIME_VERSION'),
+        );
+        if (!file.existsSync()) continue;
+        expect(
+          provider.minimumRuntime,
+          file.readAsStringSync().trim(),
+          reason: '${provider.name} claims it needs '
+              '${provider.minimumRuntime}, the pinned tree says otherwise',
+        );
+      }
+    });
+
+    test('every provider works against the runtime we ship', () {
+      for (final provider in OrtExecutionProvider.values) {
+        expect(
+          provider.supportsRuntime(ortVersion),
+          isTrue,
+          reason: '${provider.name} needs ${provider.minimumRuntime} but we '
+              'ship $ortVersion',
+        );
+      }
+    });
 
     test('providers outlive the runtime they were built with', () {
       // Each plugin declares the oldest runtime it works against, and it is

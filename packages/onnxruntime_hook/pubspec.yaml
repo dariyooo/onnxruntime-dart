@@ -2,7 +2,7 @@ name: onnxruntime_hook
 description: >-
   The build hook shared by the packages that install ONNX Runtime binaries.
   Not needed to use onnxruntime_dart; it is a build-time dependency of
-  onnxruntime_base, onnxruntime_full and onnxruntime_ep.
+  onnxruntime_binaries, onnxruntime_binaries and onnxruntime_ep.
 # Versioned with the binaries it installs, so the release it downloads from is
 # named by the depending package's own version.
 version: 1.29.0

@@ -21,6 +21,7 @@ import 'dart:ffi';
 import 'environment.dart';
 import 'execution_provider.dart';
 import 'library_path.dart';
+import 'runtime.dart';
 
 /// An execution provider shipped as a separate library.
 ///
@@ -28,18 +29,22 @@ import 'library_path.dart';
 /// not here: they need no registration and are always present.
 enum OrtExecutionProvider {
   /// GPU compute through WebGPU.
-  webgpu('webgpu', 'onnxruntime_providers_webgpu'),
+  webgpu('webgpu', 'onnxruntime_providers_webgpu', '1.24.4'),
 
   /// NVIDIA GPUs. Needs the CUDA runtime on the machine.
-  cuda('cuda', 'onnxruntime_providers_cuda'),
+  cuda('cuda', 'onnxruntime_providers_cuda', '1.24.4'),
 
   /// NVIDIA TensorRT.
-  tensorrt('tensorrt', 'onnxruntime_providers_tensorrt'),
+  tensorrt('tensorrt', 'onnxruntime_providers_tensorrt', '1.24.4'),
 
   /// Qualcomm NPUs.
-  qnn('qnn', 'onnxruntime_providers_qnn');
+  qnn('qnn', 'onnxruntime_providers_qnn', '1.24.4');
 
-  const OrtExecutionProvider(this.registrationName, this.libraryStem);
+  const OrtExecutionProvider(
+    this.registrationName,
+    this.libraryStem,
+    this.minimumRuntime,
+  );
 
   /// The name a session uses to ask for this provider.
   final String registrationName;
@@ -49,6 +54,27 @@ enum OrtExecutionProvider {
   /// Used both to name the file for ONNX Runtime to resolve, and to check that
   /// a discovered path really is this provider.
   final String libraryStem;
+
+  /// The oldest ONNX Runtime this provider works against.
+  ///
+  /// Taken from the plugin's own `MIN_ONNXRUNTIME_VERSION`, which ONNX Runtime
+  /// compiles into the library and checks when it loads. Kept here as well so
+  /// the mismatch can be reported before the runtime is asked to open a library
+  /// it will refuse. `version_test.dart` holds this to the pinned tree.
+  ///
+  /// It is why each provider is its own package: a plugin outlives the runtime
+  /// it shipped beside, so their versions cannot be the same.
+  final String minimumRuntime;
+
+  /// Whether this provider can run against [runtime], such as `1.29.0`.
+  bool supportsRuntime(String runtime) {
+    final wanted = minimumRuntime.split('.').map(int.parse).toList();
+    final actual = runtime.split('.').map(int.parse).toList();
+    for (var i = 0; i < wanted.length && i < actual.length; i++) {
+      if (wanted[i] != actual[i]) return wanted[i] < actual[i];
+    }
+    return true;
+  }
 }
 
 /// `CreateEpFactories`, which every provider plugin must export.
@@ -132,9 +158,21 @@ List<OrtExecutionProvider> registerBundledProviders() {
   final environment = OrtEnvironment.instance();
   final registered = <OrtExecutionProvider>[];
 
+  final version = runtimeVersion();
+
   for (final provider in OrtExecutionProvider.values) {
     final path = bundledProviderPath(provider);
     if (path == null) continue;
+
+    if (!provider.supportsRuntime(version)) {
+      // The plugin checks this itself and would refuse, but only after the
+      // runtime has opened it, and the message says less than this one.
+      throw StateError(
+        '${provider.name} needs ONNX Runtime ${provider.minimumRuntime} or '
+        'newer, and this one is $version. Upgrade onnxruntime_binaries or '
+        'onnxruntime_binaries, or depend on an older provider.',
+      );
+    }
 
     registerExecutionProviderLibrary(
       environment.api,

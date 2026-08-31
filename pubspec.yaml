@@ -11,8 +11,7 @@ environment:
 workspace:
   - packages/onnxruntime_dart
   - packages/onnxruntime_hook
-  - packages/onnxruntime_base
-  - packages/onnxruntime_full
+  - packages/onnxruntime_binaries
   - packages/onnxruntime_ep_webgpu
   - packages/onnxruntime_ep_cuda
 
@@ -25,5 +24,5 @@ workspace:
 # exactly one runtime and the tests run against a known library.
 hooks:
   user_defines:
-    onnxruntime_base:
+    onnxruntime_binaries:
       local_build: .local/ort/ours-macos-arm64/lib

@@ -17,3 +17,8 @@ dependencies:
   code_assets: ^1.2.1
   hooks: ^2.2.0
   onnxruntime_hook: ^1.29.0
+  # The oldest runtime this plugin works against, from its own
+  # MIN_ONNXRUNTIME_VERSION. ONNX Runtime compiles that into the library and
+  # refuses to load below it, so declaring it here turns a runtime failure into
+  # one pub reports before anything is downloaded.
+  onnxruntime_binaries: '>=1.24.4 <2.0.0'
