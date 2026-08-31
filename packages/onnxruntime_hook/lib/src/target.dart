@@ -218,6 +218,9 @@ enum OrtProvider {
         OrtProvider.webgpu => const [
             'android-arm64-v8a',
             'android-x86_64',
+            'ios-device-arm64',
+            'ios-sim-arm64',
+            'ios-sim-x86_64',
             'linux-x64',
             'linux-arm64',
             'macos-arm64',
