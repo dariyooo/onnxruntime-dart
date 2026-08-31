@@ -105,6 +105,37 @@ jobs:
           # and is paid once now that all four ABIs share this job.
           local-cache: false
 
+      # The wasm link is one whole-program LTO step over every kernel, and with
+      # WebGPU and WebNN both compiled in it exceeds the runner's 16 GB. The
+      # runner is killed mid-link and the job reports "received a shutdown
+      # signal" rather than an error, which is why this looks like a platform
+      # fault instead of a memory one. Swap makes it finish, slowly.
+      - name: Give the linker room
+        if: matrix.platform == 'web'
+        run: |
+          set -euo pipefail
+          # /mnt is the runner's large ephemeral disk. The root volume is
+          # where the build tree goes, so taking swap from it trades one
+          # failure for another.
+          # Written with sudo, so its ownership does not matter, only that it
+          # is there.
+          target=/mnt
+          [ -d "$target" ] || target=/
+          available=$(df --output=avail -BG "$target" | tail -1 | tr -dc '0-9')
+          size=$(( available > 40 ? 24 : available / 2 ))
+          echo "$target has ${available}G free; adding ${size}G of swap"
+
+          sudo swapoff -a || true
+          sudo rm -f "$target/ort-swapfile"
+          sudo fallocate -l "${size}G" "$target/ort-swapfile"
+          sudo chmod 600 "$target/ort-swapfile"
+          sudo mkswap "$target/ort-swapfile"
+          sudo swapon "$target/ort-swapfile"
+          # Prefer swapping over being killed: the link is one long-lived
+          # process and finishing slowly beats not finishing.
+          sudo sysctl -w vm.swappiness=10
+          free -h
+
       - name: Set up Emscripten
         if: matrix.platform == 'web'
         uses: mymindstorm/setup-emsdk@v14
