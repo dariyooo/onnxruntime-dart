@@ -1,4 +1,4 @@
-/// Execution providers installed by `onnxruntime_ep`.
+/// Execution providers installed by the `onnxruntime_ep_*` packages.
 ///
 /// A provider plugin is a shared library ONNX Runtime opens by path, which sits
 /// awkwardly with code assets: they are bundled to be linked against, not to be
@@ -59,25 +59,25 @@ enum OrtExecutionProvider {
 /// only the installed ones resolve.
 @Native<Void Function()>(
   symbol: 'CreateEpFactories',
-  assetId: 'package:onnxruntime_ep/webgpu',
+  assetId: 'package:onnxruntime_ep_webgpu/provider',
 )
 external void _webgpu();
 
 @Native<Void Function()>(
   symbol: 'CreateEpFactories',
-  assetId: 'package:onnxruntime_ep/cuda',
+  assetId: 'package:onnxruntime_ep_cuda/provider',
 )
 external void _cuda();
 
 @Native<Void Function()>(
   symbol: 'CreateEpFactories',
-  assetId: 'package:onnxruntime_ep/tensorrt',
+  assetId: 'package:onnxruntime_ep_tensorrt/provider',
 )
 external void _tensorrt();
 
 @Native<Void Function()>(
   symbol: 'CreateEpFactories',
-  assetId: 'package:onnxruntime_ep/qnn',
+  assetId: 'package:onnxruntime_ep_qnn/provider',
 )
 external void _qnn();
 
@@ -103,7 +103,8 @@ Pointer<Void>? _addressOf(OrtExecutionProvider provider) {
   }
 }
 
-/// Where [provider] was installed, or null when it was not.
+/// Where [provider] was installed, or null when its package is not a
+/// dependency.
 ///
 /// The file name is checked against the provider's own. Every plugin exports
 /// the same entry point, so a missing asset falls back to whichever library in
@@ -120,7 +121,8 @@ String? bundledProviderPath(OrtExecutionProvider provider) {
   return fileName.contains(provider.libraryStem) ? path : null;
 }
 
-/// Registers every provider `onnxruntime_ep` installed, and returns them.
+/// Registers every provider package the application depends on, and returns
+/// which ones were found.
 ///
 /// A convenience over [registerExecutionProviderLibrary], which stays available
 /// for a library built or placed by hand. Call before creating any session:

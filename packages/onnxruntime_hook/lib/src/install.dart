@@ -49,10 +49,12 @@ Future<void> installRuntime(List<String> args, OrtVariant variant) async {
 
 /// The release this package installs from, named for its own version.
 ///
-/// The package version is the ONNX Runtime version, so `1.29.1` installs the
-/// binaries built from ONNX Runtime 1.29.1. Nothing is generated and there is
-/// no second copy to drift.
-String releaseTag(BuildInput input) {
+/// Every package here is versioned as the thing it contains, and the release it
+/// downloads from is named the same way. The runtime packages carry the ONNX
+/// Runtime version; each provider carries its own, because ONNX Runtime
+/// versions its plugins separately and they outlive a runtime release. Nothing
+/// is generated, and there is no second copy to drift.
+String releaseTag(BuildInput input, {String component = 'runtime'}) {
   final pubspec = File.fromUri(input.packageRoot.resolve('pubspec.yaml'));
   final match = RegExp(
     r'^version:\s*(\d+\.\d+\.\d+\S*)\s*$',
@@ -65,7 +67,7 @@ String releaseTag(BuildInput input) {
       'way to tell which ONNX Runtime release to install.',
     );
   }
-  return 'runtime-v${match.group(1)}';
+  return '$component-v${match.group(1)}';
 }
 
 /// Finds the library: a local build if one was configured, then a previous
@@ -190,28 +192,18 @@ String _tarField(Uint8List header, int start, int maxLength) {
   return utf8.decode(Uint8List.sublistView(header, start, end)).trim();
 }
 
-/// Declares the execution provider libraries the application asked for.
+/// Declares the execution provider library this package installs.
 ///
-/// Call from `onnxruntime_ep`'s `hook/build.dart`. Providers are named in
-/// user-defines, and each becomes its own code asset so the Dart side can tell
-/// which ones were installed:
+/// Call from an `onnxruntime_ep_*` package's `hook/build.dart`. One provider
+/// per package, chosen by depending on it, so there is no list to configure and
+/// nothing is downloaded that was not asked for.
 ///
-/// ```yaml
-/// hooks:
-///   user_defines:
-///     onnxruntime_ep:
-///       providers: [cuda, webgpu]
-/// ```
-///
-/// A provider that this build does not publish for the target is an error
-/// rather than a silent omission: asking for CUDA on Android is a mistake worth
-/// hearing about at build time, not a session that quietly runs on the CPU.
-Future<void> installProviders(List<String> args) async {
+/// The asset is named for the calling package, which is what lets the bindings
+/// tell which providers are installed: they declare one entry point per
+/// provider, and only the installed ones resolve.
+Future<void> installProvider(List<String> args, OrtProvider provider) async {
   await build(args, (input, output) async {
     if (!input.config.buildCodeAssets) return;
-
-    final requested = _requestedProviders(input);
-    if (requested.isEmpty) return;
 
     final code = input.config.code;
     final target = targetId(
@@ -220,41 +212,27 @@ Future<void> installProviders(List<String> args) async {
       iosSdk: code.targetOS == OS.iOS ? code.iOS.targetSdk : null,
     );
 
-    for (final provider in requested) {
-      if (!provider.isAvailableOn(target)) {
-        throw StateError(
-          'onnxruntime_ep: there is no ${provider.name} provider for $target. '
-          'It is published for ${provider.targets.join(', ')}. Remove it, or '
-          'select it only on the platforms that have it.',
-        );
-      }
-
-      final library =
-          await _resolveProvider(input, provider, target, code.targetOS);
-      if (library == null) continue;
-
-      output.assets.code.add(
-        CodeAsset(
-          package: input.packageName,
-          name: provider.name,
-          linkMode: DynamicLoadingBundled(),
-          file: library.uri,
-        ),
+    if (!provider.isAvailableOn(target)) {
+      throw StateError(
+        '${input.packageName}: there is no ${provider.name} provider for '
+        '$target. It is published for ${provider.targets.join(', ')}. Depend '
+        'on it only for the platforms that have it, or drop it.',
       );
     }
-  });
-}
 
-List<OrtProvider> _requestedProviders(BuildInput input) {
-  final names = input.userDefines['providers'];
-  if (names == null) return const [];
-  if (names is! List) {
-    throw StateError(
-      'onnxruntime_ep: providers must be a list, got ${names.runtimeType}. '
-      'For example: providers: [cuda, webgpu]',
+    final library =
+        await _resolveProvider(input, provider, target, code.targetOS);
+    if (library == null) return;
+
+    output.assets.code.add(
+      CodeAsset(
+        package: input.packageName,
+        name: 'provider',
+        linkMode: DynamicLoadingBundled(),
+        file: library.uri,
+      ),
     );
-  }
-  return [for (final name in names) OrtProvider.byName('$name')];
+  });
 }
 
 /// Finds a provider library the same way the runtime is found.
@@ -277,7 +255,7 @@ Future<File?> _resolveProvider(
     return null;
   }
 
-  final tag = releaseTag(input);
+  final tag = releaseTag(input, component: 'ep-${provider.name}');
   final cached = File.fromUri(
     input.outputDirectoryShared.resolve('$tag/$target/$fileName'),
   );

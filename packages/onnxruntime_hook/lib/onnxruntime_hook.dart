@@ -6,7 +6,7 @@
 /// needs this library.
 library;
 
-export 'src/install.dart' show installProviders, installRuntime;
+export 'src/install.dart' show installProvider, installRuntime;
 export 'src/target.dart'
     show
         OrtProvider,
