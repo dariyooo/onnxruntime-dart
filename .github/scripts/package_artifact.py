@@ -48,6 +48,12 @@ ARTIFACT_PATTERNS = {
         ort_matrix.RUNTIME: {
             "libonnxruntime.dylib": ["libonnxruntime.dylib", "libonnxruntime.*.dylib"],
         },
+        ort_matrix.EP_WEBGPU: {
+            "libonnxruntime_providers_webgpu.dylib": [
+                "libonnxruntime_providers_webgpu.dylib",
+                "libonnxruntime_providers_webgpu.*.dylib",
+            ],
+        },
     },
     "macos": {
         ort_matrix.RUNTIME: {
