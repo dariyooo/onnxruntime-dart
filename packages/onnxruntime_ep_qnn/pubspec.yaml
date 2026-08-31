@@ -1,0 +1,22 @@
+name: onnxruntime_ep_qnn
+description: >-
+  The qnn execution provider for onnxruntime_dart. Qualcomm NPUs, carrying the Qualcomm AI Runtime it loads.
+# The plugin's own version, which ONNX Runtime publishes as a wheel and versions
+# separately from the runtime, so this does not move when ONNX Runtime does.
+version: 2.5.0
+repository: https://github.com/dariyooo/onnxruntime-dart
+issue_tracker: https://github.com/dariyooo/onnxruntime-dart/issues
+
+environment:
+  sdk: ^3.6.0
+
+resolution: workspace
+
+dependencies:
+  code_assets: '>=1.0.0 <2.0.0'
+  hooks: '>=1.0.0 <3.0.0'
+  onnxruntime_hook: ^1.29.0
+  # The oldest runtime this plugin works against, from the wheel's own
+  # requirements. ONNX Runtime refuses to load a plugin below it, so declaring
+  # it turns a runtime failure into one pub reports before anything downloads.
+  onnxruntime_binaries: '>=1.24.2 <2.0.0'
