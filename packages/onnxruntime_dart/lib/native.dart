@@ -1,4 +1,9 @@
-/// The complete ONNX Runtime C API.
+/// Everything that needs the native loader.
+///
+/// That is the complete ONNX Runtime C API, and also the calls that are
+/// ergonomic rather than raw but cannot live in `onnxruntime_dart.dart`:
+/// registering a bundled provider means asking the loader where a library
+/// came from, and the shared library must compile for the web.
 ///
 /// Every function in `OrtApi` is reachable here, because the bindings are
 /// generated from the pinned headers rather than hand-written. That makes
