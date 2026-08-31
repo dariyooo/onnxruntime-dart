@@ -1,0 +1,21 @@
+name: onnxruntime_base
+description: >-
+  ONNX Runtime binaries for onnxruntime_dart: every operator and every execution provider we build, which is what almost every app wants.
+  The package version is the ONNX Runtime version it installs.
+# The version IS the ONNX Runtime version. Depend on 1.29.1 to run on 1.29.1.
+# No Dart API lives here; the bindings are in onnxruntime_dart.
+version: 1.29.0
+repository: https://github.com/dariyooo/onnxruntime-dart
+issue_tracker: https://github.com/dariyooo/onnxruntime-dart/issues
+
+environment:
+  sdk: ^3.6.0
+
+resolution: workspace
+
+dependencies:
+  code_assets: ^1.2.1
+  hooks: ^2.2.0
+  # The shared build hook. Not onnxruntime_dart: that package dev-depends on
+  # this one, and the hook runner refuses a cycle.
+  onnxruntime_hook: ^1.29.0

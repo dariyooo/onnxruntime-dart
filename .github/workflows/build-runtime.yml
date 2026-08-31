@@ -231,7 +231,11 @@ jobs:
           name: onnxruntime-${{ matrix.id }}
           path: dist/
           if-no-files-found: error
-          retention-days: 14
+          # One day, not fourteen. These are read by the test job and the
+          # release job in this same run and by nothing afterwards, so keeping
+          # them for a fortnight stored a gigabyte per day of pushes for no
+          # reader at all.
+          retention-days: 1
 
   # Releasing is a fan-in. A partial matrix ships a package whose build hook
   # 404s on the platforms that failed, so every configuration must succeed
@@ -241,10 +245,22 @@ jobs:
   release:
     name: publish release
     needs: [plan, build]
-    if: startsWith(github.ref, 'refs/tags/')
+    # Moving the ONNX Runtime pin is what produces a release, so this runs on
+    # main as well as on a hand-pushed tag. The name comes from the pin, and
+    # the release is created once and refreshed after that, so re-running a
+    # build that went wrong replaces its binaries rather than piling up tags.
+    if: |
+      github.event_name != 'pull_request' &&
+      (startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main')
     runs-on: ubuntu-24.04
     permissions:
       contents: write
+    strategy:
+      # One release per stream: the core library and each execution provider
+      # plugin are installed independently.
+      fail-fast: false
+      matrix:
+        component: [runtime, ep-webgpu]
     steps:
       - uses: actions/checkout@v5
         with: { submodules: true }
@@ -257,22 +273,28 @@ jobs:
           path: artifacts
           merge-multiple: true
 
-      # A tag names one release stream. runtime-v1.29.0+1 publishes the core
-      # library, ep-webgpu-v1.29.0+1 the plugin, and neither touches the other's
-      # assets.
-      - name: Select the component this tag releases
+      - name: Select the component this release publishes
         id: component
+        run: echo "name=${{ matrix.component }}" >> "$GITHUB_OUTPUT"
+
+      # A hand-pushed tag still wins, so a one-off release can be cut by name.
+      # Otherwise the name is derived from the pinned ONNX Runtime: its version
+      # when the pin sits on a release, its commit when it does not.
+      - name: Name the release after the pinned ONNX Runtime
+        id: identity
         run: |
-          case "${{ github.ref_name }}" in
-            runtime-*)    echo "name=runtime"    >> "$GITHUB_OUTPUT" ;;
-            ep-webgpu-*)  echo "name=ep-webgpu"  >> "$GITHUB_OUTPUT" ;;
-            ep-qnn-*)     echo "name=ep-qnn"     >> "$GITHUB_OUTPUT" ;;
-            *)
-              echo "::error::tag ${{ github.ref_name }} names no release stream"
-              exit 1 ;;
-          esac
+          set -euo pipefail
+          if [ "${{ github.ref_type }}" = tag ]; then
+            echo "tag=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
+            echo "prerelease=false" >> "$GITHUB_OUTPUT"
+            echo "using the pushed tag ${{ github.ref_name }}"
+          else
+            python3 .github/scripts/release_identity.py \
+              --component "${{ matrix.component }}"
+          fi
 
       - name: Collect archives
+        id: archives
         run: |
           set -euo pipefail
           component='${{ steps.component.outputs.name }}'
@@ -283,15 +305,16 @@ jobs:
             python3 .github/scripts/package_headers.py
           fi
           if [ -z "$(ls -A "dist/$component")" ]; then
-            echo "::error::no artifacts for $component"
-            exit 1
+            echo "no archives for $component in this build; nothing to publish"
+            echo "empty=true" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
           ls -la "dist/$component"
 
       - name: Pin the assets the build hook may install
-        if: steps.component.outputs.name == 'runtime'
+        if: steps.component.outputs.name == 'runtime' && steps.archives.outputs.empty != 'true'
         env:
-          RELEASE_TAG: ${{ github.ref_name }}
+          RELEASE_TAG: ${{ steps.identity.outputs.tag }}
         run: |
           python3 .github/scripts/write_release_manifest.py
           echo '### Manifest to commit before publishing' >> "$GITHUB_STEP_SUMMARY"
@@ -300,19 +323,44 @@ jobs:
           echo '```' >> "$GITHUB_STEP_SUMMARY"
 
       - uses: actions/upload-artifact@v4
-        if: steps.component.outputs.name == 'runtime'
+        if: steps.component.outputs.name == 'runtime' && steps.archives.outputs.empty != 'true'
         with:
           name: release-manifest
+          retention-days: 1
           path: packages/onnxruntime_dart/lib/src/hook/release.g.dart
 
-      - name: Create the release
+      # Created once, refreshed after that. Rebuilding a release that went
+      # wrong replaces its binaries under the same name rather than leaving a
+      # trail of tags that differ only in which one was any good.
+      - name: Publish or refresh the release
+        if: steps.archives.outputs.empty != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.identity.outputs.tag }}
+          COMPONENT: ${{ steps.component.outputs.name }}
+          PRERELEASE: ${{ steps.identity.outputs.prerelease }}
         run: |
-          gh release create "${{ github.ref_name }}" \
-            dist/${{ steps.component.outputs.name }}/* \
-            --title "${{ github.ref_name }}" \
-            --notes "Prebuilt ONNX Runtime for every supported configuration. Each archive is verified by the build hook against the SHA-256 in its sidecar."
+          set -euo pipefail
+          notes="Prebuilt ONNX Runtime for every supported configuration, built"
+          notes="$notes from $(git -C third_party/onnxruntime rev-parse HEAD)."
+          notes="$notes Each archive is verified by the build hook against the"
+          notes="$notes SHA-256 in its sidecar."
+
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "refreshing $TAG"
+            gh release upload "$TAG" dist/"$COMPONENT"/* --clobber
+            gh release edit "$TAG" --notes "$notes"
+          else
+            echo "creating $TAG"
+            flags=()
+            if [ "$PRERELEASE" = true ]; then
+              # Built from an ONNX Runtime that has no release of its own, so
+              # it must not look like one.
+              flags+=(--prerelease)
+            fi
+            gh release create "$TAG" dist/"$COMPONENT"/* \
+              --title "$TAG" --notes "$notes" "${flags[@]}"
+          fi
 
   all-green:
     name: all ${{ needs.plan.outputs.count }} configurations succeeded

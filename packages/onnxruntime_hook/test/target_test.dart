@@ -6,7 +6,7 @@
 library;
 
 import 'package:code_assets/code_assets.dart';
-import 'package:onnxruntime_dart/src/hook/target.dart';
+import 'package:onnxruntime_hook/onnxruntime_hook.dart';
 import 'package:test/test.dart';
 
 void main() {
