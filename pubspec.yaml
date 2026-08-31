@@ -10,12 +10,19 @@ environment:
 
 workspace:
   - packages/onnxruntime_dart
+  - packages/onnxruntime_hook
+  - packages/onnxruntime_base
+  - packages/onnxruntime_full
+  - packages/onnxruntime_ep
 
 # Development only, and never published: this file is the workspace root, not a
-# package. Points the build hook at a local ONNX Runtime so the package can be
+# package. Points the runtime packages at a local ONNX Runtime so they can be
 # worked on before any binaries are released. This is our own CI build, not a
 # published Microsoft one, so the operator coverage tests mean what they claim.
+#
+# Only the base package is pointed anywhere, so the probe in runtime.dart finds
+# exactly one runtime and the tests run against a known library.
 hooks:
   user_defines:
-    onnxruntime_dart:
+    onnxruntime_base:
       local_build: .local/ort/ours-macos-arm64/lib
