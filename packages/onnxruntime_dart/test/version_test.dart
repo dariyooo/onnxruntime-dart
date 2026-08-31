@@ -1,11 +1,15 @@
 @TestOn('vm')
 
-/// Guards `X.Y.Z+onnxruntime-<ORT version>`.
+/// Guards the versions against each other.
 ///
-/// Three things must agree and only a test keeps them agreeing: the pubspec
-/// version, the pinned submodule, and the `ORT_API_VERSION` the bindings were
-/// generated from. Bumping the submodule alone would publish bindings that
-/// describe a different ABI than the version claims.
+/// Four things must agree and only a test keeps them agreeing: the bindings'
+/// `X.Y.Z+onnxruntime-<ORT version>`, the two runtime packages whose whole
+/// version is the ONNX Runtime version, the pinned submodule, and the
+/// `ORT_API_VERSION` the bindings were generated from.
+///
+/// The runtime packages matter most: their version is what names the release
+/// their build hook downloads from, so a wrong one installs the wrong binaries
+/// or none at all.
 library;
 
 import 'dart:io';
@@ -38,6 +42,32 @@ void main() {
         ortVersion,
         reason: 'pubspec.yaml claims ORT $declared but the submodule at '
             'third_party/onnxruntime is $ortVersion. Bump one or the other.',
+      );
+    });
+
+    for (final package in ['onnxruntime_base', 'onnxruntime_full']) {
+      test('$package is versioned as the runtime it installs', () {
+        final version =
+            _field(fromRoot('packages/$package/pubspec.yaml'), 'version');
+        expect(
+          version,
+          ortVersion,
+          reason: '$package claims $version but the submodule is $ortVersion. '
+              'That version names the release its hook downloads from, so it '
+              'has to be the runtime version exactly.',
+        );
+      });
+    }
+
+    test('both runtime packages install the same runtime', () {
+      // Base and full differ in what is compiled in, never in which ONNX
+      // Runtime, so an application swapping one for the other keeps its ABI.
+      expect(
+        _field(fromRoot('packages/onnxruntime_base/pubspec.yaml'), 'version'),
+        _field(
+          fromRoot('packages/onnxruntime_full/pubspec.yaml'),
+          'version',
+        ),
       );
     });
 

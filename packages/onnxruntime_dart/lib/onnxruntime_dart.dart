@@ -21,4 +21,11 @@ export 'src/backend/types.dart'
 export 'src/bindings/config_keys.g.dart';
 export 'src/exceptions.dart' show OrtAbiMismatch, OrtException;
 export 'src/session.dart'
-    show OrtTensor, Session, SessionOptions, availableProviders, runtimeVersion;
+    show
+        OrtTensor,
+        Session,
+        SessionOptions,
+        availableProviders,
+        registerProviderLibrary,
+        runtimeVersion,
+        unregisterProviderLibrary;
