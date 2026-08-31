@@ -34,7 +34,12 @@ enum OrtExecutionProvider {
   /// NVIDIA GPUs. Needs the CUDA runtime on the machine.
   cuda('cuda', 'onnxruntime_providers_cuda', '1.24.4'),
 
-  /// NVIDIA TensorRT.
+  /// NVIDIA TensorRT. No package installs this yet: upstream ships it only
+  /// inside onnxruntime-gpu, exporting the older `GetProvider` bridge ABI
+  /// rather than `CreateEpFactories`, so it cannot be mirrored as a plugin.
+  /// Listed anyway, because a library placed by hand registers through
+  /// [registerExecutionProviderLibrary] and because the plugin releases are
+  /// where ONNX Runtime is moving.
   tensorrt('tensorrt', 'onnxruntime_providers_tensorrt', '1.24.4'),
 
   /// Qualcomm NPUs.
