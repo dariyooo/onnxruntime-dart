@@ -52,12 +52,40 @@ final class OrtRuntimeMissing implements Exception {
 /// True when `onnxruntime_binaries` was asked for the `full` variant. Read from
 /// the library rather than from configuration, because the library is what has
 /// to support the call: ONNX Runtime returns null here on a build without it.
-bool trainingIsAvailable() =>
-    ortApi()
-        .ref
-        .GetTrainingApi
-        .asFunction<Pointer<OrtTrainingApi> Function(int)>()(ORT_API_VERSION) !=
-    nullptr;
+bool trainingIsAvailable() => _trainingApi() != nullptr;
+
+Pointer<OrtTrainingApi> _trainingApi() => ortApi()
+    .ref
+    .GetTrainingApi
+    .asFunction<Pointer<OrtTrainingApi> Function(int)>()(ORT_API_VERSION);
+
+/// The on-device training API: checkpoints, train and optimizer steps, and
+/// exporting an inference model when you are done.
+///
+/// A separate struct of function pointers, reached the same way as [ortApi].
+/// Only the `full` variant of `onnxruntime_binaries` has it, because it has to
+/// be compiled in. Throws [OrtTrainingUnavailable] otherwise rather than
+/// handing back a null nobody would check.
+Pointer<OrtTrainingApi> trainingApi() {
+  final api = _trainingApi();
+  if (api == nullptr) throw const OrtTrainingUnavailable();
+  return api;
+}
+
+/// Thrown when the installed runtime was built without training.
+final class OrtTrainingUnavailable implements Exception {
+  const OrtTrainingUnavailable();
+
+  @override
+  String toString() =>
+      'This ONNX Runtime was built without the training APIs. They cannot be '
+      'loaded at run time, so ask for the build that has them:\n'
+      '\n'
+      '  hooks:\n'
+      '    user_defines:\n'
+      '      onnxruntime_binaries:\n'
+      '        variant: full\n';
+}
 
 /// The version of ONNX Runtime that is loaded, such as `1.29.0`.
 String runtimeVersion() => _apiBase()

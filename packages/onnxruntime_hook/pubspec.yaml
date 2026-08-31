@@ -15,8 +15,11 @@ environment:
 resolution: workspace
 
 dependencies:
-  code_assets: ^1.2.1
-  hooks: ^2.2.0
+  # Wide on purpose. Newer hooks pull in record_use, which pins a meta newer
+  # than the one Flutter's SDK ships, and a build hook that cannot resolve
+  # inside a Flutter app is a build hook nobody on Flutter can use.
+  code_assets: '>=1.0.0 <2.0.0'
+  hooks: '>=1.0.0 <3.0.0'
 
 dev_dependencies:
   lints: ^6.0.0

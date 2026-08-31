@@ -14,8 +14,8 @@ environment:
 resolution: workspace
 
 dependencies:
-  code_assets: ^1.2.1
-  hooks: ^2.2.0
+  code_assets: '>=1.0.0 <2.0.0'
+  hooks: '>=1.0.0 <3.0.0'
   onnxruntime_hook: ^1.29.0
   # The oldest runtime this plugin works against, from its own
   # MIN_ONNXRUNTIME_VERSION. ONNX Runtime compiles that into the library and

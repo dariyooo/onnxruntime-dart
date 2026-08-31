@@ -48,3 +48,7 @@ OrtApi.UseCsrIndices: inout int64_t*, which is written back or kept, inout int64
 OrtCompileApi.ModelCompilationOptions_SetOutputModelGetInitializerLocationFunc: input OrtGetInitializerLocationFunc
 OrtCompileApi.ModelCompilationOptions_SetOutputModelWriteFunc: input OrtWriteBufferFunc
 OrtModelEditorApi.CreateModel: input const int*
+OrtTrainingApi.LoadCheckpointFromBuffer: input const size_t
+OrtTrainingApi.RegisterLinearLRScheduler: input const int64_t, input const int64_t, input const float
+OrtTrainingApi.SaveCheckpoint: input const bool
+OrtTrainingApi.SetSeed: input const int64_t

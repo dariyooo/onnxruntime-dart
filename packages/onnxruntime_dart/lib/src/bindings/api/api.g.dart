@@ -23,6 +23,8 @@ export 'ort_model_editor_api_graph.g.dart';
 export 'ort_model_editor_api_session.g.dart';
 export 'ort_model_editor_api_sparse.g.dart';
 export 'ort_model_editor_api_tensor.g.dart';
+export 'ort_training_api_core.g.dart';
+export 'ort_training_api_training.g.dart';
 export 'provider.g.dart';
 export 'session.g.dart';
 export 'sparse.g.dart';
