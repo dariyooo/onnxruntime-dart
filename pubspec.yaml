@@ -15,10 +15,16 @@ workspace:
   - packages/onnxruntime_ep_webgpu
   - packages/onnxruntime_ep_cuda
 
-# The Flutter packages are deliberately not members. They need the Flutter SDK,
-# and this workspace is resolved by plain Dart in CI: adding them makes every
-# `dart pub get` fail, including the jobs that never touch them. Flutter
-# resolves them on its own, the same way it resolves integration/harness.
+# The Flutter packages are deliberately not members, and this is a choice
+# rather than a limitation: a workspace resolved by Flutter's own Dart handles
+# them fine.
+#
+# The point is that CI resolves this workspace with standalone Dart. Nothing
+# published here needs Flutter, and testing with a Dart that has no Flutter to
+# fall back on is what keeps that true. A Flutter member would force every job
+# to install Flutter, and the guarantee would stop being checked.
+#
+# Flutter resolves them itself, the same way it resolves integration/harness.
 
 # Development only, and never published: this file is the workspace root, not a
 # package. Points the runtime packages at a local ONNX Runtime so they can be
