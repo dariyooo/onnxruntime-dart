@@ -71,6 +71,46 @@ void main() {
       );
     });
 
+    for (final ep in ['webgpu', 'cuda']) {
+      test('onnxruntime_ep_$ep is versioned as the plugin it installs', () {
+        // ONNX Runtime versions each plugin separately from the runtime and
+        // from each other, which is why they are separate packages: they
+        // cannot share a version, so they cannot share a pubspec.
+        final declared = _field(
+          fromRoot('packages/onnxruntime_ep_$ep/pubspec.yaml'),
+          'version',
+        );
+        final upstream = File(
+          fromRoot('third_party/onnxruntime/plugin-ep-$ep/VERSION_NUMBER'),
+        ).readAsStringSync().trim();
+
+        expect(
+          declared,
+          upstream,
+          reason: 'onnxruntime_ep_$ep says $declared but the pinned tree says '
+              '$upstream. That version names the release its hook downloads '
+              'from.',
+        );
+      });
+    }
+
+    test('providers outlive the runtime they were built with', () {
+      // Each plugin declares the oldest runtime it works against, and it is
+      // below ours. That is what lets a provider package stay put while the
+      // runtime packages move.
+      for (final ep in ['webgpu', 'cuda']) {
+        final minimum = File(
+          fromRoot('third_party/onnxruntime/plugin-ep-$ep/'
+              'MIN_ONNXRUNTIME_VERSION'),
+        ).readAsStringSync().trim();
+        expect(
+          _isAtMost(minimum, ortVersion),
+          isTrue,
+          reason: '$ep needs ONNX Runtime $minimum but ours is $ortVersion',
+        );
+      }
+    });
+
     test('bindings were generated from the pinned headers', () {
       final header = File(
         fromRoot('third_party/onnxruntime/include/onnxruntime/core/session/'
@@ -95,6 +135,16 @@ void main() {
       expect(headerApiVersion, int.parse(ortVersion.split('.')[1]));
     });
   });
+}
+
+/// Whether [a] is the same version as [b] or older.
+bool _isAtMost(String a, String b) {
+  final left = a.split('.').map(int.parse).toList();
+  final right = b.split('.').map(int.parse).toList();
+  for (var i = 0; i < left.length && i < right.length; i++) {
+    if (left[i] != right[i]) return left[i] < right[i];
+  }
+  return true;
 }
 
 /// Reads a top-level scalar without taking a YAML dependency for one field.

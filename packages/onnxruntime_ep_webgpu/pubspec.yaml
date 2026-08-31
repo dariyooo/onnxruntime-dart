@@ -1,0 +1,19 @@
+name: onnxruntime_ep_webgpu
+description: >-
+  The webgpu execution provider for onnxruntime_dart. GPU compute through WebGPU, which reaches Vulkan, D3D12 and Metal.
+# The version is the plugin's own, which ONNX Runtime versions separately from
+# the runtime: this works against any runtime from 1.24.4 onwards, so it does
+# not move when ONNX Runtime does.
+version: 0.3.0
+repository: https://github.com/dariyooo/onnxruntime-dart
+issue_tracker: https://github.com/dariyooo/onnxruntime-dart/issues
+
+environment:
+  sdk: ^3.6.0
+
+resolution: workspace
+
+dependencies:
+  code_assets: ^1.2.1
+  hooks: ^2.2.0
+  onnxruntime_hook: ^1.29.0

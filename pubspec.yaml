@@ -13,7 +13,8 @@ workspace:
   - packages/onnxruntime_hook
   - packages/onnxruntime_base
   - packages/onnxruntime_full
-  - packages/onnxruntime_ep
+  - packages/onnxruntime_ep_webgpu
+  - packages/onnxruntime_ep_cuda
 
 # Development only, and never published: this file is the workspace root, not a
 # package. Points the runtime packages at a local ONNX Runtime so they can be
