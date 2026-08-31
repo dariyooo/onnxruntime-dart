@@ -1,0 +1,14 @@
+# Workspace root. The members carry their own options; this only says what is
+# not ours to analyse with plain Dart.
+include: package:lints/recommended.yaml
+
+analyzer:
+  exclude:
+    # Flutter, not Dart. `dart analyze` cannot resolve package:flutter, and CI
+    # analyses this repository with the Dart SDK alone. Flutter analyses these
+    # itself, in the jobs that install it.
+    - 'integration/**'
+    - 'packages/onnxruntime_web/**'
+    - 'packages/onnxruntime_web_webgpu/**'
+    - 'packages/onnxruntime_web_webgpu_webnn/**'
+    - 'third_party/**'
