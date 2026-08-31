@@ -625,6 +625,28 @@ class Pipelines(unittest.TestCase):
         }
         self.assertEqual(called, {c.stream for c in m.all_configurations()})
 
+    def test_every_provider_that_is_published_has_a_package(self):
+        # A provider we build or mirror with no package is a release nothing
+        # installs. TensorRT is deliberately not here: it has no plugin-shaped
+        # artifact upstream, which test_a_provider_without_a_package_is_safe
+        # covers.
+        for provider in ep_matrix.PROVIDERS:
+            package = REPO_ROOT / "packages" / f"onnxruntime_ep_{provider.name}"
+            self.assertTrue(
+                package.is_dir(), f"{provider.name} is published with no package"
+            )
+            self.assertTrue((package / "hook" / "build.dart").is_file())
+
+    def test_the_extensions_release_is_published(self):
+        import yaml
+
+        workflow = yaml.safe_load(
+            (
+                REPO_ROOT / ".github" / "workflows" / "build-extensions.yml"
+            ).read_text(encoding="utf-8")
+        )
+        self.assertIn("release", workflow["jobs"])
+
     def test_every_mirrored_provider_has_a_workflow_and_a_job(self):
         jobs = self._ci()["jobs"]
         for provider in ep_matrix.fetched():

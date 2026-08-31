@@ -15,6 +15,7 @@ workspace:
   - packages/onnxruntime_extensions
   - packages/onnxruntime_ep_webgpu
   - packages/onnxruntime_ep_cuda
+  - packages/onnxruntime_ep_qnn
 
 # The Flutter packages are deliberately not members, and this is a choice
 # rather than a limitation: a workspace resolved by Flutter's own Dart handles
