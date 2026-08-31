@@ -19,12 +19,20 @@ on:
         description: 'Subset to build (regex over the id field), or "all"'
         type: string
         default: all
+      stream:
+        description: 'Which pipeline: base, full or webgpu'
+        type: string
+        default: base
   workflow_dispatch:
     inputs:
       configurations:
         description: 'Subset to build (regex over the id field), or "all"'
         type: string
         default: all
+      stream:
+        description: 'Which pipeline: base, full or webgpu'
+        type: string
+        default: base
   push:
     tags: ['v*']
   pull_request:
@@ -43,7 +51,7 @@ concurrency:
   # same ref: called by ci, and dispatched by hand to try something. Sharing a
   # group meant one queued behind the other with no cancellation, so a manual
   # run blocked every push for as long as a full matrix takes, which is hours.
-  group: build-runtime-${{ github.ref }}-${{ github.event_name }}
+  group: build-runtime-${{ github.ref }}-${{ github.event_name }}-${{ inputs.stream || 'base' }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
@@ -63,6 +71,7 @@ jobs:
       - id: plan
         env:
           FILTER: ${{ inputs.configurations || 'all' }}
+          STREAM: ${{ inputs.stream || 'base' }}
         run: python3 .github/scripts/plan_matrix.py >> "$GITHUB_OUTPUT"
 
   build:
@@ -259,12 +268,12 @@ jobs:
     runs-on: ubuntu-24.04
     permissions:
       contents: write
-    strategy:
-      # One release per stream: the core library and each execution provider
-      # plugin are installed independently.
-      fail-fast: false
-      matrix:
-        component: [runtime, ep-webgpu]
+    # base and full both publish into the runtime release, so they queue behind
+    # each other instead of racing to create the same tag. The provider has its
+    # own release and its own group.
+    concurrency:
+      group: release-${{ github.ref }}-${{ inputs.stream == 'webgpu' && 'ep-webgpu' || 'runtime' }}
+      cancel-in-progress: false
     steps:
       - uses: actions/checkout@v5
         with: { submodules: true }
@@ -279,7 +288,9 @@ jobs:
 
       - name: Select the component this release publishes
         id: component
-        run: echo "name=${{ matrix.component }}" >> "$GITHUB_OUTPUT"
+        run: |
+          echo "name=${{ inputs.stream == 'webgpu' && 'ep-webgpu' || 'runtime' }}" \
+            >> "$GITHUB_OUTPUT"
 
       # A hand-pushed tag still wins, so a one-off release can be cut by name.
       # Otherwise the name is derived from the pinned ONNX Runtime: its version

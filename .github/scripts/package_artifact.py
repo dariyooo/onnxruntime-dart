@@ -32,12 +32,6 @@ DIST = REPO_ROOT / "dist"
 # symlink is not always present in what CMake leaves behind. Archives therefore
 # carry the real bytes under the unversioned name the loader asks for, which is
 # also the name the build hook looks up.
-# The build flag that makes a component appear. A component missing when its
-# flag was passed is a failure, not an absence: see _collect.
-COMPONENT_FLAGS = {
-    ort_matrix.EP_WEBGPU: "--use_webgpu",
-}
-
 ARTIFACT_PATTERNS = {
     "android": {
         ort_matrix.RUNTIME: {
@@ -119,26 +113,25 @@ def package(config: ort_matrix.Config) -> None:
     if not build_dir.is_dir():
         raise SystemExit(f"{build_dir} does not exist; the build produced nothing")
 
-    for component, members in ARTIFACT_PATTERNS[config.platform].items():
-        found = _find(build_dir, members)
-        if not found:
-            if component == ort_matrix.RUNTIME:
-                raise SystemExit(
-                    f"no artifact matching {members} under {build_dir}"
-                )
-            # Optional only when the configuration did not ask for it. If it
-            # did, the library was either not produced or not found, and both
-            # publish a release with a hole in it that 404s at install time.
-            flag = COMPONENT_FLAGS.get(component)
-            if flag and flag in " ".join(config.build_args()):
-                raise SystemExit(
-                    f"{config.id} was built with {flag}, but nothing under "
-                    f"{build_dir} matches {members}. Either the build stopped "
-                    f"producing it, or this platform cannot and the provider's "
-                    f"target list claims otherwise."
-                )
-            continue
-        _archive(config, component, found)
+    # One configuration, one component. Nothing here is optional: a build that
+    # produced no artifact for the thing it was run to produce is a failure,
+    # not an absence, and letting it through publishes a release with a hole
+    # that 404s at install time.
+    patterns = ARTIFACT_PATTERNS[config.platform]
+    members = patterns.get(config.component)
+    if members is None:
+        raise SystemExit(
+            f"{config.id} builds {config.component}, but nothing collects that "
+            f"on {config.platform}. Add a pattern or drop the configuration."
+        )
+
+    found = _find(build_dir, members)
+    if not found:
+        raise SystemExit(
+            f"no artifact matching {members} under {build_dir}, so "
+            f"{config.id} produced no {config.component}"
+        )
+    _archive(config, config.component, found)
 
 
 def _find(

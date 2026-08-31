@@ -1,0 +1,63 @@
+# Publishes the QNN execution provider.
+#
+# Nothing is compiled here, and for QNN that is not a choice: the Qualcomm SDK
+# it links against is behind an authenticated download, so it cannot be built
+# on a runner at all. It does not need to be. ONNX Runtime publishes the plugin
+# as a Python wheel that carries the Qualcomm runtime with it, licensed for
+# redistribution, so this mirrors the wheels into our own naming and the build
+# hook installs it the same way as everything else.
+#
+# Windows and Linux only, both architectures. Android is not here: on Android
+# QNN is linked into a whole runtime rather than published as a plugin, so it
+# cannot layer on ours.
+#
+# A separate workflow because it shares nothing with a runtime build: no
+# toolchain, no submodule compile, no matrix. It finishes in minutes.
+name: build-ep-qnn
+
+on:
+  workflow_call:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/build-ep-qnn.yml'
+      - '.github/scripts/ep_matrix.py'
+      - '.github/scripts/fetch_provider.py'
+      - '.github/scripts/elf_rpath.py'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-ep-qnn-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  mirror:
+    name: mirror the QNN plugin
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+        with: { submodules: true }
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+
+      - name: Fetch and repackage
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 .github/scripts/fetch_provider.py qnn
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ep-qnn
+          path: dist/
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Publish or refresh the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 .github/scripts/publish_provider.py qnn

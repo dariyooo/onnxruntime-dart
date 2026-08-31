@@ -16,6 +16,20 @@ import ort_matrix  # noqa: E402
 def main() -> None:
     configs = ort_matrix.select(os.environ.get("FILTER", "all"))
 
+    # One pipeline per stream. Without this every caller builds everything,
+    # which is how a provider ended up gating a runtime.
+    stream = os.environ.get("STREAM", "")
+    if stream:
+        streams = {c.stream for c in ort_matrix.all_configurations()}
+        if stream not in streams:
+            raise SystemExit(
+                f"unknown stream {stream!r}; expected one of "
+                f"{', '.join(sorted(streams))}"
+            )
+        configs = [c for c in configs if c.stream == stream]
+        if not configs:
+            raise SystemExit(f"no {stream} configuration matches the filter")
+
     # One job per configuration. They share nothing worth sharing: each needs
     # its own dependency build directory, so a shared job only serialises work
     # that could run in parallel. Runners are free on a public repository.

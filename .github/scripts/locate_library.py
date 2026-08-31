@@ -15,6 +15,7 @@ import tarfile
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+import ep_matrix  # noqa: E402
 import ort_matrix  # noqa: E402
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
@@ -62,20 +63,21 @@ def main() -> None:
         raise SystemExit(f"{runtime} holds no library named one of {LIBRARY_NAMES}")
     export("ONNXRUNTIME_LIB", library)
 
-    # Optional: only platforms with a WebGPU shared_lib build produce this.
-    plugin_archive = downloaded / "ep-webgpu" / f"{config_id}.tar.gz"
+    # The provider is built by its own pipeline, into its own configuration
+    # named after this one, so it arrives as a separate artifact.
+    plugin_archive = downloaded / "ep-webgpu" / f"{config_id}-webgpu.tar.gz"
     if plugin_archive.is_file():
         plugin = find(extract(plugin_archive, unpacked / "ep-webgpu"), PLUGIN_NAMES)
         if plugin is None:
             raise SystemExit(f"{plugin_archive} holds no WebGPU plugin")
         export("ONNXRUNTIME_EP_WEBGPU", plugin)
-    elif "shared_lib" in ort_matrix.by_id(config_id).build_args():
-        # The configuration asked for a loadable WebGPU EP, so its absence is a
-        # packaging failure. Letting it through would silently skip the only
-        # tests that exercise plugin loading.
+    elif config_id in ep_matrix.by_name("webgpu").targets:
+        # WebGPU is published for this target, so a missing plugin is a
+        # packaging or artifact failure. Letting it through would silently skip
+        # the only tests that load a real provider.
         raise SystemExit(
-            f"{config_id} is built with --use_webgpu shared_lib but "
-            f"{plugin_archive} does not exist"
+            f"webgpu is published for {config_id} but {plugin_archive} does "
+            f"not exist"
         )
     else:
         print(f"no WebGPU plugin for {config_id}; those tests will skip")
