@@ -153,10 +153,17 @@ def _ios(name: str, sysroot: str, arch: str) -> Config:
             "--use_coreml",
             "--use_xnnpack",
             "--no_kleidiai",
-            # Dawn's Apple backend is Metal, and the provider source handles
-            # __APPLE__ explicitly, which covers iOS. CoreML reaches the ANE;
-            # this is for a pipeline written against WebGPU.
-            *_WEBGPU,
+            # No WebGPU. Dawn's ObjCUtils.mm is written for manual reference
+            # counting, and cmake/onnxruntime_ios.toolchain.cmake forces
+            # CLANG_ENABLE_OBJC_ARC on for the whole build, so Dawn does not
+            # compile: "ARC forbids explicit message send of 'retain'".
+            # Turning ARC off would break ONNX Runtime's own CoreML sources,
+            # which are written for it. Measured, not assumed: every iOS
+            # configuration failed this way, and it is why ONNX Runtime has no
+            # iOS WebGPU pipeline of its own.
+            #
+            # CoreML is here and reaches the GPU and the Neural Engine, so this
+            # costs a WebGPU-shaped pipeline, not acceleration.
         ),
         unproven=True,
     )

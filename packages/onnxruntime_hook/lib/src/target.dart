@@ -160,14 +160,13 @@ enum OrtProvider {
         // Android, D3D12 or Vulkan on Windows, Metal on Apple. On Android it
         // replaces NNAPI, which was deprecated in Android 15.
         //
-        // Not the 32-bit Android ABIs: Vulkan is not dependable on the
-        // hardware still running them.
+        // Not the 32-bit Android ABIs, where Vulkan is not dependable on the
+        // hardware still running them. Not iOS either: Dawn's Objective-C is
+        // written for manual reference counting and ONNX Runtime's iOS
+        // toolchain forces ARC on, so it does not compile there.
         OrtProvider.webgpu => const [
             'android-arm64-v8a',
             'android-x86_64',
-            'ios-device-arm64',
-            'ios-sim-arm64',
-            'ios-sim-x86_64',
             'linux-x64',
             'linux-arm64',
             'macos-arm64',

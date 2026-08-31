@@ -68,14 +68,13 @@ PROVIDERS: tuple[Provider, ...] = (
     Provider(
         name="webgpu",
         source=BUILD,
-        # Everywhere Dawn reaches a GPU. Not the 32-bit Android ABIs: Vulkan is
-        # not dependable on the hardware still running them.
+        # Everywhere Dawn reaches a GPU and compiles. Not the 32-bit Android
+        # ABIs, where Vulkan is not dependable on the hardware still running
+        # them, and not iOS, where Dawn's Objective-C needs manual reference
+        # counting and ONNX Runtime's iOS toolchain forces ARC on.
         targets=(
             "android-arm64-v8a",
             "android-x86_64",
-            "ios-device-arm64",
-            "ios-sim-arm64",
-            "ios-sim-x86_64",
             "linux-x64",
             "linux-arm64",
             "macos-arm64",
