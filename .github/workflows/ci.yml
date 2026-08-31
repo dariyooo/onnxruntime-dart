@@ -164,6 +164,11 @@ jobs:
   test-against-our-build:
     name: test · ${{ matrix.name }} · our build
     needs: build-runtime
+    # Runs even when part of the matrix failed. These six need only their own
+    # native artifact, and gating them on every configuration means one web
+    # variant that will not link hides whether the libraries we ship work at
+    # all. The download step fails loudly if the artifact is genuinely absent.
+    if: ${{ !cancelled() }}
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
