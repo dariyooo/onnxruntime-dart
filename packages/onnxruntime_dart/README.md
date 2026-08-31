@@ -1,23 +1,29 @@
 # onnxruntime_dart
 
-Run ONNX machine-learning models in Dart, on any platform, without Flutter.
+Run ONNX models from Dart. No Flutter dependency, no platform channels.
 
-Wraps [ONNX Runtime](https://onnxruntime.ai), Microsoft's inference engine. If
-you have a `.onnx` file, this runs it.
+Bindings to [ONNX Runtime](https://onnxruntime.ai), generated from pinned
+headers. If you have a `.onnx` file, this runs it.
 
 ## Install
 
+Two packages: the bindings, and the engine.
+
+```sh
+dart pub add onnxruntime_dart onnxruntime_binaries
 ```
-dart pub add onnxruntime_dart
-```
 
-A build hook downloads and bundles the engine for native targets, and on the web
-you serve the `.wasm` yourself.
+`onnxruntime_dart` ships no binaries. `onnxruntime_binaries` has a build hook
+that downloads the right library for the target and bundles it as a code asset.
+They are split so you can pin the engine independently, swap in your own build,
+or ship none at all.
 
-## Your first inference
+Without an engine, calls throw `OrtRuntimeMissing` rather than failing to load.
 
-A model has named inputs and outputs. You pass a tensor for each input and get
-one back per output. A tensor is a flat list plus a shape.
+## First inference
+
+A model has named inputs and outputs. Pass a tensor per input, get one back per
+output. A tensor is a flat list plus a shape.
 
 ```dart
 import 'dart:io';
@@ -27,22 +33,15 @@ import 'package:onnxruntime_dart/onnxruntime_dart.dart';
 void main() {
   final session = Session.fromBytes(File('mnist.onnx').readAsBytesSync());
 
-  // What does this model want? Names and shapes come from the model itself.
   for (final input in session.inputs) {
-    print(input);   // Input3 float32 [1, 1, 28, 28]
+    print(input); // Input3 float32 [1, 1, 28, 28]
   }
 
-  // 1x1x28x28 means one image, one channel, 28 by 28. 784 floats, flat.
   final pixels = Float32List(1 * 1 * 28 * 28);
-  final input = OrtTensor.fromData(
-    OrtElementType.float32,
-    pixels,
-    [1, 1, 28, 28],
-  );
-
+  final input = OrtTensor.fromData(OrtElementType.float32, pixels, [1, 1, 28, 28]);
   final outputs = session.run({'Input3': input});
-  final scores = outputs['Plus214_Output_0']!.view.float32s;
-  print('digit ${_argmax(scores)}');
+
+  print(outputs['Plus214_Output_0']!.view.float32s);
 
   input.release();
   for (final output in outputs.values) {
@@ -52,230 +51,139 @@ void main() {
 }
 ```
 
-`release` frees a session or a tensor. Call it. A dropped handle is caught by a
-finalizer, but Dart does not promise finalizers ever run, and under a loop they
-do not keep up, so forgetting leaks. It never corrupts: releasing twice, or
-using something released, throws.
+## Memory
 
-### Shapes
+Call `release()` on sessions and tensors. It is the contract, not a suggestion.
 
-One entry per dimension, outermost first. `[1, 3, 224, 224]` is one image, three
-colour channels, 224 by 224, so the flat list holds 150 528 values. A `-1` means
-the model decides that dimension at run time, usually batch size.
-
-### Types
-
-`OrtTensor.fromData` takes the element type, a typed list, and the shape.
-`view` reads one back, and asks for the type you expect rather than
-reinterpreting the bytes.
-
-| ONNX | write | read |
-| --- | --- | --- |
-| float32 | `Float32List` | `view.float32s` |
-| float64 | `Float64List` | `view.float64s` |
-| int8, int16, int32, int64 | the matching `IntNList` | `view.intNs` |
-| uint8, uint16, uint32, uint64 | the matching `UintNList` | `view.uintNs` |
-| bool | `Uint8List`, one byte each | `view.bools` |
-| float16 | `Uint16List` of raw bits | `view.float16Bits` |
-| string | `OrtTensor.fromStrings` | `tensor.strings` |
-
-`view.data` is the raw bytes if you would rather do it yourself. It borrows the
-tensor's own memory, so copy it if it needs to outlive the tensor.
-
-### Fewer outputs
-
-`run` computes every output by default. Naming the ones you want runs only the
-part of the graph they depend on:
-
-```dart
-session.run(feeds, wanted: ['logits']);
-```
-
-### Options
-
-`SessionOptions` covers what most models need. Anything left null keeps ONNX
-Runtime's own default.
-
-```dart
-Session.fromBytes(model, options: const SessionOptions(
-  intraOpNumThreads: 4,
-  optimizationLevel: OrtOptimizationLevel.all,
-  logLevel: OrtLogLevel.warning,
-));
-```
-
-`interOpNumThreads`, `executionMode`, `logId`, `optimizedModelPath`,
-`profileFilePrefix`, `deterministicCompute`, `memoryPattern` and
-`cpuMemoryArena` are there too, along with `freeDimensionOverrides` for pinning
-a symbolic dimension and `config` for the string-keyed entries in
-`config_keys.g.dart`. Everything else is a call on `native.dart`.
+A dropped handle is caught by a finalizer, but Dart does not promise finalizers
+run, and under load they do not keep up: in a 200,000-iteration loop, zero
+fired. Forgetting leaks. It never corrupts, though, because releasing twice or
+using a released handle throws.
 
 ## Platforms
-
-Every build carries **every operator**: all of `ai.onnx`, `ai.onnx.ml` and the
-`com.microsoft` contrib ops, at every opset. A model that loads anywhere loads
-everywhere. All libraries are built in this repo's CI from a pinned ONNX
-Runtime.
 
 | Platform | Architectures |
 | --- | --- |
 | Android | arm64-v8a, armeabi-v7a, x86_64, x86 |
-| iOS | arm64 device, arm64 simulator, x86_64 simulator |
+| iOS | device arm64, simulator arm64 and x86_64 |
 | macOS | arm64, x86_64 |
-| Linux | x64, arm64 |
-| Windows | x64, arm64 |
-| Web | wasm, three accelerator builds |
+| Linux | x86_64, arm64 |
+| Windows | x86_64, arm64 |
+| Web | not yet, see below |
 
-## Web
+Every library is built from the pinned submodule, every operator and opset, on
+every target. Nothing is trimmed.
 
-**Not working yet.** The library compiles for the browser and everything that
-does not touch the runtime works there, but nothing binds the WebAssembly
-exports, so creating a session throws. The builds below exist; the code that
-loads them does not.
+### Variants
 
-A browser cannot open a shared library, so every accelerator is compiled into
-the `.wasm`. There is no provider package and no `register` call: you choose
-accelerators by choosing which build you serve.
-
-| Build | Accelerators |
-| --- | --- |
-| `ort-wasm` | XNNPACK |
-| `ort-wasm-webgpu` | XNNPACK, WebGPU |
-| `ort-wasm-webgpu-webnn` | XNNPACK, WebGPU, WebNN |
-
-Smaller is faster to download, so take the one you need. All three are threaded
-and fall back to a single thread when the page is not cross-origin isolated. For
-threads, set `Cross-Origin-Opener-Policy: same-origin` and
-`Cross-Origin-Embedder-Policy: require-corp`.
-
-## Execution providers
-
-An execution provider decides **where** operators run. It never adds operators,
-so switching to one cannot make a model load that did not load before.
-
-A provider is a second shared library beside the engine, and ONNX Runtime opens
-it by path at run time. Any library exporting `CreateEpFactories` works,
-including ones you build or get elsewhere:
-
-```dart
-registerProviderLibrary(
-  name: 'cuda',
-  path: '/opt/ort/libonnxruntime_providers_cuda.so',
-);
-
-final session = Session.fromBytes(model, options: const SessionOptions(
-  providers: [(name: 'cuda', configuration: {})],
-));
-```
-
-Register providers before creating a session. Registration mutates
-process-global state and racing it against session creation crashes.
-
-`availableProviders()` lists what your build has compiled in.
-
-| Provider | Android | iOS | macOS | Linux | Windows | Web |
-| --- | --- | --- | --- | --- | --- | --- |
-| CPU | built in | built in | built in | built in | built in | built in |
-| XNNPACK | built in | built in | built in | built in | built in | built in |
-| CoreML | | built in | built in | | | |
-| WebGPU | package | | | package | package | build variant |
-| WebNN | | | | | | build variant |
-| QNN | package, arm64 | | | | | |
-| CUDA, TensorRT, OpenVINO, CANN, ROCm | | | | you supply | you supply | |
-
-**built in** costs you nothing and is used automatically. **package** is a
-separate download, and none of those packages exist yet:
-
-```
-dart pub add onnxruntime_dart_ep_webgpu
-```
-
-```dart
-import 'package:onnxruntime_dart_ep_webgpu/onnxruntime_dart_ep_webgpu.dart';
-
-registerWebGpu();   // the same call as above, with the path filled in
-```
-
-**build variant** means the web, where the choice is which `.wasm` you serve.
-**you supply** means we will not package it: each targets one vendor's hardware,
-and neither we nor Microsoft build those for every platform.
-
-`onnxruntime_dart_extensions` is planned too, adding operators for the work
-around a model rather than in it: tokenizers, audio decoding, image resizing.
-
-## Keeping the UI responsive
-
-`run` blocks the thread it is called on. A large model will freeze your UI.
-
-```dart
-final outputs = await session.runAsync(inputs);   // returns to you immediately
-```
-
-`runAsync` hands the work to ONNX Runtime's own threads and completes on your
-event loop. Nothing is copied and no isolate is spawned, so one session can
-have several runs in flight against one copy of the weights.
-
-It needs at least two intra-op threads, since that pool is what it dispatches
-onto. `SessionOptions(intraOpNumThreads: 1)` rules it out, and says so.
-
-To move your own pre- and post-processing off the UI thread too, run the whole
-pipeline in an isolate. Build the session inside it and keep it, because
-creating one optimises the model graph:
-
-`example/isolates.dart` has both patterns, the short-lived one and the worker.
-Do not call `Isolate.run` per inference: that rebuilds the session every time.
-
-Neither works on the web. Dart has no isolates there and the WebAssembly build
-has no background entry point, so `run` blocks and `runAsync` throws. Run the
-whole app in a Web Worker instead.
-
-## On-device training
-
-**Not working yet.** The library with the training APIs builds, but nothing
-binds them.
-
-Training has to be compiled in, so it comes as a second library rather than a
-package. Ask for it once:
+`base` is the default and is what almost every application wants. `full` adds
+what cannot be loaded at runtime and has to be compiled in, which today means
+the training APIs.
 
 ```yaml
 hooks:
   user_defines:
-    onnxruntime_dart:
+    onnxruntime_binaries:
       variant: full
 ```
 
-That swaps the bundled engine for one built with the training APIs: checkpoints,
-train and optimizer steps, and exporting an inference model when you are done.
-Everything else is identical, so nothing else in your code changes.
+`trainingIsAvailable()` reports which one you have.
 
-## Raw C API
+### Bring your own
 
-The Dart API covers ONNX Runtime's C API. Where the web cannot support a call it
-is marked, and throws there, rather than being left out everywhere:
+Point the hook at a directory and it bundles that instead:
 
-```dart
-@NativeOnly('the WebAssembly build exports no asynchronous run')
-Future<Map<String, OrtTensor>> runAsync(Map<String, OrtTensor> feeds);
+```yaml
+hooks:
+  user_defines:
+    onnxruntime_binaries:
+      local_build: path/to/lib
 ```
 
-So the limit is in the signature and in the docs, not something you find by
-hitting it. Web supports a smaller C surface than native, and shrinking the API
-to their intersection would make web's limits everyone's.
+## Execution providers
 
-The whole C API is there when the Dart API does not cover something. Both the
-bindings and a wrapper for each call are generated from the same headers the
-libraries are built from, so neither lags the engine:
+CPU always works. Anything else is a separate package, because a GPU backend is
+tens to hundreds of megabytes and most applications want none of them.
+
+```sh
+dart pub add onnxruntime_ep_webgpu
+```
 
 ```dart
 import 'package:onnxruntime_dart/native.dart';
 
-final api = ortApi().ref;
-final allocator = api.getAllocatorWithDefaultOptions();
-final name = api.sessionGetInputName(session, 0, allocator);
+registerBundledProviders(); // finds every provider package you depend on
 ```
 
-Each wrapper takes and returns Dart values, and turns a failed `OrtStatus` into
-an `OrtException`. The raw function pointer is still there for the handful of
-calls a wrapper cannot express, such as ones taking a callback.
+Provider packages ship no Dart API. They install a library; that call finds it.
+It lives in `native.dart` because finding a loaded library means asking the
+loader, which needs `dart:ffi`.
 
-Native only, and you own every handle you create.
+| Provider | Targets |
+| --- | --- |
+| WebGPU | Android arm64 and x86_64, iOS, macOS, Linux, Windows |
+| CUDA | Linux and Windows x64, arm64 on CUDA 13 |
+
+WebGPU is built here. CUDA is mirrored from ONNX Runtime's own plugin release,
+because building it needs the toolkit and hours of compute. CUDA ships against
+two toolkits and defaults to 12, which asks less of the driver; `build: cuda13`
+selects the other where it exists.
+
+For a provider we do not package, `registerProviderLibrary(name:, path:)` takes
+any library exporting `CreateEpFactories`. Both calls must happen before the
+first session exists: they mutate process-global state.
+
+## Web
+
+Not working yet, and the honest version is that only the last step is missing.
+
+Everything above the backend seam is platform-agnostic and compiles for the web
+today. The WebAssembly runtime is built and published as Flutter asset packages
+(`onnxruntime_web`, `onnxruntime_web_webgpu`, `onnxruntime_web_webgpu_webnn`).
+What does not exist is the code binding Dart to the wasm exports, so reaching
+the runtime throws `UnsupportedError` saying exactly that.
+
+## Training
+
+In the `full` variant only, since it is behind a compile-time flag.
+
+```dart
+import 'package:onnxruntime_dart/native.dart';
+
+if (trainingIsAvailable()) {
+  final api = trainingApi();
+}
+```
+
+Calling it on a `base` build throws `OrtTrainingUnavailable` rather than
+crashing, because `GetTrainingApi` returns null there and that is detectable.
+
+## native.dart
+
+`onnxruntime_dart.dart` is the ergonomic surface, and it is web-safe: no
+`dart:ffi` above the backend seam, enforced by a test. `native.dart` holds
+everything that needs the loader, which is the full C API plus provider
+registration and the training entry points.
+
+```dart
+import 'package:onnxruntime_dart/native.dart';
+```
+
+Every function in every API struct is generated from the pinned headers, so
+completeness is a property of the build rather than a goal. Each has a wrapper
+taking and returning Dart values, allocating what the call needs and turning a
+failed `OrtStatus` into an `OrtException`. The raw function pointer is still
+there when a wrapper cannot express what you need, such as a callback.
+
+## How it fits together
+
+```text
+onnxruntime_dart        bindings and the ergonomic API, no binaries
+onnxruntime_binaries    the engine, one variant per build
+onnxruntime_ep_*        one execution provider each
+onnxruntime_web*        the wasm builds, as Flutter assets
+```
+
+Nothing depends on Flutter except the web asset packages. The bindings are
+generated and checked against the submodule in CI, so they cannot drift from
+the headers they were made from.
