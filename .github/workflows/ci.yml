@@ -214,7 +214,7 @@ jobs:
   # code compiles, which is how the WebAssembly backend was written but never
   # executed.
   test-web-runtime:
-    name: test · web · ${{ matrix.build }} · our build
+    name: test · web · ${{ matrix.build }} · ${{ matrix.compiler }}
     needs: build-runtime
     if: ${{ !cancelled() && needs.build-runtime.result != 'cancelled' }}
     runs-on: ubuntu-24.04
@@ -225,6 +225,11 @@ jobs:
         # The plain build is synchronous; the WebGPU one is compiled with
         # Asyncify and takes the other backend. Both have to be exercised.
         build: [web-wasm, web-wasm-webgpu]
+        # Both Dart web compilers. dart2wasm is not a formality here: it is
+        # the one that checks what kind of buffer the runtime heap is, and it
+        # gives real 64-bit integers, so it takes different paths through the
+        # tensor code than dart2js does.
+        compiler: [dart2js, dart2wasm]
     steps:
       - uses: actions/checkout@v5
         with: { submodules: true }
@@ -266,7 +271,7 @@ jobs:
             -o test/src/worker_entry.dart.js -m
 
       - working-directory: packages/onnxruntime_dart
-        run: dart test -p chrome --reporter expanded
+        run: dart test -p chrome -c ${{ matrix.compiler }} --reporter expanded
 
   # Stage 2a. Our binaries, built from the pinned submodule.
   #

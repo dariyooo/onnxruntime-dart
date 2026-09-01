@@ -179,17 +179,31 @@ final class OrtTensorView {
   Uint32List get uint32s =>
       _typed(OrtElementType.uint32, (b, o, n) => b.asUint32List(o, n));
 
-  /// Throws on a JavaScript build, where there is no 64-bit integer list.
+  /// The contents as an `Int64List`, where the platform has one.
   ///
-  /// Use [data] there and decode the bytes yourself. The tensor itself is
-  /// fine, and int64 is common in ONNX models, so this is about reading the
-  /// values out rather than about the model.
+  /// There are three ways to read a 64-bit tensor, because no single one is
+  /// both free and universal:
+  ///
+  /// | | Returns | Cost | Limit |
+  /// | --- | --- | --- | --- |
+  /// | [int64s] | `Int64List`, a view | free | not on a JavaScript build |
+  /// | [int64Values] | `List<int>` | decodes | throws past 53 bits there |
+  /// | [int64BigInts] | `List<BigInt>` | allocates per element | none |
+  ///
+  /// Reach for [int64Values] unless the copy shows up in a profile or the
+  /// values genuinely exceed 53 bits. This one throws on a JavaScript build,
+  /// where a Dart `int` is a double and `Int64List` does not exist.
   Int64List get int64s {
     _refuseWithoutInt64('int64s', 'int64Values');
     return _typed(OrtElementType.int64, (b, o, n) => b.asInt64List(o, n));
   }
 
-  /// Throws on a JavaScript build, for the same reason as [int64s].
+  /// The contents as a `Uint64List`, where the platform has one.
+  ///
+  /// The unsigned counterpart of [int64s], with the same three ways to read a
+  /// tensor and the same limits: see the table there. Note that a value with
+  /// the top bit set needs [uint64BigInts] on every platform, since a Dart
+  /// `int` is signed.
   Uint64List get uint64s {
     _refuseWithoutInt64('uint64s', 'uint64Values');
     return _typed(OrtElementType.uint64, (b, o, n) => b.asUint64List(o, n));
@@ -197,11 +211,10 @@ final class OrtTensorView {
 
   /// A 64-bit integer tensor's values, on every platform.
   ///
-  /// [int64s] is a zero-copy view over the tensor's own memory and needs a
-  /// real `Int64List`, which a JavaScript build has no equivalent of. This
-  /// decodes the bytes instead, so the same code reads an int64 tensor
-  /// everywhere. Prefer [int64s] where the platform has it and the copy
-  /// matters.
+  /// The one to reach for. [int64s] is a zero-copy view and needs a real
+  /// `Int64List`, which a JavaScript build has no equivalent of; this decodes
+  /// instead, so the same code reads an int64 tensor everywhere. See the table
+  /// on [int64s] for the three ways and what each costs.
   ///
   /// On a JavaScript build a value outside 2^53 throws rather than coming back
   /// rounded, because an index that is quietly wrong is worse than one that
@@ -244,10 +257,9 @@ final class OrtTensorView {
 
   /// A 64-bit integer tensor's values, exactly, on every platform.
   ///
-  /// [int64Values] is the one to reach for: it returns plain `int`s and is
-  /// free on a platform with real 64-bit integers. This exists for the case it
-  /// refuses, a value beyond 53 bits on a JavaScript build, where a `BigInt`
-  /// is the only Dart type that can hold one without rounding.
+  /// This exists for the case [int64Values] refuses: a value beyond 53 bits
+  /// on a JavaScript build, where a `BigInt` is the only Dart type that holds
+  /// one without rounding. See the table on [int64s] for the three ways.
   ///
   /// Slower and allocates per element, so it is worth reaching for only when
   /// the values genuinely are that large: hashes, ids minted from timestamps,
