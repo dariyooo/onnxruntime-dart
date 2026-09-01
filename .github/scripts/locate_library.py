@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Unpacks our own build and points the test suite at it.
 
-Sets ONNXRUNTIME_LIB, and ONNXRUNTIME_EP_WEBGPU when the plugin was built. Fails
+Sets ONNXRUNTIME_LIB, and ONNXRUNTIME_EP_<PROVIDER> for each plugin built. Fails
 loudly when the runtime archive is missing, because the tests that need it skip
 when it is absent and a silent skip would let the job pass while proving nothing.
 """
@@ -19,6 +19,12 @@ import ep_matrix  # noqa: E402
 import ort_matrix  # noqa: E402
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
+PROVIDER_VARIABLES = {
+    "webgpu": "ONNXRUNTIME_EP_WEBGPU",
+    "cuda": "ONNXRUNTIME_EP_CUDA",
+    "qnn": "ONNXRUNTIME_EP_QNN",
+}
+
 LIBRARY_NAMES = ("libonnxruntime.so", "libonnxruntime.dylib", "onnxruntime.dll")
 PLUGIN_NAMES = (
     "libonnxruntime_providers_webgpu.so",
@@ -69,24 +75,25 @@ def main() -> None:
         raise SystemExit(f"{runtime} holds no library named one of {LIBRARY_NAMES}")
     export("ONNXRUNTIME_LIB", library)
 
-    # The provider is built by its own pipeline, into its own configuration
+    # Each provider is built by its own pipeline, into its own configuration
     # named after this one, so it arrives as a separate artifact.
-    plugin_archive = downloaded / "ep-webgpu" / f"{config_id}-webgpu.tar.gz"
-    if plugin_archive.is_file():
-        plugin = find(extract(plugin_archive, unpacked / "ep-webgpu"), PLUGIN_NAMES)
-        if plugin is None:
-            raise SystemExit(f"{plugin_archive} holds no WebGPU plugin")
-        export("ONNXRUNTIME_EP_WEBGPU", plugin)
-    elif config_id in ep_matrix.by_name("webgpu").targets:
-        # WebGPU is published for this target, so a missing plugin is a
-        # packaging or artifact failure. Letting it through would silently skip
-        # the only tests that load a real provider.
-        raise SystemExit(
-            f"webgpu is published for {config_id} but {plugin_archive} does "
-            f"not exist"
-        )
-    else:
-        print(f"no WebGPU plugin for {config_id}; those tests will skip")
+    for provider, variable in PROVIDER_VARIABLES.items():
+        archive = downloaded / f"ep-{provider}" / f"{config_id}-{provider}.tar.gz"
+        if archive.is_file():
+            plugin = find(extract(archive, unpacked / f"ep-{provider}"), PLUGIN_NAMES)
+            if plugin is None:
+                raise SystemExit(f"{archive} holds no {provider} plugin")
+            export(variable, plugin)
+        elif config_id in ep_matrix.by_name(provider).targets:
+            # Published for this target, so a missing plugin is a packaging or
+            # artifact failure. Letting it through would silently skip the only
+            # tests that load a real provider.
+            raise SystemExit(
+                f"{provider} is published for {config_id} but {archive} does "
+                f"not exist"
+            )
+        else:
+            print(f"no {provider} plugin for {config_id}; those tests will skip")
 
     # The operator library, unpacked by the job before this runs. Optional in
     # the same way: without it the extensions tests skip rather than fail.
