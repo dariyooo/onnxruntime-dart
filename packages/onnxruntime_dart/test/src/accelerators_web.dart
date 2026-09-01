@@ -43,22 +43,21 @@ List<Accelerator> accelerators() => [
         // exists everywhere.
         configuration: const {'deviceType': 'cpu'},
         skip: _skipWithoutAcceleratorBuild ??
-            (_navigator.has('ml') ? _webnnUnexplained : _webnnUnavailable),
+            (_navigator.has('ml') ? _webnnUnwired : _webnnUnavailable),
       ),
     ];
 
 /// Why WebNN is not exercised even where the browser has it.
 ///
-/// `navigator.ml.createContext()` succeeds directly for cpu, gpu and npu, so
-/// the browser is not the limit. ONNX Runtime's own EP still fails at
-/// `WebNNExecutionProvider::WebNNExecutionProvider` with "Failed to create
-/// WebNN context", which is inside the runtime rather than in this package.
-/// Left as a skip with the reason rather than a passing test that proves
-/// nothing, or a red one that says nothing new.
-const _webnnUnexplained =
-    'the browser exposes navigator.ml and creates a context directly, but '
-    "ONNX Runtime's WebNN provider fails with 'Failed to create WebNN "
-    "context'. Unresolved, and inside the runtime rather than here";
+/// The browser is not the limit: `navigator.ml.createContext()` succeeds for
+/// cpu, gpu and npu. The provider reads `Module.currentContext` rather than
+/// making one, and the function that makes it only exists after
+/// `Module.webnnInit` has been handed ONNX Runtime's JavaScript WebNNBackend,
+/// which this package does not have. See `backend/wasm/webnn.dart`.
+const _webnnUnwired =
+    'the browser has WebNN, but this build has no usable one: ONNX Runtime '
+    "keeps WebNN's tensor management in its JavaScript layer, which this "
+    'package does not implement';
 
 const _webnnUnavailable =
     'this browser does not expose navigator.ml. Chromium has it behind '

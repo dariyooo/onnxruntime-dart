@@ -268,6 +268,14 @@ allowed it.
 
 Some things cannot work there and say so rather than failing quietly:
 
+- **WebGPU works; WebNN does not, yet.** The difference is where the provider
+  lives. WebGPU's implementation is inside the WebAssembly module, so asking
+  for it by name is enough. WebNN's tensor management is in ONNX Runtime's
+  JavaScript layer: the provider reads a context this side has to create, and
+  the function that creates it appears only after `Module.webnnInit` is handed
+  a `WebNNBackend` that hands out MLTensor ids and moves data in and out of
+  them. That is about a thousand lines of TypeScript upstream, and this package
+  has no equivalent, so a WebNN build says so rather than failing obscurely.
 - **No loading libraries at run time.** Emscripten can do it, with
   `MAIN_MODULE` and side modules, but ONNX Runtime links its web build
   statically and sets neither. So providers and custom operators are compiled
