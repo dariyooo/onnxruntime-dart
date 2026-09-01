@@ -47,9 +47,16 @@ void main() {
       );
 
       printOnFailure(measurement.toString());
+      // A quarter of what was leaked, not half. What this has to prove is
+      // that the harness measures something real, so that the assertions built
+      // on it mean anything. How much of a 64 MiB leak shows up as resident is
+      // the operating system's business: the same code reports 64 MiB on Linux
+      // and 29 MiB on a macOS runner, because pages can be compressed or
+      // accounted differently. Demanding a specific fraction tests the
+      // platform, not the harness.
       expect(
         measurement.growthBytes,
-        greaterThan(32 * chunkBytes),
+        greaterThan(16 * chunkBytes),
         reason: 'leaking 64 MiB must be visible. If this fails, the harness is '
             'measuring nothing and every other RSS assertion is void',
       );
