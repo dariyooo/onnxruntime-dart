@@ -6,6 +6,13 @@ library;
 
 import 'dart:typed_data';
 
+/// Whether this platform has 64-bit integer lists.
+///
+/// False only on dart2js, where an `int` is a JavaScript number and therefore
+/// a double. Written as a comparison rather than a library check because
+/// dart2wasm is also the web and does have them.
+const _hasInt64Lists = !identical(1, 1.0);
+
 /// An opaque handle into backend memory.
 ///
 /// Native, this is a pointer address. On the web it is an offset into the
@@ -172,11 +179,37 @@ final class OrtTensorView {
   Uint32List get uint32s =>
       _typed(OrtElementType.uint32, (b, o, n) => b.asUint32List(o, n));
 
-  Int64List get int64s =>
-      _typed(OrtElementType.int64, (b, o, n) => b.asInt64List(o, n));
+  /// Throws on a JavaScript build, where there is no 64-bit integer list.
+  ///
+  /// Use [data] there and decode the bytes yourself. The tensor itself is
+  /// fine, and int64 is common in ONNX models, so this is about reading the
+  /// values out rather than about the model.
+  Int64List get int64s {
+    _refuseWithoutInt64('int64s');
+    return _typed(OrtElementType.int64, (b, o, n) => b.asInt64List(o, n));
+  }
 
-  Uint64List get uint64s =>
-      _typed(OrtElementType.uint64, (b, o, n) => b.asUint64List(o, n));
+  /// Throws on a JavaScript build, for the same reason as [int64s].
+  Uint64List get uint64s {
+    _refuseWithoutInt64('uint64s');
+    return _typed(OrtElementType.uint64, (b, o, n) => b.asUint64List(o, n));
+  }
+
+  /// Refuses before the typed view is built, so the message names the reason.
+  ///
+  /// dart2js would otherwise throw its own `Int64List not supported`, which
+  /// says what failed but not what to do instead.
+  void _refuseWithoutInt64(String accessor) {
+    if (!_hasInt64Lists) {
+      throw UnsupportedError(
+        'OrtTensorView.$accessor: this is a JavaScript build, where Dart '
+        'numbers are doubles and there is no Int64List. The tensor is '
+        'readable, just not as 64-bit integers: use `view.data` for the raw '
+        'little-endian bytes and decode them. Compiling to WebAssembly '
+        'instead gives you real 64-bit integers and this accessor works.',
+      );
+    }
+  }
 
   /// A boolean tensor, which ONNX stores one byte per element.
   List<bool> get bools => [
