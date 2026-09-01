@@ -15,10 +15,14 @@ library;
 import 'dart:js_interop';
 import 'dart:typed_data';
 
+import 'package:meta/meta.dart';
+
 import '../annotations.dart';
 import 'interface.dart';
 import 'types.dart';
 import 'wasm/api.g.dart';
+import 'wasm/async_calls.dart';
+import 'wasm/asyncify.dart';
 import 'wasm/arena.dart';
 import 'wasm/loader.dart';
 import 'wasm/module.dart';
@@ -26,16 +30,30 @@ import 'wasm/session_options.dart';
 import 'wasm/status.dart';
 
 /// Returns the backend for this platform.
-OrtCalls createCalls() => WasmCalls(ortModule);
+///
+/// Two of them. ONNX Runtime compiles the WebGPU and WebNN builds with
+/// Asyncify, where a run can suspend and hand back a promise, so those need a
+/// backend that awaits. The plain build never suspends and uses the
+/// synchronous one. Which is which is decided by the module itself, since only
+/// an Asyncify build defines `asyncInit`.
+OrtCalls createCalls() => isAsyncifyBuild(ortModule)
+    ? AsyncWasmCalls(ortModule)
+    : WasmCalls(ortModule);
 
 /// `DATA_LOCATION_CPU`, from the enum in `onnxruntime/wasm/api.cc`. Zero is
 /// `DATA_LOCATION_NONE` there and is refused for a tensor that has data.
 const _dataLocationCpu = 1;
 
-final class WasmCalls implements OrtCalls {
-  WasmCalls(this._module);
+/// Base rather than final: the Asyncify backend is the same code except for
+/// the five calls that can suspend, and re-implementing the rest would be two
+/// copies to keep in step.
+base class WasmCalls implements OrtCalls {
+  WasmCalls(this.module);
 
-  final OrtModule _module;
+  /// The module. Visible to the Asyncify backend, which calls the same
+  /// exports through a different signature.
+  @protected
+  final OrtModule module;
 
   /// Options being built, by the handle handed out for them.
   ///
@@ -49,8 +67,8 @@ final class WasmCalls implements OrtCalls {
     // The same count the worker pool was sized with. Asking for more here than
     // the module was instantiated with means threads it cannot start.
     check(
-      _module,
-      _module.ortInit(ortWasmThreads.toJS, loggingLevel.toJS).toDartInt,
+      module,
+      module.ortInit(ortWasmThreads.toJS, loggingLevel.toJS).toDartInt,
       'OrtInit',
     );
   }
@@ -91,7 +109,10 @@ final class WasmCalls implements OrtCalls {
     return OrtPtr(handle);
   }
 
-  PendingSessionOptions _options(OrtPtr handle) {
+  /// The options recorded for [handle], for a subclass that builds them at a
+  /// different moment.
+  @protected
+  PendingSessionOptions pendingOptions(OrtPtr handle) {
     final options = _pending[handle.address];
     if (options == null) {
       throw StateError('these session options were already released');
@@ -102,11 +123,11 @@ final class WasmCalls implements OrtCalls {
   @override
   void appendExecutionProvider(
           OrtPtr options, String name, Map<String, String> configuration) =>
-      _options(options).providers.add((name, configuration));
+      pendingOptions(options).providers.add((name, configuration));
 
   @override
   void addSessionConfigEntry(OrtPtr options, String key, String value) =>
-      _options(options).config[key] = value;
+      pendingOptions(options).config[key] = value;
 
   @override
   @NativeOnly('WebAssembly has no dlopen; custom operators are compiled into '
@@ -118,7 +139,7 @@ final class WasmCalls implements OrtCalls {
 
   @override
   void addFreeDimensionOverride(OrtPtr options, String name, int dimension) =>
-      _options(options).freeDimensions[name] = dimension;
+      pendingOptions(options).freeDimensions[name] = dimension;
 
   @override
   @NativeOnly('the thread count is fixed when the module is instantiated')
@@ -134,18 +155,19 @@ final class WasmCalls implements OrtCalls {
 
   @override
   void setOptimizationLevel(OrtPtr options, OrtOptimizationLevel level) =>
-      _options(options).setOptimization(level);
+      pendingOptions(options).setOptimization(level);
 
   @override
   void setExecutionMode(OrtPtr options, OrtExecutionMode mode) =>
-      _options(options).setExecution(mode);
+      pendingOptions(options).setExecution(mode);
 
   @override
   void setLogLevel(OrtPtr options, OrtLogLevel level) =>
-      _options(options).setLog(level);
+      pendingOptions(options).setLog(level);
 
   @override
-  void setLogId(OrtPtr options, String id) => _options(options).logId = id;
+  void setLogId(OrtPtr options, String id) =>
+      pendingOptions(options).logId = id;
 
   @override
   @NativeOnly('the WebAssembly build has no filesystem to write to')
@@ -166,11 +188,11 @@ final class WasmCalls implements OrtCalls {
 
   @override
   void setMemoryPattern(OrtPtr options, {required bool enabled}) =>
-      _options(options).memoryPattern = enabled;
+      pendingOptions(options).memoryPattern = enabled;
 
   @override
   void setCpuMemoryArena(OrtPtr options, {required bool enabled}) =>
-      _options(options).cpuMemoryArena = enabled;
+      pendingOptions(options).cpuMemoryArena = enabled;
 
   @override
   void releaseSessionOptions(OrtPtr options) =>
@@ -178,32 +200,33 @@ final class WasmCalls implements OrtCalls {
 
   @override
   OrtPtr createSession(Uint8List model, OrtPtr options) {
-    final pending = _options(options);
+    final pending = pendingOptions(options);
 
-    return withArena(_module, (arena) {
-      final built = _buildOptions(arena, pending);
+    return withArena(module, (arena) {
+      final built = buildOptions(arena, pending);
       try {
         // The runtime copies the graph during initialisation, so the model
         // only has to outlive this call.
         final data = arena.data(model);
         return checkHandle(
-          _module,
-          _module
+          module,
+          module
               .ortCreateSession(data.toJS, model.lengthInBytes.toJS, built.toJS)
               .toDartInt,
           'OrtCreateSession',
         ).asPtr;
       } finally {
-        _module.ortReleaseSessionOptions(built.toJS);
+        module.ortReleaseSessionOptions(built.toJS);
       }
     });
   }
 
   /// Builds the real options object from what the setters recorded.
-  int _buildOptions(WasmArena arena, PendingSessionOptions pending) {
+  @protected
+  int buildOptions(WasmArena arena, PendingSessionOptions pending) {
     final handle = checkHandle(
-      _module,
-      _module
+      module,
+      module
           .ortCreateSessionOptions(
             pending.optimizationLevel.toJS,
             pending.cpuMemoryArena.toJS,
@@ -222,8 +245,8 @@ final class WasmCalls implements OrtCalls {
 
     for (final entry in pending.config.entries) {
       check(
-        _module,
-        _module
+        module,
+        module
             .ortAddSessionConfigEntry(handle.toJS, arena.string(entry.key).toJS,
                 arena.string(entry.value).toJS)
             .toDartInt,
@@ -233,8 +256,8 @@ final class WasmCalls implements OrtCalls {
 
     for (final entry in pending.freeDimensions.entries) {
       check(
-        _module,
-        _module
+        module,
+        module
             .ortAddFreeDimensionOverride(
                 handle.toJS, arena.string(entry.key).toJS, entry.value.toJS)
             .toDartInt,
@@ -246,8 +269,8 @@ final class WasmCalls implements OrtCalls {
       final keys = arena.strings(configuration.keys.toList());
       final values = arena.strings(configuration.values.toList());
       check(
-        _module,
-        _module
+        module,
+        module
             .ortAppendExecutionProvider(handle.toJS, arena.string(name).toJS,
                 keys.toJS, values.toJS, configuration.length.toJS)
             .toDartInt,
@@ -263,27 +286,27 @@ final class WasmCalls implements OrtCalls {
 
   @override
   void releaseSession(OrtPtr session) =>
-      _module.ortReleaseSession(session.address.toJS);
+      module.ortReleaseSession(session.address.toJS);
 
   @override
   (int inputs, int outputs) inputOutputCount(OrtPtr session) =>
-      withArena(_module, (arena) {
+      withArena(module, (arena) {
         final slots = arena.slots(2);
         check(
-          _module,
-          _module
+          module,
+          module
               .ortGetInputOutputCount(
                   session.address.toJS, slots.toJS, (slots + 4).toJS)
               .toDartInt,
           'OrtGetInputOutputCount',
         );
-        return (_module.readInt(slots), _module.readInt(slots + 4));
+        return (module.readInt(slots), module.readInt(slots + 4));
       });
 
   @override
   OrtTensorMeta inputOutputMetadata(OrtPtr session, int index,
       {required bool input}) {
-    return withArena(_module, (arena) {
+    return withArena(module, (arena) {
       final slots = arena.slots(2);
       // One call answers for inputs and outputs; the index is offset by the
       // input count when asking about an output.
@@ -291,22 +314,22 @@ final class WasmCalls implements OrtCalls {
       final at = input ? index : counts.$1 + index;
 
       check(
-        _module,
-        _module
+        module,
+        module
             .ortGetInputOutputMetadata(
                 session.address.toJS, at.toJS, slots.toJS, (slots + 4).toJS)
             .toDartInt,
         'OrtGetInputOutputMetadata',
       );
 
-      final namePointer = _module.readPointer(slots);
-      final typeInfo = _module.readPointer(slots + 4);
+      final namePointer = module.readPointer(slots);
+      final typeInfo = module.readPointer(slots + 4);
       try {
-        return _metadata(_module.readString(namePointer), typeInfo);
+        return _metadata(module.readString(namePointer), typeInfo);
       } finally {
         // Both belong to the runtime and are handed over on success.
-        _module.ortFree(namePointer.toJS);
-        _module.ortFree(typeInfo.toJS);
+        module.ortFree(namePointer.toJS);
+        module.ortFree(typeInfo.toJS);
       }
     });
   }
@@ -332,17 +355,17 @@ final class WasmCalls implements OrtCalls {
       );
     }
 
-    final type = _module.readInt(typeInfo);
-    final rank = _module.readInt(typeInfo + 4);
+    final type = module.readInt(typeInfo);
+    final rank = module.readInt(typeInfo + 4);
     final names = typeInfo + 8;
     final values = names + 4 * rank;
 
     final shape = <int>[
       for (var i = 0; i < rank; i++)
-        if (_module.readPointer(names + 4 * i) != 0)
+        if (module.readPointer(names + 4 * i) != 0)
           -1
         else
-          _module.readInt(values + 4 * i),
+          module.readInt(values + 4 * i),
     ];
 
     return OrtTensorMeta(
@@ -354,14 +377,14 @@ final class WasmCalls implements OrtCalls {
 
   @override
   OrtPtr createTensor(OrtElementType type, TypedData data, List<int> shape) =>
-      withArena(_module, (arena) {
+      withArena(module, (arena) {
         // The runtime borrows the buffer rather than copying it, so this one
         // is not freed with the arena: the tensor owns it until release.
-        final buffer = _module.copyIn(data);
+        final buffer = module.copyIn(data);
         final dimensions = arena.dimensions(shape);
         return checkHandle(
-          _module,
-          _module
+          module,
+          module
               .ortCreateTensor(
                   type.code.toJS,
                   buffer.toJS,
@@ -383,31 +406,31 @@ final class WasmCalls implements OrtCalls {
           'the WebAssembly build exports no string tensor path');
 
   @override
-  OrtTensorView tensorData(OrtPtr tensor) => withArena(_module, (arena) {
+  OrtTensorView tensorData(OrtPtr tensor) => withArena(module, (arena) {
         final slots = arena.slots(4);
         check(
-          _module,
-          _module
+          module,
+          module
               .ortGetTensorData(tensor.address.toJS, slots.toJS,
                   (slots + 4).toJS, (slots + 8).toJS, (slots + 12).toJS)
               .toDartInt,
           'OrtGetTensorData',
         );
 
-        final type = OrtElementType.fromCode(_module.readInt(slots));
-        final data = _module.readPointer(slots + 4);
-        final dimensions = _module.readPointer(slots + 8);
-        final rank = _module.readInt(slots + 12);
+        final type = OrtElementType.fromCode(module.readInt(slots));
+        final data = module.readPointer(slots + 4);
+        final dimensions = module.readPointer(slots + 8);
+        final rank = module.readInt(slots + 12);
 
         final shape = [
-          for (var i = 0; i < rank; i++) _module.readInt(dimensions + 4 * i),
+          for (var i = 0; i < rank; i++) module.readInt(dimensions + 4 * i),
         ];
         final elements = shape.fold(1, (total, size) => total * size);
 
         // Copied out. The heap moves when it grows, so a view into it is only
         // valid until the next allocation.
-        final bytes = _module.copyOut(data, elements * (type.byteWidth ?? 1));
-        _module.ortFree(dimensions.toJS);
+        final bytes = module.copyOut(data, elements * (type.byteWidth ?? 1));
+        module.ortFree(dimensions.toJS);
         return OrtTensorView(elementType: type, shape: shape, data: bytes);
       });
 
@@ -419,12 +442,12 @@ final class WasmCalls implements OrtCalls {
 
   @override
   void releaseTensor(OrtPtr tensor) =>
-      _module.ortReleaseTensor(tensor.address.toJS);
+      module.ortReleaseTensor(tensor.address.toJS);
 
   @override
   OrtPtr createRunOptions() => checkHandle(
-        _module,
-        _module
+        module,
+        module
             .ortCreateRunOptions(2.toJS, 0.toJS, false.toJS, 0.toJS)
             .toDartInt,
         'OrtCreateRunOptions',
@@ -432,10 +455,10 @@ final class WasmCalls implements OrtCalls {
 
   @override
   void addRunConfigEntry(OrtPtr runOptions, String key, String value) =>
-      withArena(_module, (arena) {
+      withArena(module, (arena) {
         check(
-          _module,
-          _module
+          module,
+          module
               .ortAddRunConfigEntry(runOptions.address.toJS,
                   arena.string(key).toJS, arena.string(value).toJS)
               .toDartInt,
@@ -445,12 +468,12 @@ final class WasmCalls implements OrtCalls {
 
   @override
   void releaseRunOptions(OrtPtr runOptions) =>
-      _module.ortReleaseRunOptions(runOptions.address.toJS);
+      module.ortReleaseRunOptions(runOptions.address.toJS);
 
   @override
   List<OrtPtr> run(OrtPtr session, Map<String, OrtPtr> inputs,
           List<String> outputNames, OrtPtr runOptions) =>
-      withArena(_module, (arena) {
+      withArena(module, (arena) {
         final names = arena.strings(inputs.keys.toList());
         final values =
             arena.handles([for (final v in inputs.values) v.address]);
@@ -458,8 +481,8 @@ final class WasmCalls implements OrtCalls {
         final results = arena.slots(outputNames.length);
 
         check(
-          _module,
-          _module
+          module,
+          module
               .ortRun(
                   session.address.toJS,
                   names.toJS,
@@ -475,23 +498,23 @@ final class WasmCalls implements OrtCalls {
 
         return [
           for (var i = 0; i < outputNames.length; i++)
-            OrtPtr(_module.readPointer(results + 4 * i)),
+            OrtPtr(module.readPointer(results + 4 * i)),
         ];
       });
 
   @override
   OrtPtr createBinding(OrtPtr session) => checkHandle(
-        _module,
-        _module.ortCreateBinding(session.address.toJS).toDartInt,
+        module,
+        module.ortCreateBinding(session.address.toJS).toDartInt,
         'OrtCreateBinding',
       ).asPtr;
 
   @override
   void bindInput(OrtPtr binding, String name, OrtPtr tensor) =>
-      withArena(_module, (arena) {
+      withArena(module, (arena) {
         check(
-          _module,
-          _module
+          module,
+          module
               .ortBindInput(binding.address.toJS, arena.string(name).toJS,
                   tensor.address.toJS)
               .toDartInt,
@@ -501,10 +524,10 @@ final class WasmCalls implements OrtCalls {
 
   @override
   void bindOutput(OrtPtr binding, String name, OrtPtr tensor) =>
-      withArena(_module, (arena) {
+      withArena(module, (arena) {
         check(
-          _module,
-          _module
+          module,
+          module
               .ortBindOutput(binding.address.toJS, arena.string(name).toJS,
                   tensor.address.toJS, _dataLocationCpu.toJS)
               .toDartInt,
@@ -519,18 +542,18 @@ final class WasmCalls implements OrtCalls {
 
   @override
   void clearBoundOutputs(OrtPtr binding) => check(
-        _module,
-        _module.ortClearBoundOutputs(binding.address.toJS).toDartInt,
+        module,
+        module.ortClearBoundOutputs(binding.address.toJS).toDartInt,
         'OrtClearBoundOutputs',
       );
 
   @override
   void runWithBinding(OrtPtr session, OrtPtr binding, OrtPtr runOptions) =>
-      withArena(_module, (arena) {
+      withArena(module, (arena) {
         final count = arena.slots();
         check(
-          _module,
-          _module
+          module,
+          module
               .ortRunWithBinding(session.address.toJS, binding.address.toJS,
                   0.toJS, count.toJS, runOptions.address.toJS)
               .toDartInt,
@@ -540,16 +563,16 @@ final class WasmCalls implements OrtCalls {
 
   @override
   void releaseBinding(OrtPtr binding) =>
-      _module.ortReleaseBinding(binding.address.toJS);
+      module.ortReleaseBinding(binding.address.toJS);
 
   @override
   String? endProfiling(OrtPtr session) {
-    final pointer = _module.ortEndProfiling(session.address.toJS).toDartInt;
+    final pointer = module.ortEndProfiling(session.address.toJS).toDartInt;
     if (pointer == 0) return null;
     try {
-      return _module.readString(pointer);
+      return module.readString(pointer);
     } finally {
-      _module.ortFree(pointer.toJS);
+      module.ortFree(pointer.toJS);
     }
   }
 }

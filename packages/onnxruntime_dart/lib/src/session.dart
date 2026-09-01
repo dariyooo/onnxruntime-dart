@@ -223,31 +223,73 @@ final class Session {
       options._applyTo(calls, optionsPtr);
 
       final session = calls.createSession(model, optionsPtr);
-      final handle = OrtHandle(session, calls.releaseSession, 'OrtSession');
-      try {
-        final (inputCount, outputCount) = calls.inputOutputCount(session);
-        return Session._(
-          calls,
-          handle,
-          options.intraOpNumThreads,
-          List.unmodifiable([
-            for (var i = 0; i < inputCount; i++)
-              calls.inputOutputMetadata(session, i, input: true),
-          ]),
-          List.unmodifiable([
-            for (var i = 0; i < outputCount; i++)
-              calls.inputOutputMetadata(session, i, input: false),
-          ]),
-        );
-      } on Object {
-        // Reading the signature can fail on a model the runtime accepted.
-        // Nothing owns the session yet, and the finalizer is not a plan.
-        handle.release();
-        rethrow;
-      }
+      return Session._fromHandle(calls, session, options.intraOpNumThreads);
     } finally {
       // The session holds its own copy of everything it needed from these.
       calls.releaseSessionOptions(optionsPtr);
+    }
+  }
+
+  /// Loads a model, awaiting the runtime if it needs to.
+  ///
+  /// The same thing [Session.fromBytes] does, and on every platform but one it
+  /// completes immediately. The exception is a WebGPU or WebNN build on the
+  /// web: those are compiled with Asyncify, where creating a session can
+  /// suspend while the GPU is set up, and the synchronous form has no way to
+  /// wait for it.
+  ///
+  /// Use this if the code has to run everywhere. Use [Session.fromBytes] when
+  /// it does not, or when the extra `await` is not worth it.
+  static Future<Session> load(
+    Uint8List model, {
+    SessionOptions options = const SessionOptions(),
+  }) async {
+    final calls = createCalls()..init();
+    if (calls is! OrtAsyncSessionCalls) {
+      // Every backend but the Asyncify ones. Creating a session cannot
+      // suspend there, so there is nothing to await.
+      return Session.fromBytes(model, options: options);
+    }
+    final creator = calls as OrtAsyncSessionCalls;
+
+    final optionsPtr = calls.createSessionOptions();
+    try {
+      options._applyTo(calls, optionsPtr);
+      final session = await creator.createSessionAsync(model, optionsPtr);
+      return Session._fromHandle(calls, session, options.intraOpNumThreads);
+    } finally {
+      calls.releaseSessionOptions(optionsPtr);
+    }
+  }
+
+  /// Reads a session's signature and wraps it, releasing it if that fails.
+  ///
+  /// Shared by both constructors: nothing owns the session until this returns,
+  /// and the finalizer is not a plan.
+  static Session _fromHandle(
+    OrtCalls calls,
+    OrtPtr session,
+    int? intraOpNumThreads,
+  ) {
+    final handle = OrtHandle(session, calls.releaseSession, 'OrtSession');
+    try {
+      final (inputCount, outputCount) = calls.inputOutputCount(session);
+      return Session._(
+        calls,
+        handle,
+        intraOpNumThreads,
+        List.unmodifiable([
+          for (var i = 0; i < inputCount; i++)
+            calls.inputOutputMetadata(session, i, input: true),
+        ]),
+        List.unmodifiable([
+          for (var i = 0; i < outputCount; i++)
+            calls.inputOutputMetadata(session, i, input: false),
+        ]),
+      );
+    } on Object {
+      handle.release();
+      rethrow;
     }
   }
 
@@ -308,7 +350,8 @@ final class Session {
       final OrtAsyncCalls calls => calls,
       _ => unsupportedOnWeb(
           'Session.runAsync',
-          'the WebAssembly build exports no asynchronous run',
+          'the plain WebAssembly build exports no asynchronous run. The '
+              'WebGPU and WebNN builds do, and use it for everything',
         ),
     };
     if (_intraOpNumThreads == 1) {
