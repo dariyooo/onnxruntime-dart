@@ -334,7 +334,7 @@ jobs:
           python3 .github/scripts/write_release_manifest.py
           echo '### Manifest to commit before publishing' >> "$GITHUB_STEP_SUMMARY"
           echo '```dart' >> "$GITHUB_STEP_SUMMARY"
-          cat packages/onnxruntime_dart/lib/src/hook/release.g.dart >> "$GITHUB_STEP_SUMMARY"
+          cat packages/onnxruntime_binaries/lib/src/release.g.dart >> "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"
 
       - uses: actions/upload-artifact@v4
@@ -342,7 +342,7 @@ jobs:
         with:
           name: release-manifest
           retention-days: 1
-          path: packages/onnxruntime_dart/lib/src/hook/release.g.dart
+          path: packages/onnxruntime_binaries/lib/src/release.g.dart
 
       # Created once, refreshed after that. Rebuilding a release that went
       # wrong replaces its binaries under the same name rather than leaving a

@@ -15,11 +15,12 @@ import sys
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 DIST = REPO_ROOT / "dist" / "runtime"
 MANIFEST = (
-    REPO_ROOT / "packages" / "onnxruntime_dart" / "lib" / "src" / "hook" / "release.g.dart"
+    REPO_ROOT / "packages" / "onnxruntime_binaries" / "lib" / "src" / "release.g.dart"
 )
 
 
 def main() -> None:
+    MANIFEST.parent.mkdir(parents=True, exist_ok=True)
     tag = os.environ.get("RELEASE_TAG")
     if not tag:
         raise SystemExit("RELEASE_TAG is unset")
