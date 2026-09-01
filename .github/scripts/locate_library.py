@@ -99,7 +99,9 @@ def main() -> None:
     # the same way: without it the extensions tests skip rather than fail.
     extensions = REPO_ROOT / ".local" / "ort-extensions"
     if extensions.is_dir():
-        found = find(extensions, EXTENSIONS_NAMES)
+        # Walked rather than handed over: `find` takes the files, and this
+        # is the directory the job unpacked them into.
+        found = find(list(extensions.rglob("*")), EXTENSIONS_NAMES)
         if found is None:
             raise SystemExit(f"{extensions} holds no extensions library")
         export("ONNXRUNTIME_EXTENSIONS_LIB", found)
