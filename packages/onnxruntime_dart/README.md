@@ -247,9 +247,13 @@ every other platform, so code that has to run on all three builds uses it.
 
 Some things cannot work there and say so rather than failing quietly:
 
-- **No `dlopen`**, so providers and custom operators have to be compiled into
-  the build you serve rather than added as packages.
-- **No filesystem**, so profiling and optimized-model output have nowhere to go.
+- **No loading libraries at run time.** Emscripten can do it, with
+  `MAIN_MODULE` and side modules, but ONNX Runtime links its web build
+  statically and sets neither. So providers and custom operators are compiled
+  into the build you serve rather than added as packages.
+- **No filesystem in this build.** Emscripten offers several, but ONNX Runtime
+  links its web build with `FILESYSTEM=0` to keep it small, so profiling and
+  optimized-model output have nowhere to write.
 - **Threads need a cross-origin isolated page.** The runtime uses real workers,
   which need `SharedArrayBuffer`, which needs COOP and COEP headers. That is
   the page's choice, so the default is the hardware concurrency when the page
