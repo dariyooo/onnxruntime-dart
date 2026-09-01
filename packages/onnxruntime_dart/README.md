@@ -275,6 +275,12 @@ Some things cannot work there and say so rather than failing quietly:
 - **No filesystem in this build.** Emscripten offers several, but ONNX Runtime
   links its web build with `FILESYSTEM=0` to keep it small, so profiling and
   optimized-model output have nowhere to write.
+- **No 64-bit integers when compiled to JavaScript.** A Dart `int` is a
+  JavaScript number there, so `Int64List` does not exist and `view.int64s`
+  refuses. This matters because int64 is common in ONNX outputs, indices and
+  token ids especially. The tensor is fine and the bytes are readable: use
+  `view.data` and decode the little-endian pairs. Compiling to WebAssembly
+  instead gives you real 64-bit integers and the accessor works.
 - **Threads need a cross-origin isolated page.** The runtime uses real workers,
   which need `SharedArrayBuffer`, which needs COOP and COEP headers. That is
   the page's choice, so the default is the hardware concurrency when the page
