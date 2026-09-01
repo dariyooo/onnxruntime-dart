@@ -305,7 +305,7 @@ jobs:
             echo "using the pushed tag ${{ github.ref_name }}"
           else
             python3 .github/scripts/release_identity.py \
-              --component "${{ matrix.component }}"
+              --component "${{ steps.component.outputs.name }}"
           fi
 
       - name: Collect archives
