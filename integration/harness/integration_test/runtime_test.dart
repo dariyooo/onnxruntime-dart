@@ -59,18 +59,28 @@ void main() {
       expect(libraryPathOf(Pointer<Void>.fromAddress(1)), isNull);
     });
 
-    test('no provider is installed, and none is claimed', () {
-      // This app depends on no provider package. Every provider exports the
-      // same entry point, so without the file-name check one would resolve to
-      // the runtime and be reported as installed.
-      for (final provider in OrtExecutionProvider.values) {
-        expect(
-          bundledProviderPath(provider),
-          isNull,
-          reason: '${provider.name} claims to be installed but is not',
-        );
-      }
-      expect(registerBundledProviders(), isEmpty);
+    test('a library that is not installed reports nothing on device', () {
+      // The check that makes the scheme safe, exercised where it is hardest:
+      // Android maps libraries out of the APK and iOS repackages each into its
+      // own framework, so the loader reports paths that look nothing like a
+      // desktop layout. A name that is not there must still come back null
+      // rather than resolving to the runtime.
+      expect(
+        loadedLibraryPath(
+          () => ortApi().cast<Void>(),
+          stem: 'a_library_that_does_not_exist',
+        ),
+        isNull,
+      );
+    });
+
+    test('a library that is installed is found on device', () {
+      // The same lookup against the runtime itself, which proves the negative
+      // above is the name check working rather than the lookup failing here.
+      expect(
+        loadedLibraryPath(() => ortApi().cast<Void>(), stem: 'onnxruntime'),
+        isNotNull,
+      );
     });
   });
 

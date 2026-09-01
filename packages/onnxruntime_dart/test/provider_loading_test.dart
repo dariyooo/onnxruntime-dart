@@ -10,12 +10,14 @@
 library;
 
 import 'dart:ffi';
+import 'dart:io';
 
 import 'package:onnxruntime_dart/native.dart';
 import 'package:onnxruntime_dart/onnxruntime_dart.dart';
 import 'package:test/test.dart';
 
 import 'src/ort_library.dart';
+import 'src/paths.dart';
 import 'src/test_models.dart';
 
 void main() {
@@ -54,27 +56,29 @@ void main() {
     });
   }, skip: skipWithoutOrt ?? skipWithoutNativeAsset);
 
-  group('providers that were not installed', () {
-    test('report no path rather than another library\'s', () {
-      // Every plugin exports the same entry point, so a provider that is not
-      // installed resolves to whatever else in the process exports it. Without
-      // the file-name check that would be reported as a real path, and the
-      // runtime would be handed the wrong library.
-      for (final provider in OrtExecutionProvider.values) {
-        final path = bundledProviderPath(provider);
-        if (path == null) continue;
-        expect(
-          path.split(RegExp(r'[/\\]')).last,
-          contains(provider.libraryStem),
-          reason: '${provider.name} resolved to $path, which is not it',
-        );
-      }
+  group('a library that was not installed', () {
+    test('reports nothing rather than another library\'s path', () {
+      // The check that makes the whole scheme safe. A code asset that is not
+      // installed falls back to a process-wide symbol lookup, and every
+      // provider exports the same entry point, so without comparing the file
+      // name one library's path gets reported for another.
+      final wrong = loadedLibraryPath(
+        () => ortApi().cast<Void>(),
+        stem: 'a_library_that_does_not_exist',
+      );
+      expect(wrong, isNull);
     });
 
-    test('none are installed in this workspace, so none register', () {
-      // onnxruntime_ep is not a dependency of the test suite. If this starts
-      // failing, a provider is being installed and the test should say so.
-      expect(registerBundledProviders(), isEmpty);
+    test('reports the path when the name does match', () {
+      // The same lookup against the runtime itself, which is loaded, so the
+      // negative result above is the check working rather than the lookup
+      // being broken in general.
+      final found = loadedLibraryPath(
+        () => ortApi().cast<Void>(),
+        stem: 'onnxruntime',
+      );
+      expect(found, isNotNull);
+      expect(found, contains('onnxruntime'));
     });
   }, skip: skipWithoutOrt ?? skipWithoutNativeAsset);
 
@@ -103,18 +107,22 @@ void main() {
     });
   }, skip: skipWithoutOrt ?? skipWithoutNativeAsset);
 
-  group('the provider table', () {
-    test('every provider names a library and where it is published', () {
-      for (final provider in OrtExecutionProvider.values) {
-        expect(provider.libraryStem, startsWith('onnxruntime_providers_'));
-        expect(provider.registrationName, isNotEmpty);
-      }
-    });
+  test('this package knows about no provider in particular', () {
+    // The point of the split. A provider package declares its own asset and
+    // finds it with loadedLibraryPath; nothing here names one, so adding a
+    // provider is a new package rather than an edit to this one.
+    final sources = Directory('${fromPackage('lib')}/src')
+        .listSync(recursive: true)
+        .whereType<File>()
+        .where((f) => f.path.endsWith('.dart'));
 
-    test('registration names are distinct', () {
-      final names =
-          OrtExecutionProvider.values.map((p) => p.registrationName).toSet();
-      expect(names, hasLength(OrtExecutionProvider.values.length));
-    });
+    for (final file in sources) {
+      expect(
+        file.readAsStringSync(),
+        isNot(contains('package:onnxruntime_ep_')),
+        reason: '${file.path} names a provider package, which inverts the '
+            'dependency: the base must not know its own dependents',
+      );
+    }
   });
 }

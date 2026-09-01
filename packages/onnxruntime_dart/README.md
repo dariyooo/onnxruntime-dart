@@ -110,14 +110,14 @@ dart pub add onnxruntime_ep_webgpu
 ```
 
 ```dart
-import 'package:onnxruntime_dart/native.dart';
+import 'package:onnxruntime_ep_webgpu/onnxruntime_ep_webgpu.dart';
 
-registerBundledProviders(); // finds every provider package you depend on
+registerWebGpu(); // before any session exists
 ```
 
-Provider packages ship no Dart API. They install a library; that call finds it.
-It lives in `native.dart` because finding a loaded library means asking the
-loader, which needs `dart:ffi`.
+Each provider package installs its library and registers it. Nothing is
+discovered by magic, and this package knows about none of them: a test asserts
+that no source file here names a provider package.
 
 | Package | Targets |
 | --- | --- |
@@ -139,6 +139,53 @@ For a provider we do not package, `registerProviderLibrary(name:, path:)` takes
 any library exporting `CreateEpFactories`. Both calls must happen before the
 first session exists: they mutate process-global state.
 
+### Shipping your own
+
+A provider is a shared library exporting `CreateEpFactories`, and nothing about
+the ones here is privileged. Ship your own the same way.
+
+The one constraint is that `@Native` needs a compile-time constant asset id, so
+it can only be written in the package that owns the asset. That is the whole
+reason providers are packages rather than a table here.
+
+```dart
+import 'dart:ffi';
+import 'package:onnxruntime_dart/native.dart';
+
+@Native<Void Function()>(
+  symbol: 'CreateEpFactories',
+  assetId: 'package:my_provider/provider',
+)
+external void _entryPoint();
+
+bool registerMine() {
+  final path = loadedLibraryPath(
+    () => Native.addressOf<NativeFunction<Void Function()>>(_entryPoint).cast(),
+    // Checked against the file the loader names. Every provider exports the
+    // same symbol, so without this an asset you did not install resolves to
+    // whichever library did, and the runtime gets handed the wrong file.
+    stem: 'onnxruntime_providers_mine',
+  );
+  if (path == null) return false;
+
+  final environment = OrtEnvironment.instance();
+  registerExecutionProviderLibrary(
+    environment.api,
+    environment.handle,
+    name: 'mine',
+    path: path,
+  );
+  return true;
+}
+```
+
+Your package needs a build hook that installs the library as a code asset named
+`provider`. `onnxruntime_hook` does that work; `packages/onnxruntime_ep_webgpu`
+is thirty lines and is the whole example.
+
+The same shape works for a custom operator library: export `RegisterCustomOps`
+instead, and pass the path to `SessionOptions(customOpsLibraries: [...])`.
+
 ## Operators the runtime does not have
 
 Tokenizers, text, image and audio preprocessing come from
@@ -151,9 +198,9 @@ dart pub add onnxruntime_extensions
 ```
 
 ```dart
-import 'package:onnxruntime_dart/native.dart';
+import 'package:onnxruntime_extensions/onnxruntime_extensions.dart';
 
-final path = extensionsLibraryPath();
+final path = extensionsPath();
 final session = Session.fromBytes(
   bytes,
   options: SessionOptions(customOpsLibraries: [if (path != null) path]),

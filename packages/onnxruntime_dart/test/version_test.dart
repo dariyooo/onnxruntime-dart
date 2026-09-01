@@ -14,7 +14,6 @@ library;
 
 import 'dart:io';
 
-import 'package:onnxruntime_dart/native.dart';
 import 'package:test/test.dart';
 
 import 'src/paths.dart';
@@ -96,51 +95,46 @@ void main() {
       });
     }
 
-    test('the minimum runtime is inherited, not invented', () {
+    test('each provider inherits its minimum runtime, not invents it', () {
       // ONNX Runtime compiles each plugin's MIN_ONNXRUNTIME_VERSION into the
-      // library and checks it on load. We keep a copy so the mismatch can be
-      // reported first and better, which is only useful while it agrees.
-      for (final provider in OrtExecutionProvider.values) {
-        final file = File(
-          fromRoot('third_party/onnxruntime/plugin-ep-${provider.name}/'
-              'MIN_ONNXRUNTIME_VERSION'),
-        );
-        if (!file.existsSync()) continue;
-        expect(
-          provider.minimumRuntime,
-          file.readAsStringSync().trim(),
-          reason: '${provider.name} claims it needs '
-              '${provider.minimumRuntime}, the pinned tree says otherwise',
-        );
-      }
-    });
+      // library and checks it on load. Each provider package keeps a copy so
+      // the mismatch can be reported first and better, which is only useful
+      // while it agrees with the pinned tree.
+      //
+      // Read from the packages rather than from a table here: this package
+      // deliberately knows about no provider in particular.
+      final packages = Directory(fromRoot('packages'))
+          .listSync()
+          .whereType<Directory>()
+          .where((d) => d.path.contains('onnxruntime_ep_'));
 
-    test('every provider works against the runtime we ship', () {
-      for (final provider in OrtExecutionProvider.values) {
-        expect(
-          provider.supportsRuntime(ortVersion),
-          isTrue,
-          reason: '${provider.name} needs ${provider.minimumRuntime} but we '
-              'ship $ortVersion',
-        );
-      }
-    });
+      var checked = 0;
+      for (final package in packages) {
+        final name = package.path
+            .split(Platform.pathSeparator)
+            .last
+            .replaceFirst('onnxruntime_ep_', '');
+        final source = File('${package.path}/lib/onnxruntime_ep_$name.dart');
+        if (!source.existsSync()) continue;
 
-    test('providers outlive the runtime they were built with', () {
-      // Each plugin declares the oldest runtime it works against, and it is
-      // below ours. That is what lets a provider package stay put while the
-      // runtime packages move.
-      for (final ep in ['webgpu', 'cuda']) {
-        final minimum = File(
-          fromRoot('third_party/onnxruntime/plugin-ep-$ep/'
-              'MIN_ONNXRUNTIME_VERSION'),
-        ).readAsStringSync().trim();
+        final declared = RegExp(r"minimumRuntime = '([^']+)'")
+            .firstMatch(source.readAsStringSync())
+            ?.group(1);
+        expect(declared, isNotNull, reason: '$name declares no minimumRuntime');
+
+        final pinned = File(fromRoot(
+            'third_party/onnxruntime/plugin-ep-$name/MIN_ONNXRUNTIME_VERSION'));
+        if (!pinned.existsSync()) continue;
+
         expect(
-          _isAtMost(minimum, ortVersion),
-          isTrue,
-          reason: '$ep needs ONNX Runtime $minimum but ours is $ortVersion',
+          declared,
+          pinned.readAsStringSync().trim(),
+          reason: '$name claims it needs $declared, the pinned tree disagrees',
         );
+        checked++;
       }
+
+      expect(checked, greaterThan(0), reason: 'no provider package was read');
     });
 
     test('bindings were generated from the pinned headers', () {
@@ -167,16 +161,6 @@ void main() {
       expect(headerApiVersion, int.parse(ortVersion.split('.')[1]));
     });
   });
-}
-
-/// Whether [a] is the same version as [b] or older.
-bool _isAtMost(String a, String b) {
-  final left = a.split('.').map(int.parse).toList();
-  final right = b.split('.').map(int.parse).toList();
-  for (var i = 0; i < left.length && i < right.length; i++) {
-    if (left[i] != right[i]) return left[i] < right[i];
-  }
-  return true;
 }
 
 /// Reads a top-level scalar without taking a YAML dependency for one field.
