@@ -43,7 +43,11 @@ void main() {
     expect(wasmNames, hasLength(greaterThan(30)));
   });
 
-  test('every name the table claims still exists upstream', () {
+  test('the table and the two headers agree, in both directions', () {
+    // Both directions, because the two failures look nothing alike. A name
+    // the table claims and upstream dropped is a stale entry. A name upstream
+    // exports and the table does not know is a new function nobody has said
+    // what to do with, and that is the one that arrives on its own.
     expect(verify(nativeNames: nativeNames, wasmNames: wasmNames), isEmpty);
   });
 

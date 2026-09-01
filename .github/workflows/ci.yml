@@ -126,11 +126,23 @@ jobs:
       - run: sudo apt-get update && sudo apt-get install -y libclang-dev
       - working-directory: packages/onnxruntime_dart
         run: dart run ffigen --config ffigen.yaml
-      - name: Bindings must be unchanged
+      # ffigen produces the raw FFI bindings and nothing else. The wrappers,
+      # the WebAssembly bindings, the platform table and the version come from
+      # our own generators, and upstream adding a function moves those rather
+      # than ffigen's output.
+      - working-directory: packages/onnxruntime_dart
         run: |
-          if ! git diff --exit-code --stat -- packages/*/lib/src/bindings/; then
-            echo "::error::Committed bindings differ from a fresh ffigen run."
-            echo "Run: cd packages/onnxruntime_dart && dart run ffigen --config ffigen.yaml"
+          dart run tool/generate_bindings.dart
+          dart run tool/generate_config_keys.dart
+      - name: Generated code must be unchanged
+        run: |
+          if ! git diff --exit-code --stat -- '*.g.dart' \
+                                              packages/*/lib/src/bindings/; then
+            echo "::error::Committed generated code differs from a fresh run."
+            echo "Run, in packages/onnxruntime_dart:"
+            echo "  dart run ffigen --config ffigen.yaml"
+            echo "  dart run tool/generate_bindings.dart"
+            echo "  dart run tool/generate_config_keys.dart"
             exit 1
           fi
 
