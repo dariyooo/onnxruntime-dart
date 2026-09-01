@@ -96,7 +96,8 @@ final class FfiCalls implements OrtCalls, OrtAsyncCalls {
     OrtPtr options,
     String name,
     Map<String, String> configuration,
-  ) =>
+  ) {
+    try {
       _api.sessionOptionsAppendExecutionProvider(
         _as<OrtSessionOptions>(options),
         name,
@@ -104,6 +105,34 @@ final class FfiCalls implements OrtCalls, OrtAsyncCalls {
         configuration.values.toList(),
         configuration.length,
       );
+      return;
+    } on OrtException {
+      // The by-name call resolves against the providers compiled into the
+      // runtime and knows nothing about one registered from a library, so it
+      // reports an unknown name. Nothing was appended, so trying the other way
+      // is safe.
+    }
+
+    // A plugin is selected by the devices it contributed, which is what
+    // registering it produced.
+    final devices = executionProviderDevices(_api, _environment.handle, name);
+    if (devices.isEmpty) {
+      throw OrtException(
+        2,
+        'no execution provider named "$name". It is not built into this '
+        'runtime, and no plugin registered under that name has contributed a '
+        'device. Register one with registerProviderLibrary first.',
+      );
+    }
+
+    appendExecutionProviderDevices(
+      _api,
+      _as<OrtSessionOptions>(options),
+      _environment.handle,
+      devices,
+      configuration,
+    );
+  }
 
   @override
   void addSessionConfigEntry(OrtPtr options, String key, String value) =>

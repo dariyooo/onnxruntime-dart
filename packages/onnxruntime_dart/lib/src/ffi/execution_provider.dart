@@ -106,3 +106,114 @@ int executionProviderDeviceCount(OrtApi api, Pointer<OrtEnv> env) {
     arena.releaseAll();
   }
 }
+
+/// The devices a registered provider contributed, by the name it was
+/// registered under.
+///
+/// A plugin's devices are how a session selects it. Empty when the name is not
+/// a registered plugin, which is the case for every provider compiled into the
+/// runtime.
+List<Pointer<OrtEpDevice>> executionProviderDevices(
+  OrtApi api,
+  Pointer<OrtEnv> env,
+  String name,
+) {
+  final arena = Arena();
+  try {
+    final devices = arena<Pointer<Pointer<OrtEpDevice>>>();
+    final count = arena<Size>();
+    checkStatus(
+      api,
+      api.GetEpDevices.asFunction<
+          Pointer<OrtStatus> Function(
+            Pointer<OrtEnv>,
+            Pointer<Pointer<Pointer<OrtEpDevice>>>,
+            Pointer<Size>,
+          )>()(env, devices, count),
+    );
+
+    final epName = api.EpDevice_EpName.asFunction<
+        Pointer<Char> Function(Pointer<OrtEpDevice>)>();
+
+    return [
+      for (var i = 0; i < count.value; i++)
+        if (_sameProvider(
+          epName(devices.value[i]).cast<Utf8>().toDartString(),
+          name,
+        ))
+          devices.value[i],
+    ];
+  } finally {
+    arena.releaseAll();
+  }
+}
+
+/// Selects a registered plugin provider for a session.
+///
+/// The by-name call resolves against the providers compiled into the runtime
+/// and knows nothing about a plugin, so a plugin is selected by handing over
+/// the devices it contributed instead.
+void appendExecutionProviderDevices(
+  OrtApi api,
+  Pointer<OrtSessionOptions> options,
+  Pointer<OrtEnv> env,
+  List<Pointer<OrtEpDevice>> devices,
+  Map<String, String> configuration,
+) {
+  final arena = Arena();
+  try {
+    final list = arena<Pointer<OrtEpDevice>>(devices.length);
+    for (var i = 0; i < devices.length; i++) {
+      list[i] = devices[i];
+    }
+
+    final keys = arena<Pointer<Char>>(configuration.length);
+    final values = arena<Pointer<Char>>(configuration.length);
+    var i = 0;
+    for (final entry in configuration.entries) {
+      keys[i] = entry.key.toNativeUtf8(allocator: arena).cast();
+      values[i] = entry.value.toNativeUtf8(allocator: arena).cast();
+      i++;
+    }
+
+    checkStatus(
+      api,
+      api.SessionOptionsAppendExecutionProvider_V2.asFunction<
+          Pointer<OrtStatus> Function(
+            Pointer<OrtSessionOptions>,
+            Pointer<OrtEnv>,
+            Pointer<Pointer<OrtEpDevice>>,
+            int,
+            Pointer<Pointer<Char>>,
+            Pointer<Pointer<Char>>,
+            int,
+          )>()(
+        options,
+        env,
+        list,
+        devices.length,
+        keys,
+        values,
+        configuration.length,
+      ),
+    );
+  } finally {
+    arena.releaseAll();
+  }
+}
+
+/// Whether two provider names mean the same provider.
+///
+/// A plugin's devices carry the provider's own name, `WebGpuExecutionProvider`,
+/// while the name it was registered under is whatever the caller chose, and
+/// what an application writes is usually the short form. ONNX Runtime accepts
+/// both spellings for the providers built into it, so the same is accepted
+/// here.
+bool _sameProvider(String a, String b) => _shortName(a) == _shortName(b);
+
+String _shortName(String name) {
+  final lower = name.toLowerCase();
+  return lower.endsWith('executionprovider')
+      ? lower.substring(0, lower.length - 'executionprovider'.length)
+      : lower;
+}
