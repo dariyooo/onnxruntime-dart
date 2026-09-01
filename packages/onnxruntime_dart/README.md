@@ -7,11 +7,6 @@ Bindings to [ONNX Runtime](https://onnxruntime.ai), generated from pinned
 headers rather than written by hand, so the whole C API is reachable and none of
 it can drift from the version it was built against.
 
-```dart
-final session = Session.fromBytes(File('mnist.onnx').readAsBytesSync());
-final outputs = session.run({'Input3': input});
-```
-
 ## Platforms
 
 | Platform | Architectures | Compiled-in providers |
