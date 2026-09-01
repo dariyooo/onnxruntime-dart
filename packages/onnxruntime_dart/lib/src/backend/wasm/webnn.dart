@@ -34,26 +34,110 @@ extension OrtWebNnApi on OrtModule {
 
   @JS('webnnRegisterMLContext')
   external void webnnRegisterMLContext(JSNumber session, JSAny context);
+
+  @JS('webnnInit')
+  external void webnnInit(JSArray<JSAny> params);
 }
 
-/// Whether this build can actually run a WebNN session.
+/// Whether this build has the WebNN glue compiled into it.
 ///
-/// Having the provider compiled in is not enough. `post-webnn.js` defines
-/// `webnnCreateMLContext` and the rest inside `webnnInit`, which takes an
-/// object implementing ONNX Runtime's own `WebNNBackend`: roughly a thousand
-/// lines of TypeScript that hand out MLTensor ids and move data between the
-/// WebAssembly heap and an MLTensor. Nothing calls it here, so a build can
-/// export `webnnInit` and still have no usable WebNN.
-bool hasWebNn(OrtModule module) => module.has('webnnCreateMLContext');
+/// Only that the glue exists. It stays inert until [wireWebNn] runs.
+bool hasWebNn(OrtModule module) => module.has('webnnInit');
 
-/// What to tell someone whose build has WebNN compiled in but not wired up.
-const whyWebNnUnavailable =
-    'this build has the WebNN provider compiled in, but WebNN is not usable '
-    'from this package. Unlike WebGPU, whose implementation is inside the '
-    "WebAssembly module, WebNN's tensor management lives in ONNX Runtime's "
-    'JavaScript layer: Module.webnnInit has to be handed a WebNNBackend that '
-    'reserves MLTensor ids and moves data in and out of them, and this '
-    'package has no equivalent. Use WebGPU instead, which needs none of it.';
+@JS('navigator')
+external JSObject get _navigator;
+
+/// Whether the browser exposes WebNN at all.
+bool browserHasWebNn() => _navigator.has('ml');
+
+extension type _Ml(JSObject _) implements JSObject {
+  external JSPromise<JSAny> createContext(JSAny options);
+}
+
+/// Refuses a call on the MLTensor path, by name.
+///
+/// Declared as returning a value rather than throwing straight from the
+/// closure, because a function that only ever throws types as `Never` and
+/// cannot cross into JavaScript.
+JSAny? _refuse(String name) => throw UnsupportedError(
+      'WebNN: ONNX Runtime called $name, which is part of the MLTensor path '
+      'this package does not implement. Data stays on ordinary tensors here, '
+      'so reaching this is a change in what the runtime asks for rather than '
+      'something you did.',
+    );
+
+/// The contexts sessions are using, so one is not collected while it runs.
+final _contexts = <int, JSAny>{};
+
+var _wired = false;
+
+/// Hands ONNX Runtime the JavaScript side it expects, implemented here.
+///
+/// `post-webnn.js` leaves every WebNN entry point unset until `webnnInit` is
+/// called with a backend object and seven callbacks, and then defines them as
+/// one-line forwards onto that object. Upstream passes its own TypeScript
+/// backend; nothing stops this passing one, which is what this does.
+///
+/// Only the parts a session on ordinary tensors reaches are implemented. The
+/// MLTensor paths, where a model's data would live on the accelerator between
+/// runs, throw by name rather than returning something wrong, so if one is
+/// ever reached it says which.
+void wireWebNn(OrtModule module) {
+  if (_wired) return;
+  _wired = true;
+
+  JSFunction unimplemented(String name) => (() => _refuse(name)).toJS;
+
+  final backend = JSObject()
+    ..setProperty(
+      'createMLContext'.toJS,
+      ((JSAny? options) =>
+          _Ml(_navigator.getProperty<JSObject>('ml'.toJS)).createContext(
+            options ?? JSObject(),
+          )).toJS,
+    )
+    // A session is told which context it got; keeping it alive is all this
+    // has to do, since the provider holds its own reference.
+    ..setProperty('onRunStart'.toJS, ((JSAny? _) {}).toJS)
+    ..setProperty('onRunEnd'.toJS, ((JSAny? _) {}).toJS)
+    ..setProperty(
+      'onReleaseSession'.toJS,
+      ((JSNumber session) => _contexts.remove(session.toDartInt)).toJS,
+    )
+    // No graph input or output is an MLTensor here, so the runtime keeps
+    // moving data through the heap as it does for the CPU provider.
+    ..setProperty(
+        'isGraphInput'.toJS, ((JSAny? _, JSAny? __) => false.toJS).toJS)
+    ..setProperty(
+        'isGraphOutput'.toJS, ((JSAny? _, JSAny? __) => false.toJS).toJS)
+    ..setProperty(
+      'isGraphInputOutputTypeSupported'.toJS,
+      ((JSAny? _, JSAny? __, JSAny? ___) => false.toJS).toJS,
+    )
+    ..setProperty(
+        'registerGraphInput'.toJS, unimplemented('registerGraphInput'))
+    ..setProperty(
+        'registerGraphOutput'.toJS, unimplemented('registerGraphOutput'))
+    ..setProperty('registerMLTensor'.toJS, unimplemented('registerMLTensor'))
+    ..setProperty(
+        'createTemporaryTensor'.toJS, unimplemented('createTemporaryTensor'))
+    ..setProperty('createMLTensorDownloader'.toJS,
+        unimplemented('createMLTensorDownloader'));
+
+  module.webnnInit([
+    backend,
+    unimplemented('reserveTensorId'),
+    unimplemented('releaseTensorId'),
+    unimplemented('ensureTensor'),
+    unimplemented('uploadTensor'),
+    unimplemented('downloadTensor'),
+    // Called once per session, straight after it is created.
+    ((JSNumber session, JSAny context) {
+      _contexts[session.toDartInt] = context;
+    }).toJS,
+    ((JSAny? _) {}).toJS,
+  ].toJS);
+}
 
 /// The provider name ONNX Runtime knows WebNN by, however it was written.
 bool isWebNn(String name) => name.toUpperCase() == 'WEBNN';
@@ -72,8 +156,18 @@ Future<JSAny> beginWebNnSession(
   }
 
   if (!hasWebNn(module)) {
-    throw UnsupportedError('WebNN: $whyWebNnUnavailable');
+    throw UnsupportedError(
+      'WebNN: this build has no WebNN glue, so it was not compiled with the '
+      'provider. Serve a build that was.',
+    );
   }
+  if (!browserHasWebNn()) {
+    throw UnsupportedError(
+      'WebNN: this browser does not expose navigator.ml. Chromium has it '
+      'behind --enable-features=WebMachineLearningNeuralNetwork.',
+    );
+  }
+  wireWebNn(module);
 
   final context = await module.webnnCreateMLContext(options).toDart;
   module.currentContext = context;

@@ -43,21 +43,9 @@ List<Accelerator> accelerators() => [
         // exists everywhere.
         configuration: const {'deviceType': 'cpu'},
         skip: _skipWithoutAcceleratorBuild ??
-            (_navigator.has('ml') ? _webnnUnwired : _webnnUnavailable),
+            (_navigator.has('ml') ? null : _webnnUnavailable),
       ),
     ];
-
-/// Why WebNN is not exercised even where the browser has it.
-///
-/// The browser is not the limit: `navigator.ml.createContext()` succeeds for
-/// cpu, gpu and npu. The provider reads `Module.currentContext` rather than
-/// making one, and the function that makes it only exists after
-/// `Module.webnnInit` has been handed ONNX Runtime's JavaScript WebNNBackend,
-/// which this package does not have. See `backend/wasm/webnn.dart`.
-const _webnnUnwired =
-    'the browser has WebNN, but this build has no usable one: ONNX Runtime '
-    "keeps WebNN's tensor management in its JavaScript layer, which this "
-    'package does not implement';
 
 const _webnnUnavailable =
     'this browser does not expose navigator.ml. Chromium has it behind '
