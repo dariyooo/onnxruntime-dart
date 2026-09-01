@@ -20,6 +20,7 @@ import 'api.g.dart';
 import 'arena.dart';
 import 'asyncify.dart';
 import 'module.dart';
+import 'session_options.dart';
 import 'status.dart';
 
 /// What to tell someone who called a synchronous form here.
@@ -45,8 +46,11 @@ final class AsyncWasmCalls extends WasmCalls
   Future<OrtPtr> createSessionAsync(Uint8List model, OrtPtr options) async {
     final arena = WasmArena(module);
     try {
-      final built = buildOptions(arena, pendingOptions(options));
+      final pending = pendingOptions(options);
+      final built = buildOptions(arena, pending);
       try {
+        // After the options handle exists and before the session reads it.
+        await _applyProvidersAsync(arena, built, pending);
         final data = arena.data(model);
         final handle = await settle(
           module.ortCreateSessionMaybeAsync(
@@ -120,9 +124,39 @@ final class AsyncWasmCalls extends WasmCalls
   void bindInput(OrtPtr binding, String name, OrtPtr tensor) =>
       unsupportedOnWeb('bindInput', _whySync);
 
+  /// Does nothing, because appending a provider here would have to suspend.
+  ///
+  /// `buildOptions` calls this while it puts the options together, which on
+  /// this build is too early: requesting a device is a promise. The providers
+  /// are applied by [_applyProvidersAsync] immediately afterwards, from
+  /// [createSessionAsync], which can await them.
   @override
-  @NativeOnly(_whySync)
-  void appendExecutionProvider(
-          OrtPtr options, String name, Map<String, String> configuration) =>
-      unsupportedOnWeb('appendExecutionProvider', _whySync);
+  void applyProviders(
+    WasmArena arena,
+    int handle,
+    PendingSessionOptions pending,
+  ) {}
+
+  /// Appends the requested providers, awaiting each.
+  ///
+  /// The reason a WebGPU session has to be created asynchronously: the device
+  /// is requested here, and that is a promise.
+  Future<void> _applyProvidersAsync(
+    WasmArena arena,
+    int handle,
+    PendingSessionOptions pending,
+  ) async {
+    for (final (name, configuration) in pending.providers) {
+      final code = await settle(
+        module.ortAppendExecutionProviderMaybeAsync(
+          handle.toJS,
+          arena.string(name).toJS,
+          arena.strings(configuration.keys.toList()).toJS,
+          arena.strings(configuration.values.toList()).toJS,
+          configuration.length.toJS,
+        ),
+      );
+      check(module, code, 'OrtAppendExecutionProvider');
+    }
+  }
 }

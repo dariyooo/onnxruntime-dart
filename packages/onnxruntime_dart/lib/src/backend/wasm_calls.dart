@@ -265,20 +265,37 @@ base class WasmCalls implements OrtCalls {
       );
     }
 
+    applyProviders(arena, handle, pending);
+    return handle;
+  }
+
+  /// Appends the requested providers to a built options handle.
+  ///
+  /// Separate from [buildOptions] because this is the one part of it that can
+  /// suspend: setting up a GPU device is asynchronous, so on an Asyncify build
+  /// the export hands back a promise. Everything above it is a plain call on
+  /// either build, which is why only this is overridden there.
+  @protected
+  void applyProviders(
+    WasmArena arena,
+    int handle,
+    PendingSessionOptions pending,
+  ) {
     for (final (name, configuration) in pending.providers) {
-      final keys = arena.strings(configuration.keys.toList());
-      final values = arena.strings(configuration.values.toList());
       check(
         module,
         module
-            .ortAppendExecutionProvider(handle.toJS, arena.string(name).toJS,
-                keys.toJS, values.toJS, configuration.length.toJS)
+            .ortAppendExecutionProvider(
+              handle.toJS,
+              arena.string(name).toJS,
+              arena.strings(configuration.keys.toList()).toJS,
+              arena.strings(configuration.values.toList()).toJS,
+              configuration.length.toJS,
+            )
             .toDartInt,
         'OrtAppendExecutionProvider',
       );
     }
-
-    return handle;
   }
 
   int _stringOrNull(WasmArena arena, String? value) =>
