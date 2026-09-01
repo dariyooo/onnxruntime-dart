@@ -34,6 +34,7 @@ final class Operation {
     this.native,
     this.wasm,
     this.nativeAlso = const [],
+    this.webDerived = false,
     this.note,
   });
 
@@ -49,16 +50,26 @@ final class Operation {
   /// Further C calls the operation needs, where one wasm call covers several.
   final List<String> nativeAlso;
 
+  /// Whether the web supports this without calling the runtime.
+  ///
+  /// Not the same as having no wasm function. The version is the example: the
+  /// WebAssembly build exports none, but the loader knows which build it
+  /// fetched, so the operation works and simply gets its answer elsewhere.
+  final bool webDerived;
+
   /// Why the mapping is not obvious, when it is not.
   final String? note;
 
   /// Portable when both sides have it. This is the whole availability rule:
   /// nothing is annotated, placement decides.
-  bool get isPortable => native != null && wasm != null;
+  /// Whether the web has it at all, however it is answered.
+  bool get onWeb => wasm != null || webDerived;
 
-  bool get isNativeOnly => native != null && wasm == null;
+  bool get isPortable => native != null && onWeb;
 
-  bool get isWebOnly => wasm != null && native == null;
+  bool get isNativeOnly => native != null && !onWeb;
+
+  bool get isWebOnly => onWeb && native == null;
 }
 
 /// Operations whose names differ between the two APIs, or that exist on one
@@ -75,8 +86,9 @@ const correspondence = <Operation>[
       native: 'GetVersionString',
       // On OrtApiBase rather than OrtApi, which is why it is reached directly
       // rather than through a generated wrapper.
-      note: 'the wasm build exports no version; the loader knows which build '
-          'it fetched instead'),
+      webDerived: true,
+      note: 'the wasm build exports no version, so the web answers from the '
+          'pinned submodule the asset packages are built from'),
 
   // Errors. Native returns an OrtStatus to read and release; wasm returns a
   // code and keeps the detail in one global.
@@ -135,7 +147,11 @@ const correspondence = <Operation>[
   Operation('unregisterProviderLibrary',
       native: 'UnregisterExecutionProviderLibrary'),
   Operation('addCustomOpsLibrary', native: 'RegisterCustomOpsLibrary_V2'),
-  Operation('availableProviders', native: 'GetAvailableProviders'),
+  Operation('availableProviders',
+      native: 'GetAvailableProviders',
+      webDerived: true,
+      note: 'the wasm build exports no such call, so the web answers from what '
+          'every web build compiles in'),
 
   // Training. Present in both, under different names: the wasm build prefixes
   // everything with OrtTraining and collapses the per-model input and output
