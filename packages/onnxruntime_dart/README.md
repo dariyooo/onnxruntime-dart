@@ -224,17 +224,29 @@ await openOnnxRuntime(
 
 Three builds, and you pick one by which package you depend on:
 
-| Package | Accelerators |
-| --- | --- |
-| `onnxruntime_web` | XNNPACK |
-| `onnxruntime_web_webgpu` | XNNPACK, WebGPU |
-| `onnxruntime_web_webgpu_webnn` | XNNPACK, WebGPU, WebNN |
+| Package | Accelerators | Works today |
+| --- | --- | --- |
+| `onnxruntime_web` | XNNPACK | yes |
+| `onnxruntime_web_webgpu` | XNNPACK, WebGPU | not yet |
+| `onnxruntime_web_webgpu_webnn` | XNNPACK, WebGPU, WebNN | not yet |
+
+The accelerator builds are compiled with Asyncify, because WebGPU needs an
+asynchronous path to read results back off the GPU. That changes the calling
+convention rather than just the speed: `OrtRun` returns a promise instead of a
+handle. This backend is synchronous, so it refuses those builds by name rather
+than misreading a promise as a result.
 
 Some things cannot work there and say so rather than failing quietly:
-WebAssembly has no `dlopen`, so providers and custom operators have to be
-compiled into the build you serve; the build has no filesystem, so profiling and
-optimized-model output have nowhere to go; and the thread count is fixed when
-the module is instantiated.
+
+- **No `dlopen`**, so providers and custom operators have to be compiled into
+  the build you serve rather than added as packages.
+- **No filesystem**, so profiling and optimized-model output have nowhere to go.
+- **One thread.** More needs `SharedArrayBuffer`, which needs the page served
+  cross-origin isolated with COOP and COEP. That is the page's choice, so the
+  default is the one that works everywhere.
+- **No `runAsync`.** The synchronous build exports no asynchronous run, and a
+  browser has no isolates, so a long model blocks the page. Splitting the work
+  across frames or a web worker is the answer until the Asyncify path lands.
 
 ## On-device training
 

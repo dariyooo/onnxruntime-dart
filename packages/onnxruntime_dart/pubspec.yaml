@@ -28,6 +28,9 @@ dependencies:
   meta: '>=1.15.0 <2.0.0'
 
 dev_dependencies:
+  # Browser tests fetch the WebAssembly runtime before handing it to the
+  # loader; see test/src/runtime_web.dart.
+  web: ^1.1.0
   # The generator formats its own output, so what it writes is final.
   dart_style: ^3.1.0
   # So this package's own tests have a runtime to load. A dev dependency is

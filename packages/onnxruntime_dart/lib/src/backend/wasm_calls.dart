@@ -28,6 +28,10 @@ import 'wasm/status.dart';
 /// Returns the backend for this platform.
 OrtCalls createCalls() => WasmCalls(ortModule);
 
+/// `DATA_LOCATION_CPU`, from the enum in `onnxruntime/wasm/api.cc`. Zero is
+/// `DATA_LOCATION_NONE` there and is refused for a tensor that has data.
+const _dataLocationCpu = 1;
+
 final class WasmCalls implements OrtCalls {
   WasmCalls(this._module);
 
@@ -42,10 +46,12 @@ final class WasmCalls implements OrtCalls {
 
   @override
   void init({int loggingLevel = 2}) {
-    // Zero threads means the runtime decides, which is right in a browser:
-    // it depends on hardwareConcurrency and whether the page is cross-origin
-    // isolated, neither of which this can see.
-    check(_module, _module.ortInit(0.toJS, loggingLevel.toJS).toDartInt,
+    // One thread. Asking the runtime to decide makes it spawn workers, and
+    // those need SharedArrayBuffer, which a page only has when it is served
+    // cross-origin isolated with COOP and COEP. That is the page's choice and
+    // not something this can see, so the safe default is the one that works
+    // everywhere.
+    check(_module, _module.ortInit(1.toJS, loggingLevel.toJS).toDartInt,
         'OrtInit');
   }
 
@@ -307,24 +313,38 @@ final class WasmCalls implements OrtCalls {
 
   /// Reads the packed type info the wasm build writes.
   ///
-  /// The layout is the one `OrtGetInputOutputMetadata` documents: the element
-  /// type, then the rank, then one dimension per rank. A negative dimension is
-  /// symbolic, which the shared API represents as null.
+  /// The layout is documented in `OrtGetInputOutputMetadata`:
+  ///
+  ///     [0, 4)                    element type
+  ///     [4, 8)                    dimension count
+  ///     [8, 8 + n*4)              a name pointer per dimension, null unless
+  ///                               that dimension is symbolic
+  ///     [8 + n*4, 8 + n*8)        the dimension values
+  ///
+  /// A symbolic dimension is one the model decides at run time. The shared API
+  /// reports those as -1, which is what the C API does natively.
   OrtTensorMeta _metadata(String name, int typeInfo) {
     if (typeInfo == 0) {
       return OrtTensorMeta(
-          name: name, elementType: OrtElementType.undefined, shape: const []);
+        name: name,
+        elementType: OrtElementType.undefined,
+        shape: const [],
+      );
     }
+
     final type = _module.readInt(typeInfo);
     final rank = _module.readInt(typeInfo + 4);
+    final names = typeInfo + 8;
+    final values = names + 4 * rank;
+
     final shape = <int>[
       for (var i = 0; i < rank; i++)
-        () {
-          final dimension = _module.readInt(typeInfo + 8 + 4 * i);
-          // -1 marks a dimension the model decides at run time.
-          return dimension < 0 ? -1 : dimension;
-        }(),
+        if (_module.readPointer(names + 4 * i) != 0)
+          -1
+        else
+          _module.readInt(values + 4 * i),
     ];
+
     return OrtTensorMeta(
       name: name,
       elementType: OrtElementType.fromCode(type),
@@ -348,9 +368,9 @@ final class WasmCalls implements OrtCalls {
                   data.lengthInBytes.toJS,
                   dimensions.toJS,
                   shape.length.toJS,
-                  // Zero is the CPU, which is the only place data given as
-                  // bytes can be.
-                  0.toJS)
+                  // DATA_LOCATION_CPU, from the enum in wasm/api.cc. Zero is
+                  // "none" there, not the CPU, and is rejected.
+                  _dataLocationCpu.toJS)
               .toDartInt,
           'OrtCreateTensor',
         ).asPtr;
@@ -486,7 +506,7 @@ final class WasmCalls implements OrtCalls {
           _module,
           _module
               .ortBindOutput(binding.address.toJS, arena.string(name).toJS,
-                  tensor.address.toJS, 0.toJS)
+                  tensor.address.toJS, _dataLocationCpu.toJS)
               .toDartInt,
           'OrtBindOutput',
         );
