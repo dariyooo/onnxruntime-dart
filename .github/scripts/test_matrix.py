@@ -642,6 +642,41 @@ class Pipelines(unittest.TestCase):
         }
         self.assertEqual(called, {c.stream for c in m.all_configurations()})
 
+    def test_a_provider_release_is_named_what_its_package_asks_for(self):
+        # The build hook derives the tag from the package version. If the
+        # release is named anything else the package cannot install, and
+        # nothing else notices: the build is green and the release exists.
+        import release_identity
+
+        for provider in ep_matrix.PROVIDERS:
+            package = REPO_ROOT / "packages" / f"onnxruntime_ep_{provider.name}"
+            if not package.is_dir():
+                continue
+
+            declared = re.search(
+                r"^version:\s*(\S+)",
+                (package / "pubspec.yaml").read_text(encoding="utf-8"),
+                re.M,
+            )
+            self.assertIsNotNone(declared, provider.name)
+
+            expected = f"ep-{provider.name}-v{declared.group(1)}"
+            self.assertEqual(
+                provider.release_tag,
+                expected,
+                f"{provider.name}: the matrix and the package disagree",
+            )
+
+            # And what actually names the release, for the ones we build.
+            if provider.source == ep_matrix.BUILD:
+                plugin = release_identity.provider_version(f"ep-{provider.name}")
+                self.assertEqual(
+                    plugin,
+                    declared.group(1),
+                    f"{provider.name}: the release would be named for a "
+                    f"different version than the package asks for",
+                )
+
     def test_every_provider_that_is_published_has_a_package(self):
         # A provider we build or mirror with no package is a release nothing
         # installs. TensorRT is deliberately not here: it has no plugin-shaped

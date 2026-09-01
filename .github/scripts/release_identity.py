@@ -56,6 +56,23 @@ def identity(checkout: pathlib.Path = SUBMODULE) -> tuple[str, bool]:
     return f"v{version}-g{commit}", True
 
 
+def provider_version(component: str) -> str | None:
+    """The plugin's own version, for a component that has one.
+
+    A provider is versioned by ONNX Runtime separately from the runtime and
+    keeps working across runtime releases, so naming its release after the
+    runtime would be wrong twice: it would republish an unchanged binary
+    whenever the runtime moved, and it would not be the version the package
+    asks for. The build hook derives the tag from the package version, so the
+    two have to agree or nothing installs.
+    """
+    name = component.removeprefix("ep-")
+    if name == component:
+        return None
+    version = SUBMODULE / f"plugin-ep-{name}" / "VERSION_NUMBER"
+    return version.read_text(encoding="utf-8").strip() if version.is_file() else None
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -66,6 +83,8 @@ def main() -> None:
     args = parser.parse_args()
 
     version, prerelease = identity()
+    if (plugin := provider_version(args.component)) is not None:
+        version, prerelease = f"v{plugin}", False
     tag = f"{args.component}-{version}"
 
     print(f"tag={tag}")
