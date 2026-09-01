@@ -15,6 +15,7 @@ import 'package:onnxruntime_dart/native.dart';
 import 'package:test/test.dart';
 
 import 'src/ort_library.dart';
+import 'src/paths.dart';
 
 void main() {
   group('availability', () {
@@ -56,6 +57,43 @@ void main() {
       expect(api.TrainStep, isNot(equals(nullptr)));
       expect(api.OptimizerStep, isNot(equals(nullptr)));
       expect(api.ExportModelForInferencing, isNot(equals(nullptr)));
+    });
+
+    test('loads a real checkpoint and opens a training session on it', () {
+      // Everything above proves the API is present. This proves it works:
+      // ONNX Runtime ships a complete fixture set, so a checkpoint, a training
+      // model, an eval model and an optimizer are all to hand.
+      final fixtures = fromRoot(
+        'third_party/onnxruntime/onnxruntime/test/testdata/training_api',
+      );
+
+      final api = trainingApi().ref;
+      final checkpoint = api.loadCheckpoint('$fixtures/checkpoint.ckpt');
+      expect(checkpoint, isNot(equals(nullptr)));
+      addTearDown(() => api.releaseCheckpointState(checkpoint));
+
+      final environment = OrtEnvironment.instance();
+      final options = environment.api.createSessionOptions();
+      addTearDown(() => environment.api.releaseSessionOptions(options));
+
+      final session = api.createTrainingSession(
+        environment.handle,
+        options,
+        checkpoint,
+        '$fixtures/training_model.onnx',
+        '$fixtures/eval_model.onnx',
+        '$fixtures/adamw.onnx',
+      );
+      expect(session, isNot(equals(nullptr)));
+      addTearDown(() => api.releaseTrainingSession(session));
+
+      // Weights actually came off disk. A checkpoint that loaded but held
+      // nothing would still hand back a session.
+      expect(api.getParametersSize(session, true), greaterThan(0));
+
+      // A real call into the training machinery, not just a handle check: it
+      // walks the gradient buffers the session set up.
+      expect(() => api.lazyResetGrad(session), returnsNormally);
     });
 
     test('reports a missing checkpoint rather than crashing', () {
