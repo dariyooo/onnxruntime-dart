@@ -46,13 +46,13 @@ final class WasmCalls implements OrtCalls {
 
   @override
   void init({int loggingLevel = 2}) {
-    // One thread. Asking the runtime to decide makes it spawn workers, and
-    // those need SharedArrayBuffer, which a page only has when it is served
-    // cross-origin isolated with COOP and COEP. That is the page's choice and
-    // not something this can see, so the safe default is the one that works
-    // everywhere.
-    check(_module, _module.ortInit(1.toJS, loggingLevel.toJS).toDartInt,
-        'OrtInit');
+    // The same count the worker pool was sized with. Asking for more here than
+    // the module was instantiated with means threads it cannot start.
+    check(
+      _module,
+      _module.ortInit(ortWasmThreads.toJS, loggingLevel.toJS).toDartInt,
+      'OrtInit',
+    );
   }
 
   @override

@@ -20,7 +20,12 @@ import 'dart:typed_data';
 /// );
 /// ```
 final class WebRuntimeOptions {
-  const WebRuntimeOptions({required this.loader, this.wasm, this.wasmBytes});
+  const WebRuntimeOptions({
+    required this.loader,
+    this.wasm,
+    this.wasmBytes,
+    this.threads,
+  });
 
   /// The Emscripten loader, which is the `.mjs`.
   final String loader;
@@ -32,6 +37,18 @@ final class WebRuntimeOptions {
   /// The `.wasm` already in memory, which is the reliable option: nothing has
   /// to resolve a URL at all.
   final Uint8List? wasmBytes;
+
+  /// How many threads the runtime may use.
+  ///
+  /// These are real workers: the build is compiled with pthreads, and the
+  /// module spawns one fewer worker than this at startup. They need
+  /// `SharedArrayBuffer`, which a page only has when it is served
+  /// cross-origin isolated with COOP and COEP headers.
+  ///
+  /// Null picks for you: the hardware concurrency when the page is isolated,
+  /// and one when it is not, because asking for more there fails to start the
+  /// runtime at all rather than falling back.
+  final int? threads;
 }
 
 /// How many threads the runtime may use, and how loudly it logs. Ignored on
