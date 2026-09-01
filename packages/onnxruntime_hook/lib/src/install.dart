@@ -187,7 +187,8 @@ Future<void> _verify(
     if (response.statusCode != HttpStatus.ok) return;
     final builder = BytesBuilder(copy: false);
     await response.forEach(builder.add);
-    published = utf8.decode(builder.takeBytes()).trim().split(RegExp(r'\s+')).first;
+    published =
+        utf8.decode(builder.takeBytes()).trim().split(RegExp(r'\s+')).first;
   } on IOException {
     return;
   } finally {
