@@ -12,12 +12,28 @@ final session = Session.fromBytes(File('mnist.onnx').readAsBytesSync());
 final outputs = session.run({'Input3': input});
 ```
 
+## Platforms
+
+| Platform | Architectures | Compiled-in providers |
+| --- | --- | --- |
+| Android | arm64-v8a, armeabi-v7a, x86_64, x86 | CPU, XNNPACK |
+| iOS | device arm64, simulator arm64 and x86_64 | CPU, XNNPACK, CoreML |
+| macOS | arm64, x86_64 | CPU, XNNPACK, CoreML |
+| Linux | x86_64, arm64 | CPU, XNNPACK |
+| Windows | x86_64, arm64 | CPU, XNNPACK |
+| Web | wasm32 | CPU, XNNPACK; WebGPU and WebNN per build |
+
+Every library is built from the pinned submodule with every operator and every
+opset. Nothing is trimmed to save size.
+
+On the web the accelerators are compiled in rather than loaded, so which of the
+three builds you serve decides what you get. Everywhere else they are packages
+you add.
+
 ## Contents
 
 - [Quick start](#quick-start) — install and run your first model
 - [Tensors and shapes](#tensors-and-shapes)
-- [Memory](#memory) — the one rule you have to follow
-- [Platforms](#platforms) — what runs where
 - [Choosing a runtime](#choosing-a-runtime) — `base` or `full`
 - [Execution providers](#execution-providers) — GPUs and NPUs
 - [Extra operators](#extra-operators) — tokenizers, images, audio
@@ -44,8 +60,9 @@ import 'dart:typed_data';
 import 'package:onnxruntime_dart/onnxruntime_dart.dart';
 
 void main() async {
-  // Native does nothing here; the web fetches the runtime. Same call either
-  // way, so this line is not platform-specific.
+  // Readies the runtime. Nothing to do on native, where the library is already
+  // loaded. On the web it downloads and starts the WebAssembly module, which
+  // is why this is a Future. See "the web" for what to pass there.
   await openOnnxRuntime();
 
   final session = Session.fromBytes(File('mnist.onnx').readAsBytesSync());
@@ -62,6 +79,10 @@ void main() async {
 
   print(outputs['Plus214_Output_0']!.view.float32s);
 
+  // Free what you made, in the order you made it. Sessions and tensors hold
+  // memory the garbage collector cannot see, so this is the one rule you have
+  // to follow. Forgetting leaks; it cannot corrupt anything, because using or
+  // releasing something twice throws.
   input.release();
   for (final output in outputs.values) {
     output.release();
@@ -77,28 +98,6 @@ channel, 28 by 28: 784 floats in row-major order.
 
 A `-1` in a model's shape is a dimension it decides at run time, usually batch
 size. `session.inputs.first.isDynamic` tells you whether any dimension is.
-
-## Memory
-
-**Call `release()` on sessions and tensors when you are done with them.**
-
-Finalizers exist as a backstop but do not keep up under load, so a forgotten
-handle leaks. It cannot corrupt anything: releasing twice, or using something
-already released, throws.
-
-## Platforms
-
-| Platform | Architectures | Compiled-in providers |
-| --- | --- | --- |
-| Android | arm64-v8a, armeabi-v7a, x86_64, x86 | CPU, XNNPACK |
-| iOS | device arm64, simulator arm64 and x86_64 | CPU, XNNPACK, CoreML |
-| macOS | arm64, x86_64 | CPU, XNNPACK, CoreML |
-| Linux | x86_64, arm64 | CPU, XNNPACK |
-| Windows | x86_64, arm64 | CPU, XNNPACK |
-| Web | wasm32 | CPU, XNNPACK, and see [the web](#the-web) |
-
-Every library is built from the pinned submodule with every operator and every
-opset. Nothing is trimmed to save size.
 
 ## Choosing a runtime
 
