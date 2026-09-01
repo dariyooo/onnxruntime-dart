@@ -6,8 +6,9 @@
 /// `_free` plus every `EMSCRIPTEN_KEEPALIVE` function, and the runtime helpers
 /// named here.
 ///
-/// `FILESYSTEM=0`, which is why anything taking a path is unsupported rather
-/// than merely unimplemented.
+/// Linked with `FILESYSTEM=0`. Emscripten can provide a filesystem, but ONNX
+/// Runtime leaves it out to keep the build small, which is why anything taking
+/// a path is unsupported here rather than merely unimplemented.
 library;
 
 import 'dart:js_interop';

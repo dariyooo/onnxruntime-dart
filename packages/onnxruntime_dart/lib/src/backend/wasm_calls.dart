@@ -170,13 +170,13 @@ base class WasmCalls implements OrtCalls {
       pendingOptions(options).logId = id;
 
   @override
-  @NativeOnly('the WebAssembly build has no filesystem to write to')
+  @NativeOnly('this WebAssembly build is linked with FILESYSTEM=0')
   void setOptimizedModelPath(OrtPtr options, String path) => unsupportedOnWeb(
       'setOptimizedModelPath',
       'the WebAssembly build is compiled with FILESYSTEM=0');
 
   @override
-  @NativeOnly('the WebAssembly build has no filesystem to write to')
+  @NativeOnly('this WebAssembly build is linked with FILESYSTEM=0')
   void enableProfiling(OrtPtr options, String pathPrefix) => unsupportedOnWeb(
       'enableProfiling', 'the WebAssembly build is compiled with FILESYSTEM=0');
 
