@@ -349,14 +349,16 @@ jobs:
       - name: Run on an iOS simulator
         if: matrix.name == 'ios'
         working-directory: integration/harness
+        # Well inside the job's budget, so a hang here reports as this step
+        # rather than as the whole job running out of time.
+        timeout-minutes: 25
         run: |
           set -euo pipefail
-          simulator=$(xcrun simctl list devices available -j \
-            | python3 -c "import json,sys; d=json.load(sys.stdin)['devices']; \
-              print(next(x['udid'] for k,v in d.items() if 'iOS' in k \
-                for x in v if x['name'].startswith('iPhone')))")
+          simulator=$(python3 ../../.github/scripts/pick_simulator.py)
           echo "booting $simulator"
-          xcrun simctl boot "$simulator" || true
+          # bootstatus waits for the boot to finish. Plain boot returns
+          # immediately and leaves flutter to race it.
+          xcrun simctl bootstatus "$simulator" -b
           flutter test integration_test -d "$simulator" --reporter expanded
 
   test-against-our-build:
