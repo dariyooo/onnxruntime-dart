@@ -5,6 +5,7 @@
 library;
 
 import '../backend/calls.dart';
+import '../backend/wasm/asyncify.dart';
 import '../backend/wasm/loader.dart';
 import 'options.dart';
 
@@ -42,3 +43,19 @@ Future<void> openOnnxRuntime({
   );
   createCalls().init();
 }
+
+/// Whether this runtime accepts the synchronous calls.
+///
+/// True everywhere except a WebGPU or WebNN build of the web runtime. Those
+/// are compiled with Asyncify, where creating a session or running one can
+/// suspend, and a synchronous call has no way to wait for it. The synchronous
+/// forms refuse there rather than hand back a promise as though it were a
+/// result.
+///
+/// Code that has to run on every build should use [Session.load] and
+/// `runAsync`, which work the same on all of them. This is here for code that
+/// wants to take the synchronous path where it exists and can fall back.
+///
+/// Only meaningful after `openOnnxRuntime`, which is what decides the answer
+/// on the web.
+bool get supportsSynchronousCalls => !isAsyncifyBuild(ortModule);

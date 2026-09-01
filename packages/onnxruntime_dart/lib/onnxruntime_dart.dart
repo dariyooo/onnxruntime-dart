@@ -11,7 +11,11 @@ library;
 
 export 'src/annotations.dart' show NativeOnly, unsupportedOnWeb;
 export 'src/api/bootstrap.dart'
-    show NativeRuntimeOptions, WebRuntimeOptions, openOnnxRuntime;
+    show
+        NativeRuntimeOptions,
+        WebRuntimeOptions,
+        openOnnxRuntime,
+        supportsSynchronousCalls;
 export 'src/backend/types.dart'
     show
         OrtElementType,
