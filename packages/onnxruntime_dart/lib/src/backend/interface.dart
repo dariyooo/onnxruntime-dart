@@ -160,6 +160,17 @@ abstract interface class OrtCalls {
   String? endProfiling(OrtPtr session);
 }
 
+/// Creating a session on a backend where that can suspend.
+///
+/// Only the Asyncify builds of the WebAssembly runtime, where setting up the
+/// GPU happens during session creation and the synchronous entry point has no
+/// way to wait for it. Separate from [OrtCalls] so a backend that cannot
+/// suspend does not have to pretend it might.
+abstract interface class OrtAsyncSessionCalls {
+  /// Creates a session, awaiting the runtime if it suspends.
+  Future<OrtPtr> createSessionAsync(Uint8List model, OrtPtr options);
+}
+
 /// Running a model without blocking the isolate.
 ///
 /// Separate from [OrtCalls] deliberately. The WebAssembly build exports no
