@@ -315,18 +315,35 @@ class Providers(unittest.TestCase):
             )
             self.assertTrue(source, provider.name)
 
-    def test_a_provider_without_a_package_still_resolves_to_nothing(self):
-        # TensorRT is in the enum with no package behind it, because upstream
-        # ships only the bridge ABI. That is safe rather than broken: a missing
-        # asset falls back to a process-wide symbol lookup, and every provider
-        # exports the same entry point, so the file name is checked against the
-        # provider's own library stem before a path is believed.
-        source = (
+    def test_a_library_that_is_not_installed_resolves_to_nothing(self):
+        # TensorRT is in the provider table with no package behind it, because
+        # upstream ships only the bridge ABI. That is safe rather than broken:
+        # a code asset that was not installed falls back to a process-wide
+        # symbol lookup, and every provider exports the same entry point, so
+        # the file name is checked before a path is believed.
+        lookup = (
             REPO_ROOT / "packages" / "onnxruntime_dart" / "lib" / "src" / "ffi"
-            / "bundled_provider.dart"
+            / "library_lookup.dart"
         ).read_text(encoding="utf-8")
-        self.assertIn("fileName.contains(provider.libraryStem)", source)
-        self.assertIn("tensorrt(", source)
+        self.assertIn("fileName.contains(stem)", lookup)
+
+        table = (
+            REPO_ROOT / "packages" / "onnxruntime_hook" / "lib" / "src"
+            / "target.dart"
+        ).read_text(encoding="utf-8")
+        self.assertIn("tensorrt(", table)
+
+    def test_the_base_package_names_no_provider_package(self):
+        # The layering. A provider package declares its own asset and finds it
+        # with loadedLibraryPath, so adding one is a new package rather than an
+        # edit to the base.
+        base = REPO_ROOT / "packages" / "onnxruntime_dart" / "lib"
+        for source in base.rglob("*.dart"):
+            self.assertNotIn(
+                "package:onnxruntime_ep_",
+                source.read_text(encoding="utf-8"),
+                f"{source.name} names a provider package",
+            )
 
     def test_qnn_is_mirrored_whole(self):
         # The plugin dlopens the Qualcomm runtime by bare name, so unlike CUDA

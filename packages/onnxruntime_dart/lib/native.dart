@@ -2,8 +2,8 @@
 ///
 /// That is the complete ONNX Runtime C API, and also the calls that are
 /// ergonomic rather than raw but cannot live in `onnxruntime_dart.dart`:
-/// registering a bundled provider means asking the loader where a library
-/// came from, and the shared library must compile for the web.
+/// finding where a library was bundled means asking the loader, and the
+/// shared library must compile for the web.
 ///
 /// Every function in `OrtApi` is reachable here, because the bindings are
 /// generated from the pinned headers rather than hand-written. That makes
@@ -36,11 +36,9 @@ library;
 export 'src/bindings/api/api.g.dart';
 export 'src/bindings/api/support.dart' show withArena;
 export 'src/bindings/ort_bindings.g.dart';
-export 'src/ffi/bundled_extensions.dart' show extensionsLibraryPath;
-export 'src/ffi/bundled_provider.dart'
-    show OrtExecutionProvider, bundledProviderPath, registerBundledProviders;
 export 'src/ffi/environment.dart';
 export 'src/ffi/execution_provider.dart';
+export 'src/ffi/library_lookup.dart' show loadedLibraryPath;
 export 'src/ffi/library_path.dart' show libraryPathOf;
 export 'src/ffi/ort_path.dart' show allocateOrtPath, ortPathIsWide, readOrtPath;
 export 'src/ffi/runtime.dart'
