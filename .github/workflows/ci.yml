@@ -359,7 +359,27 @@ jobs:
           # bootstatus waits for the boot to finish. Plain boot returns
           # immediately and leaves flutter to race it.
           xcrun simctl bootstatus "$simulator" -b
-          flutter test integration_test -d "$simulator" --reporter expanded
+
+          # The app builds and installs, then the harness waits for the Dart
+          # VM service to connect back. On a headless runner that handshake
+          # does not happen unless Simulator.app is actually running, which is
+          # how this job spent 39 silent minutes after "Xcode build done".
+          open -a Simulator --args -CurrentDeviceUDID "$simulator"
+          xcrun simctl bootstatus "$simulator" -b
+
+          # Verbose, so a stall names the phase it stalled in rather than
+          # printing nothing at all.
+          flutter test integration_test -d "$simulator" \
+            --reporter expanded --verbose
+
+      # Whatever the simulator itself logged, which is the only place a crash
+      # on launch shows up when the harness just waits.
+      - name: What the simulator logged
+        if: failure() && matrix.name == 'ios'
+        continue-on-error: true
+        run: |
+          xcrun simctl spawn booted log show --last 10m --style compact \
+            --predicate 'processImagePath CONTAINS "harness"' | tail -80
 
   test-against-our-build:
     name: test · ${{ matrix.name }} · our build

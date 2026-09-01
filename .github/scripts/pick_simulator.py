@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Prints the UDID of an iPhone simulator to run on.
 
-`xcrun simctl list` hangs outright on a cold runner rather than failing, and a
-hang there is indistinguishable from a slow boot: it once took a device job to
-its 45 minute timeout without printing a line. So the call gets a deadline, and
-a hang is treated as a stale CoreSimulator service and retried once.
+Discovery is normally quick, but simctl can wedge against a stale
+CoreSimulator service and then never return rather than failing. A deadline
+turns that into a clear message and one retry, instead of a job that sits
+silent until its timeout.
 """
 
 from __future__ import annotations
