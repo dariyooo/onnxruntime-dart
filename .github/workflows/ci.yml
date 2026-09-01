@@ -186,6 +186,59 @@ jobs:
       - working-directory: packages/onnxruntime_dart
         run: dart test -p ${{ matrix.browser }} --reporter expanded
 
+  # The same suite again, against the WebAssembly runtime this run built.
+  #
+  # Separate from test-web because that one needs nothing and runs early; this
+  # one waits for the build. Without it the browser tests only prove the shared
+  # code compiles, which is how the WebAssembly backend was written but never
+  # executed.
+  test-web-runtime:
+    name: test · web · ${{ matrix.build }} · our build
+    needs: build-runtime
+    if: ${{ !cancelled() && needs.build-runtime.result != 'cancelled' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        # The plain build is synchronous; the WebGPU one is compiled with
+        # Asyncify and takes the other backend. Both have to be exercised.
+        build: [web-wasm, web-wasm-webgpu]
+    steps:
+      - uses: actions/checkout@v5
+        with: { submodules: true }
+      - uses: dart-lang/setup-dart@v1
+        with: { sdk: stable }
+      - run: dart pub get
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: onnxruntime-${{ matrix.build }}
+          path: .local/artifacts
+
+      - name: Serve it to the browser
+        shell: bash
+        run: |
+          set -euo pipefail
+          target=packages/onnxruntime_dart/test/web_runtime
+          mkdir -p "$target"
+          tar xzf ".local/artifacts/runtime/${{ matrix.build }}.tar.gz" -C "$target"
+          ls -la "$target"
+
+          loader=$(cd "$target" && ls *.mjs | head -1)
+          wasm=$(cd "$target" && ls *.wasm | head -1)
+          cat > packages/onnxruntime_dart/test/src/web_runtime_config.dart <<EOF
+          // Written by the test-web-runtime job.
+          library;
+
+          const webRuntimeLoader = './web_runtime/$loader';
+          const webRuntimeWasm = './web_runtime/$wasm';
+          EOF
+          cat packages/onnxruntime_dart/test/src/web_runtime_config.dart
+
+      - working-directory: packages/onnxruntime_dart
+        run: dart test -p chrome --reporter expanded
+
   # Stage 2a. Our binaries, built from the pinned submodule.
   #
   # One pipeline per thing that ships on its own. They share no build
@@ -399,7 +452,7 @@ jobs:
 
   test-against-our-build:
     name: test · ${{ matrix.name }} · our build
-    needs: [build-runtime, build-ep-webgpu]
+    needs: [build-runtime, build-ep-webgpu, build-extensions]
     # Runs even when part of the matrix failed: these six need only their own
     # native artifact, and gating them on every configuration means one web
     # variant that will not link hides whether the libraries we ship work at
@@ -436,6 +489,23 @@ jobs:
         with:
           name: onnxruntime-${{ matrix.artifact }}-webgpu
           path: .local/artifacts
+
+      # Built by its own pipeline in this run. Without it the extensions tests
+      # skip, and a component we publish for thirteen targets would go from
+      # built to released with nothing ever loading it.
+      - uses: actions/download-artifact@v4
+        with:
+          name: extensions-${{ matrix.artifact }}
+          path: .local/extensions
+
+      - name: Unpack the operator library
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .local/ort-extensions
+          tar xzf ".local/extensions/extensions-${{ matrix.artifact }}.tar.gz" \
+            -C .local/ort-extensions
+          ls -la .local/ort-extensions
 
       - name: Point the suite at our build
         shell: bash

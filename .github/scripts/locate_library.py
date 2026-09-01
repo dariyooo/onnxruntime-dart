@@ -26,6 +26,12 @@ PLUGIN_NAMES = (
     "onnxruntime_providers_webgpu.dll",
 )
 
+EXTENSIONS_NAMES = (
+    "libortextensions.so",
+    "libortextensions.dylib",
+    "ortextensions.dll",
+)
+
 
 def extract(archive: pathlib.Path, into: pathlib.Path) -> list[pathlib.Path]:
     into.mkdir(parents=True, exist_ok=True)
@@ -81,6 +87,17 @@ def main() -> None:
         )
     else:
         print(f"no WebGPU plugin for {config_id}; those tests will skip")
+
+    # The operator library, unpacked by the job before this runs. Optional in
+    # the same way: without it the extensions tests skip rather than fail.
+    extensions = REPO_ROOT / ".local" / "ort-extensions"
+    if extensions.is_dir():
+        found = find(extensions, EXTENSIONS_NAMES)
+        if found is None:
+            raise SystemExit(f"{extensions} holds no extensions library")
+        export("ONNXRUNTIME_EXTENSIONS_LIB", found)
+    else:
+        print("no extensions library; those tests will skip")
 
 
 if __name__ == "__main__":
