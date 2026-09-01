@@ -19,6 +19,7 @@ from __future__ import annotations
 import argparse
 import os
 import pathlib
+import sys
 import re
 import subprocess
 
@@ -65,12 +66,23 @@ def provider_version(component: str) -> str | None:
     whenever the runtime moved, and it would not be the version the package
     asks for. The build hook derives the tag from the package version, so the
     two have to agree or nothing installs.
+
+    Asked of ep_matrix rather than read from the submodule, because not every
+    provider is built from it. QNN is mirrored from a wheel and has no
+    plugin-ep directory, and reading one would silently fall back to the
+    runtime version, which is the exact mistake this exists to prevent.
     """
     name = component.removeprefix("ep-")
     if name == component:
         return None
-    version = SUBMODULE / f"plugin-ep-{name}" / "VERSION_NUMBER"
-    return version.read_text(encoding="utf-8").strip() if version.is_file() else None
+
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    import ep_matrix  # noqa: PLC0415
+
+    try:
+        return ep_matrix.by_name(name).version
+    except SystemExit:
+        return None
 
 
 def main() -> None:

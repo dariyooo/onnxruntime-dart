@@ -667,15 +667,21 @@ class Pipelines(unittest.TestCase):
                 f"{provider.name}: the matrix and the package disagree",
             )
 
-            # And what actually names the release, for the ones we build.
-            if provider.source == ep_matrix.BUILD:
-                plugin = release_identity.provider_version(f"ep-{provider.name}")
-                self.assertEqual(
-                    plugin,
-                    declared.group(1),
-                    f"{provider.name}: the release would be named for a "
-                    f"different version than the package asks for",
-                )
+            # And what actually names the release. Every provider, however it
+            # is obtained: a mirrored one has no plugin-ep directory in the
+            # submodule, and reading one would fall back to the runtime version
+            # without saying so.
+            self.assertEqual(
+                release_identity.provider_version(f"ep-{provider.name}"),
+                declared.group(1),
+                f"{provider.name}: the release would be named for a different "
+                f"version than the package asks for",
+            )
+
+    def test_the_runtime_is_not_named_after_a_plugin(self):
+        import release_identity
+
+        self.assertIsNone(release_identity.provider_version("runtime"))
 
     def test_every_provider_that_is_published_has_a_package(self):
         # A provider we build or mirror with no package is a release nothing
