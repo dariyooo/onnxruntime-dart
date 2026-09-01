@@ -27,12 +27,29 @@ void main() {
     );
   });
 
-  test('the runtime is not available, and says so', () {
-    // The WebAssembly backend is not implemented yet. Until it is, reaching
-    // the runtime must fail loudly rather than appear to work.
+  test('reaching the runtime before loading it says which call is missing', () {
+    // The WebAssembly module has to be fetched and instantiated, which cannot
+    // happen synchronously, so an application calls openOnnxRuntime once at
+    // startup. Using the runtime before that must name that call rather than
+    // failing somewhere inside the backend.
     expect(
       () => Session.fromBytes(Uint8List(0)),
-      throwsA(isA<UnsupportedError>()),
+      throwsA(
+        isA<StateError>().having(
+          (e) => e.message,
+          'message',
+          contains('loadOrtWasm'),
+        ),
+      ),
+    );
+  });
+
+  test('openOnnxRuntime needs somewhere to fetch the runtime from', () {
+    // Native has the library already; the web has to be told where it is.
+    // Saying so is better than a failure inside the loader.
+    expect(
+      () => openOnnxRuntime(),
+      throwsA(isA<ArgumentError>()),
     );
   });
 }
