@@ -22,6 +22,7 @@ import 'asyncify.dart';
 import 'module.dart';
 import 'session_options.dart';
 import 'status.dart';
+import 'webnn.dart';
 
 /// What to tell someone who called a synchronous form here.
 const _whySync =
@@ -51,14 +52,31 @@ final class AsyncWasmCalls extends WasmCalls
       try {
         // After the options handle exists and before the session reads it.
         await _applyProvidersAsync(arena, built, pending);
-        final data = arena.data(model);
-        final handle = await settle(
-          module.ortCreateSessionMaybeAsync(
-            data.toJS,
-            model.lengthInBytes.toJS,
-            built.toJS,
-          ),
-        );
+
+        // WebNN takes a context this side has to make. Parked on the module
+        // for the provider's constructor to pick up, then handed to the
+        // session once it exists.
+        final webnn = pending.providers
+            .where((provider) => isWebNn(provider.$1))
+            .firstOrNull;
+        final context =
+            webnn == null ? null : await beginWebNnSession(module, webnn.$2);
+
+        var handle = 0;
+        try {
+          final data = arena.data(model);
+          handle = await settle(
+            module.ortCreateSessionMaybeAsync(
+              data.toJS,
+              model.lengthInBytes.toJS,
+              built.toJS,
+            ),
+          );
+        } finally {
+          // Even when the session failed: a context left behind would be
+          // taken by whatever is created next.
+          if (webnn != null) endWebNnSession(module, context, handle);
+        }
         return OrtPtr(checkHandle(module, handle, 'OrtCreateSession'));
       } finally {
         module.ortReleaseSessionOptions(built.toJS);
