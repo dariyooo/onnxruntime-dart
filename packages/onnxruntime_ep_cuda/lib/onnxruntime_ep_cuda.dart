@@ -31,8 +31,14 @@ String? providerPath() => loadedLibraryPath(
 
 /// Registers the provider under , and reports whether it was there.
 ///
-/// Call before creating any session: registration mutates process-global
-/// state, and racing it against session creation crashes the runtime.
+/// Register before creating a session that should use it. There is no need to
+/// do it first: ONNX Runtime places no ordering constraint on registration, so
+/// a provider downloaded at run time can be registered then and used by every
+/// session created afterwards. Sessions already built keep the providers they
+/// were built with.
+///
+/// It does mutate the environment, so do not race it against session creation
+/// on another isolate.
 bool registerCuda() {
   final path = providerPath();
   if (path == null) return false;

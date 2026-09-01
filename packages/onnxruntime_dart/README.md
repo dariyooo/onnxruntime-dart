@@ -55,10 +55,12 @@ import 'dart:typed_data';
 import 'package:onnxruntime_dart/onnxruntime_dart.dart';
 
 void main() async {
-  // Readies the runtime. Nothing to do on native, where the library is already
-  // loaded. On the web it downloads and starts the WebAssembly module, which
-  // is why this is a Future. See "the web" for what to pass there.
-  await openOnnxRuntime();
+  // Readies the runtime. On native the library is already loaded and this
+  // does nothing, ignoring the url. On the web it downloads and starts the
+  // WebAssembly module from that url, which is why this is a Future.
+  //
+  // onnxruntime_web publishes the url; see "the web".
+  await openOnnxRuntime(web: WebRuntimeOptions('url/to/ort-wasm.mjs'));
 
   final session = Session.fromBytes(File('mnist.onnx').readAsBytesSync());
 
@@ -136,15 +138,14 @@ CPU always works and XNNPACK is compiled in everywhere, so most models need
 nothing here. Anything else is a separate package, because a GPU backend is tens
 to hundreds of megabytes and most applications want none of them.
 
-| Provider | Package | Android | iOS | macOS | Linux | Windows | Web |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| CPU | built in | yes | yes | yes | yes | yes | yes |
-| XNNPACK | built in | yes | yes | yes | yes | yes | yes |
-| CoreML | built in | — | yes | yes | — | — | — |
-| WebGPU | `onnxruntime_ep_webgpu` | 64-bit | yes | yes | yes | yes | build variant |
-| WebNN | built in | — | — | — | — | — | build variant |
-| CUDA | `onnxruntime_ep_cuda` | — | — | — | x64, arm64 | x64, arm64 | — |
-| QNN | `onnxruntime_ep_qnn` | — | — | — | x64, arm64 | x64, arm64 | — |
+Each is a package named `onnxruntime_ep_<provider>`. What is compiled into
+every build is in [Platforms](#platforms) and needs nothing.
+
+| Provider | Android | iOS | macOS | Linux | Windows | Web |
+| --- | --- | --- | --- | --- | --- | --- |
+| WebGPU | 64-bit ABIs | yes | yes | yes | yes | compiled in |
+| CUDA | — | — | — | x64, arm64 | x64, arm64 | — |
+| QNN | — | — | — | x64, arm64 | x64, arm64 | — |
 
 ```sh
 dart pub add onnxruntime_ep_webgpu
@@ -153,11 +154,20 @@ dart pub add onnxruntime_ep_webgpu
 ```dart
 import 'package:onnxruntime_ep_webgpu/onnxruntime_ep_webgpu.dart';
 
-registerWebGpu(); // before any session exists
+registerWebGpu();
 ```
 
-Registration mutates process-global state, so it has to happen before the first
-session. Each package registers itself and reports whether it was installed.
+Each package finds its own library and registers it, returning whether it was
+there.
+
+Register before the sessions that should use it, not before all of them. A
+provider registered now is available to every session created afterwards, so
+one downloaded at run time works exactly the same way; sessions already built
+keep what they were built with. Do not register from one isolate while another
+is creating a session, though, because it mutates the environment.
+
+Unregistering is the one with a hard rule: release every session using a
+provider before unloading its library.
 
 Notes on the table:
 
@@ -167,8 +177,9 @@ Notes on the table:
   driver. `build: cuda13` selects the other, and on arm64 it is the only one.
 - **QNN** carries the Qualcomm AI Runtime with it. Not Android: there QNN is
   linked into a whole runtime rather than published as a loadable plugin.
-- **build variant** means the web, where the choice is which `.wasm` you serve
-  rather than a package you add.
+- **On the web** nothing is loaded: WebGPU and WebNN are compiled into two of
+  the three builds, so serving one is how you choose. CUDA and QNN have no web
+  equivalent at all.
 
 ## Extra operators
 
@@ -208,13 +219,12 @@ dart pub add onnxruntime_web
 ```dart
 import 'package:onnxruntime_web/onnxruntime_web.dart' as ort_assets;
 
-await openOnnxRuntime(
-  web: WebRuntimeOptions(
-    loader: ort_assets.ortLoaderUrl,
-    wasm: ort_assets.ortWasmUrl,
-  ),
-);
+await openOnnxRuntime(web: WebRuntimeOptions(ort_assets.ortLoaderUrl));
 ```
+
+One url, because the runtime looks for its `.wasm` next to the `.mjs` and the
+asset packages ship them together. Pass `wasm:` as well if a bundler has moved
+them apart, or `wasmBytes:` if you already have it in memory.
 
 Three builds, and you pick one by which package you depend on:
 

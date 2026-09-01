@@ -32,7 +32,7 @@ Future<void> ensureRuntime() async {
 
   final wasm = await _bytes(webRuntimeWasm);
   await openOnnxRuntime(
-    web: WebRuntimeOptions(loader: webRuntimeLoader, wasmBytes: wasm),
+    web: WebRuntimeOptions(webRuntimeLoader, wasmBytes: wasm),
   );
   _loaded = true;
 }
