@@ -33,6 +33,7 @@ you add.
 - [Execution providers](#execution-providers) — GPUs and NPUs
 - [Extra operators](#extra-operators) — tokenizers, images, audio
 - [The web](#the-web)
+- [Keeping inference off the calling thread](#keeping-inference-off-the-calling-thread)
 - [On-device training](#on-device-training)
 - [The packages](#the-packages) — how the pieces fit together
 - [Going further](#going-further) — the full C API, your own providers
@@ -287,9 +288,50 @@ Some things cannot work there and say so rather than failing quietly:
   Asyncify, they genuinely suspend while the GPU works, and the synchronous
   forms refuse rather than mistake a promise for a result. Ask
   `supportsSynchronousCalls` if you want to take the synchronous path where it
-  exists. Note that the plain build still blocks the page while a model runs: a
-  browser has no isolates, so the future completes on the far side of the
-  work.
+  exists. Note that the plain build still blocks the page while a model runs:
+  awaiting it does not move the work, it only lets you await it. See
+  [Keeping inference off the calling thread](#keeping-inference-off-the-calling-thread).
+
+## Keeping inference off the calling thread
+
+`runAsync` keeps a run off the *calling* thread only where something else can
+carry it. On native that is ONNX Runtime's own intra-op pool, so the isolate
+stays free. On the web there is no such pool to hand a whole run to: the plain
+build runs it on whichever thread called it, and the Asyncify builds suspend
+while the GPU works but still do their CPU work there. A long model on the page
+freezes the page.
+
+The fix is the same on both platforms, and the package deliberately does not
+ship it: **a session belongs to the thread that created it.** There is no pool
+and no sendable session, because how many threads you want, and how long they
+live, is an application's decision rather than a binding's. What the package
+owes is that a session works when you create one somewhere else, which is what
+`test/isolate_test.dart` and `test/worker_test.dart` check.
+
+| | Native | Web |
+| --- | --- | --- |
+| The thread | an isolate | a worker |
+| Sending the model | the bytes, over a port | the bytes, by `postMessage` |
+| Sending a session | never, it is not sendable | never, it is not sendable |
+| Sending a result | copied out, the view borrows memory | copied out, the view borrows heap |
+| Worked example | [`example/isolates.dart`](example/isolates.dart) | [`example/workers.dart`](example/workers.dart) |
+
+Both examples show the same two shapes, because the choice is the same one on
+either platform. A thread per call is simple and pays to load the model every
+time. A thread that loads once and answers many requests is what production
+looks like.
+
+The web has one wrinkle native does not: a worker runs a script, not a closure,
+so its body is a program of its own that you compile beside your page.
+
+```sh
+dart compile js example/worker_body.dart -o web/worker_body.dart.js
+```
+
+The page fetches the runtime once and hands the worker the bytes, because a
+worker resolves a relative URL against its own script rather than the page.
+Inside the worker, use `Session.load` and `runAsync`: that way the same worker
+body serves the plain build and the WebGPU one.
 
 ## On-device training
 
