@@ -27,7 +27,11 @@ void main() {
   }
 
   for (final entry in generated.files.entries) {
-    File('$_outputDirectory/${entry.key}').writeAsStringSync(entry.value);
+    final file = File('$_outputDirectory/${entry.key}');
+    // The wasm bindings belong beside the backend that uses them, not with
+    // the C API wrappers, so a key can point outside this directory.
+    file.parent.createSync(recursive: true);
+    file.writeAsStringSync(entry.value);
   }
 
   final files = generated.files.keys.where((f) => f.endsWith('.g.dart'));
