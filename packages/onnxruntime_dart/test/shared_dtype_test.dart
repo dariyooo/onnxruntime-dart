@@ -154,8 +154,34 @@ void main() {
         );
         // The bytes are still there, which is the documented way out.
         expect(tensor.view.data, hasLength(32));
+      }
+
+      // The portable accessor reads the same values on either platform, which
+      // is the point of it.
+      expect(tensor.view.int64Values, [0, 1, 2, 3]);
+    });
+
+    test('refuses a value it cannot represent rather than rounding it', () {
+      // Two words, so the value needs more than 53 bits. Native reads it;
+      // a JavaScript build has to refuse rather than hand back a rounded one.
+      final bytes = Uint8List(8);
+      ByteData.view(bytes.buffer)
+        ..setUint32(0, 1, Endian.little)
+        ..setUint32(4, 0x00400000, Endian.little);
+      final tensor = OrtTensor.fromData(OrtElementType.int64, bytes, [1]);
+      addTearDown(tensor.release);
+
+      if (identical(1, 1.0)) {
+        expect(
+          () => tensor.view.int64Values,
+          throwsA(isA<UnsupportedError>()
+              .having((e) => e.message, 'message', contains('53 bits'))),
+        );
       } else {
-        expect(tensor.view.int64s, [0, 1, 2, 3]);
+        // 0x0040000000000001, which needs 55 bits. Computed rather than
+        // written out: dart2js refuses to compile the literal at all, which
+        // is the same limit this test is about.
+        expect(tensor.view.int64Values, [0x00400000 * 4294967296 + 1]);
       }
     });
   }, skip: skipWithoutRuntime);

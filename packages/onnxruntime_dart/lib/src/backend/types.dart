@@ -185,28 +185,94 @@ final class OrtTensorView {
   /// fine, and int64 is common in ONNX models, so this is about reading the
   /// values out rather than about the model.
   Int64List get int64s {
-    _refuseWithoutInt64('int64s');
+    _refuseWithoutInt64('int64s', 'int64Values');
     return _typed(OrtElementType.int64, (b, o, n) => b.asInt64List(o, n));
   }
 
   /// Throws on a JavaScript build, for the same reason as [int64s].
   Uint64List get uint64s {
-    _refuseWithoutInt64('uint64s');
+    _refuseWithoutInt64('uint64s', 'uint64Values');
     return _typed(OrtElementType.uint64, (b, o, n) => b.asUint64List(o, n));
+  }
+
+  /// A 64-bit integer tensor's values, on every platform.
+  ///
+  /// [int64s] is a zero-copy view over the tensor's own memory and needs a
+  /// real `Int64List`, which a JavaScript build has no equivalent of. This
+  /// decodes the bytes instead, so the same code reads an int64 tensor
+  /// everywhere. Prefer [int64s] where the platform has it and the copy
+  /// matters.
+  ///
+  /// On a JavaScript build a value outside 2^53 throws rather than coming back
+  /// rounded, because an index that is quietly wrong is worse than one that
+  /// fails. Model outputs that are indices, token ids or shapes are far below
+  /// that, which is what makes this worth having.
+  List<int> get int64Values {
+    if (_hasInt64Lists) return int64s;
+    final bytes = _typed(
+      OrtElementType.int64,
+      (b, o, n) => ByteData.view(b, o, n * 8),
+    );
+    return [
+      for (var i = 0; i < elementCount; i++)
+        _exactly(
+          bytes.getInt32(i * 8 + 4, Endian.little),
+          bytes.getUint32(i * 8, Endian.little),
+          'int64Values',
+        ),
+    ];
+  }
+
+  /// An unsigned 64-bit integer tensor's values, on every platform.
+  ///
+  /// The counterpart of [int64Values], with the same limit.
+  List<int> get uint64Values {
+    if (_hasInt64Lists) return uint64s;
+    final bytes = _typed(
+      OrtElementType.uint64,
+      (b, o, n) => ByteData.view(b, o, n * 8),
+    );
+    return [
+      for (var i = 0; i < elementCount; i++)
+        _exactly(
+          bytes.getUint32(i * 8 + 4, Endian.little),
+          bytes.getUint32(i * 8, Endian.little),
+          'uint64Values',
+        ),
+    ];
+  }
+
+  /// Rebuilds a 64-bit value from its two halves, or refuses.
+  ///
+  /// A JavaScript number carries 53 bits of integer, so the high word decides
+  /// whether the result can be exact. Checked on the word rather than on the
+  /// result, because by the time the result exists it has already been
+  /// rounded and the evidence is gone.
+  static int _exactly(int high, int low, String accessor) {
+    if (high > 0x1FFFFF || high < -0x200000) {
+      throw UnsupportedError(
+        'OrtTensorView.$accessor: this tensor holds a value that needs more '
+        'than 53 bits, and this is a JavaScript build, where an int is a '
+        'double. Reading it would round it silently. Use `view.data` for the '
+        'raw little-endian bytes, or compile to WebAssembly, where Dart has '
+        'real 64-bit integers.',
+      );
+    }
+    return high * 4294967296 + low;
   }
 
   /// Refuses before the typed view is built, so the message names the reason.
   ///
   /// dart2js would otherwise throw its own `Int64List not supported`, which
   /// says what failed but not what to do instead.
-  void _refuseWithoutInt64(String accessor) {
+  void _refuseWithoutInt64(String accessor, String portable) {
     if (!_hasInt64Lists) {
       throw UnsupportedError(
         'OrtTensorView.$accessor: this is a JavaScript build, where Dart '
-        'numbers are doubles and there is no Int64List. The tensor is '
-        'readable, just not as 64-bit integers: use `view.data` for the raw '
-        'little-endian bytes and decode them. Compiling to WebAssembly '
-        'instead gives you real 64-bit integers and this accessor works.',
+        'numbers are doubles and there is no Int64List. Use '
+        '`view.$portable` instead, which decodes the bytes and works '
+        'on every platform, or `view.data` for the raw bytes. Compiling to '
+        'WebAssembly gives you real 64-bit integers and this accessor works.',
       );
     }
   }
