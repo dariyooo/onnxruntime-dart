@@ -38,3 +38,8 @@ TODO.md
 
 # Native build output (see .github/workflows/build-runtime.yml)
 dist/
+
+# Written by tool/fetch_web_runtime.sh and by CI. The committed version is
+# empty; a populated one is a local artifact and must not be committed, or
+# every browser run without a runtime fails on a missing file.
+packages/onnxruntime_dart/test/web_runtime/

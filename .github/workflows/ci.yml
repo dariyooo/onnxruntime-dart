@@ -400,7 +400,17 @@ jobs:
             | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
-          test -w /dev/kvm && echo "kvm is writable"
+
+          # Reported, not asserted. udev can take a moment, and failing here
+          # would turn a timing wobble into a red job. If KVM really is absent
+          # the emulator falls back to software and the job's timeout catches
+          # it, which is what the timeout is for.
+          if test -w /dev/kvm; then
+            echo "kvm is writable"
+          else
+            echo "::warning::/dev/kvm is not writable; the emulator will run "\
+              "in software and will probably exceed this job's timeout"
+          fi
 
       - name: Run on an Android emulator
         if: matrix.name == 'android'
