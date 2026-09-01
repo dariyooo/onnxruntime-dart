@@ -633,6 +633,40 @@ class Pipelines(unittest.TestCase):
             )
         )
 
+    def test_nothing_publishes_off_main(self):
+        # dev exists so work can be proved without cancelling main's runs. It
+        # must not publish: a release cut from an unproven branch is worse than
+        # no release, because the tag then exists and points at it.
+        import yaml
+
+        workflows = (REPO_ROOT / ".github" / "workflows").glob("*.yml")
+        checked = 0
+        for path in workflows:
+            content = path.read_text(encoding="utf-8")
+            workflow = yaml.safe_load(content)
+            for name, job in (workflow.get("jobs") or {}).items():
+                steps = job.get("steps") or []
+                publishes = [
+                    step
+                    for step in steps
+                    if "publish" in str(step.get("name", "")).lower()
+                    or "release create" in str(step.get("run", ""))
+                ]
+                if not publishes:
+                    continue
+
+                guard = str(job.get("if", "")) + "".join(
+                    str(step.get("if", "")) for step in publishes
+                )
+                self.assertIn(
+                    "refs/heads/main",
+                    guard,
+                    f"{path.name}:{name} can publish without being on main",
+                )
+                checked += 1
+
+        self.assertGreater(checked, 0, "no publishing job was found to check")
+
     def test_every_stream_is_its_own_pipeline(self):
         jobs = self._ci()["jobs"]
         called = {

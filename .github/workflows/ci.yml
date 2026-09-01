@@ -16,7 +16,16 @@ name: ci
 
 on:
   push:
-    branches: [main]
+    # dev is where work lands and is proved. main is what has been proved.
+    #
+    # Pushing to a branch with a run in flight cancels it, because only one run
+    # may be pending per concurrency group. That cost several afternoons of
+    # device jobs that skipped because the build they needed was cancelled. On
+    # dev that is fine, since the next push supersedes the last. Merging to
+    # main then runs once more against what actually landed.
+    #
+    # Releases are gated on refs/heads/main, so nothing dev builds is published.
+    branches: [main, dev]
     tags: ['v*']
   pull_request:
   workflow_dispatch:
