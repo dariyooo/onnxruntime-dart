@@ -13,6 +13,11 @@ dependencies:
   flutter: { sdk: flutter }
   onnxruntime_dart: { path: ../../packages/onnxruntime_dart }
   onnxruntime_binaries: { path: ../../packages/onnxruntime_binaries }
+  # So the device tests prove a provider loads and runs where it is hardest:
+  # Android maps libraries out of the APK and iOS repackages each into its own
+  # framework, and neither resembles the desktop layout the plugin path
+  # recovery was written against.
+  onnxruntime_ep_webgpu: { path: ../../packages/onnxruntime_ep_webgpu }
 
 dev_dependencies:
   flutter_test: { sdk: flutter }
@@ -20,7 +25,11 @@ dev_dependencies:
   lints: ^6.0.0
 
 dependency_overrides:
-  # The published constraints name hosted versions that do not exist yet.
+  # The published constraints name hosted versions that do not exist yet. The
+  # harness is deliberately not a workspace member, so the provider package's
+  # constraints have to be pointed back at this tree by hand.
+  onnxruntime_binaries: { path: ../../packages/onnxruntime_binaries }
+  onnxruntime_dart: { path: ../../packages/onnxruntime_dart }
   onnxruntime_hook: { path: ../../packages/onnxruntime_hook }
 
 flutter:

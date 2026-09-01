@@ -34,9 +34,18 @@ jobs:
     permissions:
       contents: write
 
+  provider:
+    name: build the webgpu provider
+    uses: ./.github/workflows/build-runtime.yml
+    with:
+      stream: webgpu
+      configurations: ${{ inputs.configuration || 'ios-sim-arm64' }}-webgpu
+    permissions:
+      contents: write
+
   test:
     name: harness on a simulator
-    needs: build
+    needs: [build, provider]
     if: ${{ !cancelled() && needs.build.result != 'cancelled' }}
     runs-on: macos-15
     timeout-minutes: 45
@@ -57,6 +66,22 @@ jobs:
           set -euo pipefail
           mkdir -p .local/ort/device/lib
           tar xzf ".local/artifacts/runtime/${{ inputs.configuration || 'ios-sim-arm64' }}.tar.gz" \
+            -C .local/ort/device/lib
+          ls -la .local/ort/device/lib
+
+      # The provider the harness registers. Its own pipeline, so its own
+      # artifact.
+      - uses: actions/download-artifact@v4
+        with:
+          name: onnxruntime-${{ matrix.artifact || inputs.configuration || 'ios-sim-arm64' }}-webgpu
+          path: .local/artifacts
+
+      - name: Unpack the provider
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .local/ort/device/lib
+          tar xzf ".local/artifacts/ep-webgpu/${{ matrix.artifact || inputs.configuration || 'ios-sim-arm64' }}-webgpu.tar.gz" \
             -C .local/ort/device/lib
           ls -la .local/ort/device/lib
 

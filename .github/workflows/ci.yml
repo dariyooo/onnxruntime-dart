@@ -267,7 +267,7 @@ jobs:
   # a code-signed framework. Neither resembles the desktop layout.
   test-on-device:
     name: test · ${{ matrix.name }} · device
-    needs: build-runtime
+    needs: [build-runtime, build-ep-webgpu]
     # As above: a cancelled build leaves nothing to test against.
     if: ${{ !cancelled() && needs.build-runtime.result != 'cancelled' }}
     runs-on: ${{ matrix.runner }}
@@ -303,6 +303,22 @@ jobs:
 
       # The harness is not a workspace member, so it carries its own override.
       # One platform per job, so a single local_build is enough.
+      # The provider the harness registers. Its own pipeline, so its own
+      # artifact.
+      - uses: actions/download-artifact@v4
+        with:
+          name: onnxruntime-${{ matrix.artifact || inputs.configuration || 'ios-sim-arm64' }}-webgpu
+          path: .local/artifacts
+
+      - name: Unpack the provider
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .local/ort/device/lib
+          tar xzf ".local/artifacts/ep-webgpu/${{ matrix.artifact || inputs.configuration || 'ios-sim-arm64' }}-webgpu.tar.gz" \
+            -C .local/ort/device/lib
+          ls -la .local/ort/device/lib
+
       - name: Point the harness at it
         shell: bash
         run: |
