@@ -208,9 +208,11 @@ runtime rather than loaded beside it.
 
 ## The web
 
-The API is the same. The one difference is that the runtime has to be fetched,
-which cannot happen synchronously, so `openOnnxRuntime` needs to know where it
-is.
+Two differences. The runtime has to be fetched, which cannot happen
+synchronously, so `openOnnxRuntime` needs to know where it is. And which of the
+three builds you serve decides whether you call the synchronous API or the
+asynchronous one, because ONNX Runtime compiles the accelerator builds
+differently.
 
 ```sh
 dart pub add onnxruntime_web
@@ -280,15 +282,17 @@ crashing, because `GetTrainingApi` returns null there and that is detectable.
 
 Small packages that compose, so an application ships only what it uses.
 
-| Package | What it is | Size |
+Downloads are per target, compressed, from the published releases.
+
+| Package | What it is | Download |
 | --- | --- | --- |
-| `onnxruntime_dart` | Bindings and the API. No binaries. | small |
-| `onnxruntime_binaries` | The engine, one variant per build | tens of MB |
+| `onnxruntime_dart` | Bindings and the API. No binaries. | Dart only |
+| `onnxruntime_binaries` | The engine, one variant per build | up to 12 MB |
 | `onnxruntime_ep_webgpu` | WebGPU provider | tens of MB |
-| `onnxruntime_ep_cuda` | CUDA provider | hundreds of MB |
-| `onnxruntime_ep_qnn` | QNN provider and the Qualcomm runtime | hundreds of MB |
-| `onnxruntime_extensions` | Tokenizers, image and audio operators | ~3 MB |
-| `onnxruntime_web*` | The WebAssembly builds, as Flutter assets | tens of MB |
+| `onnxruntime_ep_cuda` | CUDA provider | 70 to 333 MB |
+| `onnxruntime_ep_qnn` | QNN provider and the Qualcomm runtime | 55 to 89 MB |
+| `onnxruntime_extensions` | Tokenizers, image and audio operators | about 1 MB |
+| `onnxruntime_web*` | The WebAssembly builds, as Flutter assets | 4 to 10 MB |
 
 Each is built and released on its own pipeline, so a provider that will not
 compile cannot stop the runtime from being built. Every archive is verified
@@ -343,7 +347,7 @@ bool registerMine() {
 
 Your package needs a build hook that installs the library as a code asset named
 `provider`. `onnxruntime_hook` does that work, and `onnxruntime_ep_webgpu` is
-thirty lines and is the whole example.
+fifty lines and is the whole example.
 
 Already have the library on disk? `registerProviderLibrary(name:, path:)` takes
 any path, no package required.
@@ -360,11 +364,14 @@ is not the ceiling.
 import 'package:onnxruntime_dart/native.dart';
 ```
 
-Every function in every API struct is generated from the pinned headers, so
-completeness is a property of the build rather than a goal. Each has a wrapper
-taking and returning Dart values, allocating what the call needs and turning a
-failed `OrtStatus` into an `OrtException`. The raw function pointer is still
-there when a wrapper cannot express what you need, such as a callback.
+Every function in every API struct is reachable, because ffigen binds the
+headers whole. Most also have a generated wrapper taking and returning Dart
+values, allocating what the call needs and turning a failed `OrtStatus` into an
+`OrtException`. A few dozen do not, where a signature defeats the generator, and
+those are listed in `lib/src/bindings/api/unmapped.txt`.
+
+Either way the raw function pointer is there, which is also the way in when a
+wrapper cannot express what you need, such as a callback.
 
 `native.dart` also holds what needs the loader rather than the runtime, which is
 why provider registration lives there: the shared library has to compile for the
