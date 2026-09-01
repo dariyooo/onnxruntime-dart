@@ -245,6 +245,26 @@ the synchronous forms refuse there rather than mistaking a promise for a result.
 `Session.load` exists for this and works everywhere, completing immediately on
 every other platform, so code that has to run on all three builds uses it.
 
+### Choosing a build at run time
+
+The build is not a compile-time decision. `openOnnxRuntime` takes a url, so a
+page can look at the browser it is in and fetch accordingly:
+
+```dart
+final gpu = web.window.navigator.has('gpu');
+await openOnnxRuntime(
+  web: WebRuntimeOptions(gpu ? webgpuLoaderUrl : plainLoaderUrl),
+);
+```
+
+Serve the files yourself rather than depending on all three asset packages,
+which would bundle every build into the app.
+
+The accelerators cannot be loaded separately, and that is upstream rather than
+here: ONNX Runtime links WebNN and WebGPU into the wasm and injects their
+JavaScript glue at link time, so there is no library to load even if the build
+allowed it.
+
 Some things cannot work there and say so rather than failing quietly:
 
 - **No loading libraries at run time.** Emscripten can do it, with
