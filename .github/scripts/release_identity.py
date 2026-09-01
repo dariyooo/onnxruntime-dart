@@ -85,6 +85,24 @@ def provider_version(component: str) -> str | None:
         return None
 
 
+def release_identity_for(component: str) -> tuple[str, str, bool]:
+    """The tag, version and prerelease flag for one release stream.
+
+    One function rather than a calculation repeated per caller, because the
+    name it produces has to match what the build hook asks for, and the last
+    time there were two of these they disagreed.
+    """
+    version, prerelease = identity()
+    if (plugin := provider_version(component)) is not None:
+        version, prerelease = f"v{plugin}", False
+    return f"{component}-{version}", version, prerelease
+
+
+def release_tag(component: str = "runtime") -> str:
+    """The tag alone, for callers that only need to find the release."""
+    return release_identity_for(component)[0]
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -94,10 +112,7 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    version, prerelease = identity()
-    if (plugin := provider_version(args.component)) is not None:
-        version, prerelease = f"v{plugin}", False
-    tag = f"{args.component}-{version}"
+    tag, version, prerelease = release_identity_for(args.component)
 
     print(f"tag={tag}")
     print(f"version={version}")

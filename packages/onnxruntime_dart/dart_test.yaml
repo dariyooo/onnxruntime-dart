@@ -16,6 +16,7 @@ override_platforms:
   chrome:
     settings:
       arguments: >-
-        --enable-features=SharedArrayBuffer,Vulkan
+        --enable-features=SharedArrayBuffer,Vulkan,WebMachineLearningNeuralNetwork
         --enable-unsafe-webgpu
         --use-angle=swiftshader
+        --enable-experimental-web-platform-features
