@@ -38,19 +38,6 @@ bool get ortWasmIsLoaded => _module != null;
 /// submodule in the same run, so the two cannot disagree.
 const wasmRuntimeVersion = ortVersion;
 
-@JS('import')
-external JSPromise<JSObject> _import(JSString url);
-
-/// Options handed to the Emscripten factory.
-///
-/// Only what the build accepts: `INCOMING_MODULE_JS_API` is pinned to
-/// `[locateFile,instantiateWasm,wasmBinary]`, and anything else is ignored.
-extension type _Options._(JSObject _) implements JSObject {
-  external factory _Options();
-  external set wasmBinary(JSUint8Array value);
-  external set locateFile(JSFunction value);
-}
-
 /// Fetches and instantiates the runtime.
 ///
 /// [loaderUrl] is the `.mjs`. [wasmBytes] is the `.wasm` when the caller has
@@ -68,7 +55,9 @@ Future<void> loadOrtWasm({
 
   final JSObject namespace;
   try {
-    namespace = await _import(loaderUrl.toJS).toDart;
+    // importModule is the SDK's dynamic import: `import` itself is a
+    // keyword rather than a callable global, so it cannot be bound.
+    namespace = await importModule(loaderUrl.toJS).toDart;
   } on Object catch (error) {
     throw StateError('could not load $loaderUrl: $error');
   }
@@ -81,11 +70,18 @@ Future<void> loadOrtWasm({
     );
   }
 
-  final options = _Options();
+  // A plain object, not an extension type: there is no JS class to construct,
+  // only a bag of properties the factory reads. The build pins
+  // INCOMING_MODULE_JS_API to [locateFile, instantiateWasm, wasmBinary], so
+  // anything else here would be ignored.
+  final options = JSObject();
   if (wasmBytes != null) {
-    options.wasmBinary = wasmBytes.toJS;
+    options.setProperty('wasmBinary'.toJS, wasmBytes.toJS);
   } else if (wasmUrl != null) {
-    options.locateFile = ((JSString _, JSString __) => wasmUrl.toJS).toJS;
+    options.setProperty(
+      'locateFile'.toJS,
+      ((JSString _, JSString __) => wasmUrl.toJS).toJS,
+    );
   }
 
   final resolved =
