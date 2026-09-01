@@ -28,7 +28,9 @@ Future<void> openOnnxRuntime({
       'openOnnxRuntime needs WebRuntimeOptions on the web: the WebAssembly '
           'runtime is fetched at startup rather than linked in. The URLs come '
           'from onnxruntime_web, onnxruntime_web_webgpu or '
-          'onnxruntime_web_webgpu_webnn',
+          'onnxruntime_web_webgpu_webnn:\n'
+          '\n'
+          '  await openOnnxRuntime(web: WebRuntimeOptions(ortLoaderUrl));',
     );
   }
 

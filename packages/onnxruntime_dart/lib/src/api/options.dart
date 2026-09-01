@@ -20,18 +20,15 @@ import 'dart:typed_data';
 /// );
 /// ```
 final class WebRuntimeOptions {
-  const WebRuntimeOptions({
-    required this.loader,
-    this.wasm,
-    this.wasmBytes,
-    this.threads,
-  });
+  const WebRuntimeOptions(this.loader,
+      {this.wasm, this.wasmBytes, this.threads});
 
-  /// The Emscripten loader, which is the `.mjs`.
+  /// The `.mjs` loader, and the only thing normally needed: the runtime
+  /// resolves its `.wasm` next to it, which is how the asset packages ship
+  /// them.
   final String loader;
 
-  /// The `.wasm` the loader fetches. Leave null to let it resolve one beside
-  /// the loader, which works until a bundler moves them apart.
+  /// The `.wasm`, when it is not beside the loader because something moved it.
   final String? wasm;
 
   /// The `.wasm` already in memory, which is the reliable option: nothing has

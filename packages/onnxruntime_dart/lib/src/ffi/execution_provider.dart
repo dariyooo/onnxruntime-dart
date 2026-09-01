@@ -23,9 +23,14 @@ import 'status.dart';
 /// is not the provider's own name. Throws [OrtException] if the library is
 /// missing, is not a plugin, or was built against a different ONNX Runtime.
 ///
-/// Register before creating any session. This mutates process-global state and
-/// racing it against session creation on another thread crashes the runtime
-/// with an alignment fault rather than failing cleanly.
+/// Available to every session created after this returns. ONNX Runtime places
+/// no ordering constraint on registration, so a provider obtained at run time
+/// can be registered then; sessions already built keep what they were built
+/// with.
+///
+/// Do not race it against session creation on another thread. It mutates the
+/// environment, and doing so has been seen to crash the runtime with an
+/// alignment fault rather than failing cleanly.
 void registerExecutionProviderLibrary(
   OrtApi api,
   Pointer<OrtEnv> env, {
@@ -53,6 +58,11 @@ void registerExecutionProviderLibrary(
 }
 
 /// Unregisters the plugin previously registered as [name].
+///
+/// Release every session using it first. This is the ordering ONNX Runtime
+/// actually requires, and the one people expect on the other call: unloading
+/// the library while a session still holds providers created from it leaves
+/// that session pointing into unmapped memory.
 void unregisterExecutionProviderLibrary(
   OrtApi api,
   Pointer<OrtEnv> env, {

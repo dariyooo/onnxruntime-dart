@@ -35,8 +35,10 @@ abstract interface class OrtCalls {
 
   /// Loads an execution provider plugin from [path], under [name].
   ///
-  /// Must happen before any session exists: this mutates process-global state,
-  /// and racing it against session creation crashes the runtime.
+  /// No ordering constraint: a provider registered now is available to every
+  /// session created afterwards, which is what lets one be downloaded at run
+  /// time. It does mutate the environment, so do not race it against session
+  /// creation on another isolate.
   void registerProviderLibrary({required String name, required String path});
 
   /// Unloads the plugin registered under [name].

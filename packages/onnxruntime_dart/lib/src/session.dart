@@ -29,6 +29,9 @@ List<String> availableProviders() => createCalls().availableProviders();
 ///
 /// Call this before creating any session. It mutates process-global state, and
 /// racing it against session creation crashes the runtime rather than failing.
+/// Ordering is not the constraint: ONNX Runtime is happy to register a
+/// provider after sessions already exist, and they simply keep what they were
+/// built with.
 void registerProviderLibrary({required String name, required String path}) =>
     createCalls().registerProviderLibrary(name: name, path: path);
 
