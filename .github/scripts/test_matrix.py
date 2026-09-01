@@ -268,6 +268,35 @@ class Providers(unittest.TestCase):
                 provider.release_tag, f"ep-{provider.name}-v{provider.version}"
             )
 
+    def test_the_publisher_and_the_installer_name_the_same_release(self):
+        # The release name is derived twice, in two languages: the workflow
+        # asks release_identity, and the build hook reads the package's own
+        # pubspec. Nothing makes those meet at runtime, so a disagreement is
+        # not an error, it is a 404 at install time for whoever depends on the
+        # package. This is the only thing that makes them meet.
+        import release_identity
+
+        for provider in ep_matrix.PROVIDERS:
+            published = release_identity.provider_version(f"ep-{provider.name}")
+            self.assertEqual(published, provider.version, provider.name)
+
+            pubspec = (
+                REPO_ROOT
+                / "packages"
+                / f"onnxruntime_ep_{provider.name}"
+                / "pubspec.yaml"
+            ).read_text(encoding="utf-8")
+            installed = re.search(
+                r"^version:\s*(\S+)\s*$", pubspec, re.MULTILINE
+            ).group(1)
+            self.assertEqual(
+                f"ep-{provider.name}-v{installed}",
+                provider.release_tag,
+                f"{provider.name}: the hook would look for "
+                f"ep-{provider.name}-v{installed}, the workflow publishes "
+                f"{provider.release_tag}",
+            )
+
     def test_every_provider_outlives_the_runtime_we_ship(self):
         ours = (
             ep_matrix.SUBMODULE / "VERSION_NUMBER"
