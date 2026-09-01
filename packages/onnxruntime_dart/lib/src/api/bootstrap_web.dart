@@ -36,6 +36,7 @@ Future<void> openOnnxRuntime({
     loaderUrl: web.loader,
     wasmUrl: web.wasm,
     wasmBytes: web.wasmBytes,
+    threads: web.threads,
   );
   createCalls().init();
 }

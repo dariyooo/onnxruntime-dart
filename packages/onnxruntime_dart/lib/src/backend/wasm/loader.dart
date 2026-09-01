@@ -16,6 +16,33 @@ import 'module.dart';
 /// The module, once loaded. Null until [loadOrtWasm] has completed.
 OrtModule? _module;
 
+/// Threads the loaded module was started with. See [usableThreads].
+int _threads = 1;
+
+/// How many threads the runtime is running with.
+///
+/// Fixed when the module is instantiated, because the worker pool is created
+/// then, so the backend reports rather than chooses.
+int get ortWasmThreads => _threads;
+
+/// A thread count this page can actually use.
+///
+/// The workers need `SharedArrayBuffer`, which is only available when the page
+/// is served cross-origin isolated. Asking for more than one without it does
+/// not degrade, it fails to start the runtime, so the safe answer is one.
+int usableThreads(int? requested) {
+  final isolated =
+      (globalContext['crossOriginIsolated'] as JSBoolean?)?.toDart ?? false;
+  if (!isolated) return 1;
+
+  final cores = (globalContext['navigator'] as JSObject?)
+          ?.getProperty<JSNumber?>('hardwareConcurrency'.toJS)
+          ?.toDartInt ??
+      1;
+  // More workers than cores costs scheduling and wins nothing.
+  return requested ?? (cores < 1 ? 1 : cores);
+}
+
 /// The loaded module, or an error naming what to call first.
 OrtModule get ortModule {
   final module = _module;
@@ -50,6 +77,7 @@ Future<void> loadOrtWasm({
   required String loaderUrl,
   Uint8List? wasmBytes,
   String? wasmUrl,
+  int? threads,
 }) async {
   if (_module != null) return;
 
@@ -75,6 +103,12 @@ Future<void> loadOrtWasm({
   // INCOMING_MODULE_JS_API to [locateFile, instantiateWasm, wasmBinary], so
   // anything else here would be ignored.
   final options = JSObject();
+
+  // Read at startup to size the worker pool: PTHREAD_POOL_SIZE is
+  // Module["numThreads"] - 1, so this has to be set before instantiating.
+  _threads = usableThreads(threads);
+  options.setProperty('numThreads'.toJS, _threads.toJS);
+
   if (wasmBytes != null) {
     options.setProperty('wasmBinary'.toJS, wasmBytes.toJS);
   } else if (wasmUrl != null) {
