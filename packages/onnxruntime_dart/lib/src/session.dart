@@ -6,7 +6,6 @@ library;
 
 import 'dart:typed_data';
 
-import 'annotations.dart';
 import 'backend/calls.dart';
 import 'backend/interface.dart';
 import 'backend/types.dart';
@@ -337,27 +336,35 @@ final class Session {
     }
   }
 
-  /// Runs the model without blocking this isolate.
+  /// Runs the model, waiting for the runtime rather than blocking on it.
   ///
-  /// The work happens on ONNX Runtime's own thread pool and the result arrives
-  /// on this isolate's event loop, so one session can have several runs in
-  /// flight against one copy of the weights.
+  /// On native the work happens on ONNX Runtime's own thread pool and the
+  /// result arrives on this isolate's event loop, so one session can have
+  /// several runs in flight against one copy of the weights.
   ///
-  /// Web has no equivalent: the WebAssembly build exports no asynchronous run.
-  @NativeOnly('the WebAssembly build exports no asynchronous run')
+  /// On the web it is whichever the build offers. A WebGPU or WebNN build is
+  /// compiled with Asyncify and genuinely suspends while the GPU works. The
+  /// plain build exports no asynchronous run and never needs one, so this
+  /// completes with the result of the synchronous run.
+  ///
+  /// Use this if the code has to run everywhere. It is the counterpart of
+  /// [Session.load], and like it, it works on every build.
   Future<Map<String, OrtTensor>> runAsync(
     Map<String, OrtTensor> feeds, {
     List<String>? wanted,
   }) async {
-    final calls = switch (_calls) {
-      final OrtAsyncCalls calls => calls,
-      _ => unsupportedOnWeb(
-          'Session.runAsync',
-          'the plain WebAssembly build exports no asynchronous run. The '
-              'WebGPU and WebNN builds do, and use it for everything',
-        ),
-    };
-    if (_intraOpNumThreads == 1) {
+    if (_calls is! OrtAsyncCalls) {
+      // The plain WebAssembly build. Nothing there can suspend, so the
+      // synchronous run is the entire implementation: this is the same work
+      // with a future around it, not a degraded version of it.
+      return run(feeds, wanted: wanted);
+    }
+    final calls = _calls as OrtAsyncCalls;
+
+    // Only where the run is dispatched onto a thread pool. A build that
+    // suspends instead, which is every backend that can also create a session
+    // asynchronously, has no pool to be short of.
+    if (_calls is! OrtAsyncSessionCalls && _intraOpNumThreads == 1) {
       throw StateError(
         'runAsync needs at least two intra-op threads, and this session was '
         'created with one. ONNX Runtime dispatches the run onto that pool and '
