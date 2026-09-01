@@ -6,11 +6,14 @@
 /// plugin needs one built, which the runtime release does not include.
 library;
 
+import 'dart:typed_data';
+
+import 'package:onnxruntime_dart/onnxruntime_dart.dart';
 import 'package:onnxruntime_dart/src/ffi/environment.dart';
 import 'package:onnxruntime_dart/src/ffi/execution_provider.dart';
-import 'package:onnxruntime_dart/src/ffi/status.dart';
 import 'package:test/test.dart';
 
+import 'src/embedded_model.dart';
 import 'src/ort_library.dart';
 
 void main() {
@@ -103,6 +106,54 @@ void main() {
       expect(
         executionProviderDeviceCount(env.api, env.handle),
         greaterThan(before),
+      );
+    });
+
+    test('runs a model on it, not just loads it', () {
+      // Registration and a device count prove the library opened and its
+      // factory ran. Neither proves the provider can execute anything, which
+      // is the thing an application actually depends on.
+      registerExecutionProviderLibrary(
+        env.api,
+        env.handle,
+        name: 'webgpu',
+        path: findWebGpuPlugin()!,
+      );
+      addTearDown(
+        () => unregisterExecutionProviderLibrary(
+          env.api,
+          env.handle,
+          name: 'webgpu',
+        ),
+      );
+
+      final session = Session.fromBytes(
+        absModel(),
+        options: const SessionOptions(
+          providers: [(name: 'webgpu', configuration: {})],
+        ),
+      );
+      addTearDown(session.release);
+
+      final input = OrtTensor.fromData(
+        OrtElementType.float32,
+        Float32List.fromList([-1, 2, -3, 4, -5, 6, -7, 8, -9, 10]),
+        [1, 2, 5],
+      );
+      addTearDown(input.release);
+
+      final outputs = session.run({session.inputs.single.name: input});
+      addTearDown(() {
+        for (final output in outputs.values) {
+          output.release();
+        }
+      });
+
+      // Same answer as the CPU gives. A provider that runs but computes
+      // something else is worse than one that fails to load.
+      expect(
+        outputs.values.single.view.float32s,
+        [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
       );
     });
 
