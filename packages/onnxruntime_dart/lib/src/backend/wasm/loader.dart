@@ -10,6 +10,7 @@ import 'dart:js_interop';
 import 'dart:js_interop_unsafe';
 import 'dart:typed_data';
 
+import '../../version.g.dart';
 import 'module.dart';
 
 /// The module, once loaded. Null until [loadOrtWasm] has completed.
@@ -32,10 +33,10 @@ bool get ortWasmIsLoaded => _module != null;
 
 /// The ONNX Runtime version the loaded build carries.
 ///
-/// The WebAssembly build exports no version string, so this is the version the
-/// asset packages are published at. They are built from the pinned submodule
-/// in the same run as everything else, so the two cannot disagree.
-const wasmRuntimeVersion = '1.29.0';
+/// The WebAssembly build exports no version string, so this comes from the
+/// pinned submodule instead. The asset packages are built from that same
+/// submodule in the same run, so the two cannot disagree.
+const wasmRuntimeVersion = ortVersion;
 
 @JS('import')
 external JSPromise<JSObject> _import(JSString url);

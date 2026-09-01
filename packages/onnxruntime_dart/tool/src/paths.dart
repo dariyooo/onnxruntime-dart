@@ -29,6 +29,11 @@ String get ortTrainingHeader => _fromRoot(
 String get ortWasmHeader =>
     _fromRoot('third_party/onnxruntime/onnxruntime/wasm/api.h');
 
+/// The version of ONNX Runtime the submodule sits on. The one place it is
+/// written down, so nothing can claim a different one.
+String get ortVersionFile =>
+    _fromRoot('third_party/onnxruntime/VERSION_NUMBER');
+
 /// The ffigen bindings, which are the source of truth for FFI types.
 String get ortBindings =>
     _fromRoot('packages/onnxruntime_dart/lib/src/bindings/ort_bindings.g.dart');
