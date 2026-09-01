@@ -22,6 +22,13 @@ String get ortTrainingHeader => _fromRoot(
       'onnxruntime_training_c_api.h',
     );
 
+/// The WebAssembly build's own API, which is a different shape: free functions
+/// marked EMSCRIPTEN_KEEPALIVE rather than a struct of function pointers, and
+/// a smaller surface than the C API. Generated the same way and for the same
+/// reason, so neither backend is hand-written.
+String get ortWasmHeader =>
+    _fromRoot('third_party/onnxruntime/onnxruntime/wasm/api.h');
+
 /// The ffigen bindings, which are the source of truth for FFI types.
 String get ortBindings =>
     _fromRoot('packages/onnxruntime_dart/lib/src/bindings/ort_bindings.g.dart');
