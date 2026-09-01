@@ -28,10 +28,18 @@ void main() {
         }
       });
 
+      var seed = 1;
       final measurement = measureRssGrowth(
         () {
           final pointer = calloc<Uint8>(chunkBytes);
-          pointer.asTypedList(chunkBytes).fillRange(0, chunkBytes, 1);
+          // Deliberately incompressible. Filling with one repeated byte lets
+          // macOS compress the pages, and then a 64 MiB leak shows up as 30 MiB
+          // of growth and this test fails while measuring correctly.
+          final view = pointer.asTypedList(chunkBytes);
+          for (var i = 0; i < chunkBytes; i++) {
+            seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+            view[i] = seed >> 16;
+          }
           leaked.add(pointer);
         },
         iterations: 64,
