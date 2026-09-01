@@ -242,6 +242,43 @@ final class OrtTensorView {
     ];
   }
 
+  /// A 64-bit integer tensor's values, exactly, on every platform.
+  ///
+  /// [int64Values] is the one to reach for: it returns plain `int`s and is
+  /// free on a platform with real 64-bit integers. This exists for the case it
+  /// refuses, a value beyond 53 bits on a JavaScript build, where a `BigInt`
+  /// is the only Dart type that can hold one without rounding.
+  ///
+  /// Slower and allocates per element, so it is worth reaching for only when
+  /// the values genuinely are that large: hashes, ids minted from timestamps,
+  /// anything counting nanoseconds.
+  List<BigInt> get int64BigInts {
+    final bytes = _typed(
+      OrtElementType.int64,
+      (b, o, n) => ByteData.view(b, o, n * 8),
+    );
+    return [
+      for (var i = 0; i < elementCount; i++)
+        (BigInt.from(bytes.getInt32(i * 8 + 4, Endian.little)) << 32) +
+            BigInt.from(bytes.getUint32(i * 8, Endian.little)),
+    ];
+  }
+
+  /// An unsigned 64-bit integer tensor's values, exactly, on every platform.
+  ///
+  /// The counterpart of [int64BigInts].
+  List<BigInt> get uint64BigInts {
+    final bytes = _typed(
+      OrtElementType.uint64,
+      (b, o, n) => ByteData.view(b, o, n * 8),
+    );
+    return [
+      for (var i = 0; i < elementCount; i++)
+        (BigInt.from(bytes.getUint32(i * 8 + 4, Endian.little)) << 32) +
+            BigInt.from(bytes.getUint32(i * 8, Endian.little)),
+    ];
+  }
+
   /// Rebuilds a 64-bit value from its two halves, or refuses.
   ///
   /// A JavaScript number carries 53 bits of integer, so the high word decides
@@ -253,9 +290,10 @@ final class OrtTensorView {
       throw UnsupportedError(
         'OrtTensorView.$accessor: this tensor holds a value that needs more '
         'than 53 bits, and this is a JavaScript build, where an int is a '
-        'double. Reading it would round it silently. Use `view.data` for the '
-        'raw little-endian bytes, or compile to WebAssembly, where Dart has '
-        'real 64-bit integers.',
+        'double. Reading it would round it silently. Use '
+        '`view.${accessor.replaceFirst('Values', 'BigInts')}`, which is exact '
+        'for any 64-bit value, or `view.data` for the raw little-endian '
+        'bytes.',
       );
     }
     return high * 4294967296 + low;

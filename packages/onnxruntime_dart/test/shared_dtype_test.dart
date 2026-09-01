@@ -183,6 +183,23 @@ void main() {
         // is the same limit this test is about.
         expect(tensor.view.int64Values, [0x00400000 * 4294967296 + 1]);
       }
+
+      // Exact everywhere, which is the point of the BigInt accessor: it is
+      // what the message above tells you to reach for.
+      expect(tensor.view.int64BigInts, [BigInt.parse('18014398509481985')]);
+    });
+
+    test('reads unsigned values that fill the top bit', () {
+      // 0xFFFFFFFFFFFFFFFF: -1 read as signed, 18446744073709551615 unsigned.
+      // Native and JavaScript alike have to go through BigInt for this one.
+      final bytes = Uint8List(8)..fillRange(0, 8, 0xFF);
+      final tensor = OrtTensor.fromData(OrtElementType.uint64, bytes, [1]);
+      addTearDown(tensor.release);
+
+      expect(
+        tensor.view.uint64BigInts,
+        [BigInt.parse('18446744073709551615')],
+      );
     });
   }, skip: skipWithoutRuntime);
 }

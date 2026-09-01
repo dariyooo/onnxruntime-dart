@@ -277,13 +277,20 @@ Some things cannot work there and say so rather than failing quietly:
   optimized-model output have nowhere to write.
 - **No 64-bit integers when compiled to JavaScript.** A Dart `int` is a
   JavaScript number there, so `Int64List` does not exist and the zero-copy
-  `view.int64s` refuses. This matters because int64 is common in ONNX outputs,
-  indices and token ids especially, so there is a portable accessor for it:
-  `view.int64Values` decodes the bytes and returns a `List<int>` on every
-  platform. A value beyond 53 bits throws there rather than coming back
-  rounded, since an index that is quietly wrong is worse than one that fails.
-  Indices, token ids and shapes are far below that. Compiling to WebAssembly
-  gives you real 64-bit integers and `view.int64s` works.
+  `view.int64s` refuses. int64 is common in ONNX outputs, indices and token
+  ids especially, so there are two portable accessors instead. Reach for
+  `view.int64Values` first: it returns a `List<int>` on every platform and is
+  free where 64-bit integers are real. It throws on a value beyond 53 bits
+  rather than returning a rounded one, since an index that is quietly wrong is
+  worse than one that fails. `view.int64BigInts` is exact for any 64-bit value
+  and is what to use when they really are that large.
+- **Compiled to WebAssembly rather than JavaScript, it does not work yet.**
+  Every runtime we ship is the threaded build, so its heap is a
+  `SharedArrayBuffer`. On a page that is not cross-origin isolated the browser
+  hides the `SharedArrayBuffer` global, and dart2wasm asserts that a buffer is
+  one of the two kinds it knows, which on such a page it cannot be. Serving
+  with COOP and COEP is expected to fix it, and is what threads need anyway,
+  but that is untested here. dart2js is what the browser tests run on.
 - **Threads need a cross-origin isolated page.** The runtime uses real workers,
   which need `SharedArrayBuffer`, which needs COOP and COEP headers. That is
   the page's choice, so the default is the hardware concurrency when the page
