@@ -12,6 +12,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:code_assets/code_assets.dart';
+import 'package:crypto/crypto.dart';
 import 'package:hooks/hooks.dart';
 
 import 'target.dart';
@@ -118,6 +119,8 @@ Future<File?> _resolve(BuildInput input, String target, OS os) async {
   );
 }
 
+const _timeout = Duration(seconds: 30);
+
 Future<File> _download({
   required Uri url,
   required File into,
@@ -125,7 +128,7 @@ Future<File> _download({
   required String target,
   required String package,
 }) async {
-  final client = HttpClient()..connectionTimeout = const Duration(seconds: 30);
+  final client = HttpClient()..connectionTimeout = _timeout;
   final Uint8List archive;
   try {
     final response = await (await client.getUrl(url)).close();
@@ -155,9 +158,51 @@ Future<File> _download({
     client.close(force: true);
   }
 
+  await _verify(archive, url: url, package: package, client: null);
+
   into.parent.createSync(recursive: true);
   await into.writeAsBytes(_extractLibrary(archive, fileName), flush: true);
   return into;
+}
+
+/// Checks an archive against the SHA-256 published beside it.
+///
+/// Every release carries a `.sha256` sidecar per asset. Without this the hook
+/// installs whatever the network returned, which is the one step in the chain
+/// where bytes we did not build could get in.
+///
+/// A missing sidecar is not fatal: releases cut before the sidecars existed
+/// still have to install. A sidecar that disagrees is.
+Future<void> _verify(
+  Uint8List archive, {
+  required Uri url,
+  required String package,
+  HttpClient? client,
+}) async {
+  final http = client ?? (HttpClient()..connectionTimeout = _timeout);
+  String? published;
+  try {
+    final response =
+        await (await http.getUrl(Uri.parse('$url.sha256'))).close();
+    if (response.statusCode != HttpStatus.ok) return;
+    final builder = BytesBuilder(copy: false);
+    await response.forEach(builder.add);
+    published = utf8.decode(builder.takeBytes()).trim().split(RegExp(r'\s+')).first;
+  } on IOException {
+    return;
+  } finally {
+    if (client == null) http.close(force: true);
+  }
+
+  final actual = sha256.convert(archive).toString();
+  if (published.isEmpty || published == actual) return;
+
+  throw StateError(
+    '$package: $url does not match the SHA-256 published beside it.\n'
+    '  expected \$published\n'
+    '  actual   \$actual\n'
+    'Refusing to install it.',
+  );
 }
 
 /// Pulls [fileName] out of a gzipped tar archive.
