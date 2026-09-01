@@ -25,6 +25,7 @@ import 'package:ffi/ffi.dart';
 
 import '../bindings/ort_bindings.g.dart';
 import '../exceptions.dart';
+import '../version.g.dart';
 
 export '../exceptions.dart' show OrtAbiMismatch;
 
@@ -44,7 +45,7 @@ final class OrtRuntimeMissing implements Exception {
       'no binaries, so add the runtime to pubspec.yaml:\n'
       '\n'
       '  dependencies:\n'
-      '    onnxruntime_binaries: ^1.29.0\n';
+      '    onnxruntime_binaries: ^$ortVersion\n';
 }
 
 /// Whether the installed runtime was built with the on-device training APIs.
