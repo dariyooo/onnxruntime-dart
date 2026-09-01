@@ -33,12 +33,71 @@ A pub workspace. The submodule and CI are shared, so they sit above the members.
 | `packages/onnxruntime_dart/` | Core package. |
 | `packages/*/lib/src/bindings/*.g.dart` | ffigen output. Never edit. |
 | `packages/*/lib/src/backend/` | The FFI and wasm seam. |
+| `packages/*/tool/src/seam.dart` | The one hand-written link between the two. |
 | `third_party/onnxruntime` | Pinned submodule. Source of truth for headers and test models. |
 | `.github/scripts/ort_matrix.py` | Build matrix. |
 | `.agents/` | Agent instructions. `CLAUDE.md` points here. |
 
 Future ecosystem packages (genai, EP plugins, extensions) become workspace
 members. Each gets `resolution: workspace` and shares the one submodule.
+
+## The native and web split
+
+Both backends are generated from pinned headers. Neither is hand-written, and
+the same is true of the link between them.
+
+```
+423 wrappers   onnxruntime_c_api.h        native only, dart:ffi
+ 40 externals  onnxruntime/wasm/api.h     web only, dart:js_interop
+ 43 methods    OrtCalls                   the seam both implement
+```
+
+`ffi_calls.dart` composes the 423. `wasm_calls.dart` composes the 40.
+`async_calls.dart` extends the latter for the Asyncify builds, overriding only
+the five exports that can suspend.
+
+Availability is expressed by placement, never by an annotation on a portable
+member. An operation in both headers is portable; an operation in one belongs
+to that platform. `tool/src/seam.dart` says which is which, and it is the only
+file that has to be edited by hand when ONNX Runtime changes.
+
+### When the generator gets it wrong
+
+An update can rename a function, split one into two, or add a capability to one
+platform and not the other. `test/seam_table_test.dart` fails with the offending
+name rather than letting a backend drift. Four fixes, in order of preference:
+
+1. **A rename.** Change the name in `correspondence`.
+2. **A new operation on both sides.** Add an entry naming both. Nothing else.
+3. **A new operation on one side.** Add an entry naming only that side. It lands
+   on that platform and is invisible to portable code.
+4. **A shape the table cannot express**, such as one call becoming two, or a
+   platform answering without calling the runtime at all. Set `webDerived` for
+   the latter. Otherwise write the method by hand in the backend and list it in
+   `handWritten` so the coverage check treats it as deliberate.
+
+Never widen `autoMatched` to make a failure go away. It exists so the table
+stays small, and a name that needs a new rule is usually a name that changed
+meaning.
+
+`platform_support.g.dart` is generated from the table, and
+`test/platform_support_test.dart` checks the WebAssembly backend against it in
+both directions: every operation marked unavailable must refuse, and every
+operation marked available must not. That is what stops the table becoming a
+comment that compiles.
+
+### What the web genuinely cannot do
+
+Not choices. `dlopen` does not exist, so providers and custom operators are
+compiled into the build served. `FILESYSTEM=0`, so nothing writes to a path.
+Thread count is fixed when the module is instantiated and needs a cross-origin
+isolated page to exceed one.
+
+ONNX Runtime compiles the WebGPU and WebNN builds with `ASYNCIFY=1`. There
+`asyncInit()` replaces five exports with wrappers that return a promise *or* a
+value depending on whether the call suspended, so a synchronous backend would
+read a promise as a handle. The loader picks `AsyncWasmCalls` for those builds,
+detected by the presence of `asyncInit`.
 
 ## Invariants
 
