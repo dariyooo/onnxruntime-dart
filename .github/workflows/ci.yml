@@ -245,6 +245,14 @@ jobs:
           EOF
           cat packages/onnxruntime_dart/test/src/web_runtime_config.dart
 
+      # The worker test spawns a script rather than a closure, so its body is
+      # its own program and has to exist before the tests run.
+      - name: Compile the worker body
+        working-directory: packages/onnxruntime_dart
+        run: |
+          dart compile js test/src/worker_entry.dart \
+            -o test/src/worker_entry.dart.js -m
+
       - working-directory: packages/onnxruntime_dart
         run: dart test -p chrome --reporter expanded
 

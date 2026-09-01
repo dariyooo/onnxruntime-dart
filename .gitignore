@@ -43,3 +43,6 @@ dist/
 # empty; a populated one is a local artifact and must not be committed, or
 # every browser run without a runtime fails on a missing file.
 packages/onnxruntime_dart/test/web_runtime/
+
+# Compiled by tool/fetch_web_runtime.sh so the worker test has a body to spawn.
+packages/onnxruntime_dart/test/src/worker_entry.dart.js*
