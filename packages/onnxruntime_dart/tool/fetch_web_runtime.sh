@@ -54,5 +54,12 @@ const webRuntimeLoader = './web_runtime/$loader';
 const webRuntimeWasm = './web_runtime/$wasm';
 EOF
 
+# The worker test spawns a script rather than a closure, so its body is its
+# own program and has to be compiled before the tests run.
+(cd "$here/packages/onnxruntime_dart" &&
+  dart compile js test/src/worker_entry.dart \
+    -o test/src/worker_entry.dart.js -m >/dev/null)
+
 echo "wrote test/src/web_runtime_config.dart -> $loader"
+echo "compiled test/src/worker_entry.dart.js"
 echo "now: dart test -p chrome"
