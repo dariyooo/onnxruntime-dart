@@ -232,9 +232,9 @@ Three builds, and you pick one by which package you depend on:
 
 | Package | Accelerators | How you call it |
 | --- | --- | --- |
-| `onnxruntime_web` | XNNPACK | `Session.fromBytes`, `run` |
-| `onnxruntime_web_webgpu` | XNNPACK, WebGPU | `Session.load`, `runAsync` |
-| `onnxruntime_web_webgpu_webnn` | XNNPACK, WebGPU, WebNN | `Session.load`, `runAsync` |
+| `onnxruntime_web` | XNNPACK | either form |
+| `onnxruntime_web_webgpu` | XNNPACK, WebGPU | `Session.load` and `runAsync` |
+| `onnxruntime_web_webgpu_webnn` | XNNPACK, WebGPU, WebNN | `Session.load` and `runAsync` |
 
 The accelerator builds are compiled with Asyncify, because WebGPU needs an
 asynchronous path to read results back off the GPU. That changes the calling
@@ -280,12 +280,16 @@ Some things cannot work there and say so rather than failing quietly:
   has them and one when it does not: asking for more without them fails to
   start the runtime rather than degrading. `WebRuntimeOptions.threads` overrides
   it.
-- **Async depends on the build.** The plain build is synchronous throughout: it
-  exports no asynchronous run, and a browser has no isolates, so a long model
-  blocks the page. The WebGPU and WebNN builds are the other way round, since
-  ONNX Runtime compiles them with Asyncify: there `Session.load` and
-  `runAsync` are the way in, and the synchronous forms refuse rather than
-  mistake a promise for a result.
+- **The asynchronous form works on every build, the synchronous one does not.**
+  `Session.load` and `runAsync` are the way in everywhere. On the plain build
+  they complete with the result of the synchronous call, since nothing there
+  can suspend; on the WebGPU and WebNN builds, which ONNX Runtime compiles with
+  Asyncify, they genuinely suspend while the GPU works, and the synchronous
+  forms refuse rather than mistake a promise for a result. Ask
+  `supportsSynchronousCalls` if you want to take the synchronous path where it
+  exists. Note that the plain build still blocks the page while a model runs: a
+  browser has no isolates, so the future completes on the far side of the
+  work.
 
 ## On-device training
 
