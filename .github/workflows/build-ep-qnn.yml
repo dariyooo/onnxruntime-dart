@@ -59,6 +59,8 @@ jobs:
           retention-days: 1
 
       - name: Publish or refresh the release
+        # Only from main. dev builds to prove it works, not to publish.
+        if: github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ github.token }}
         run: python3 .github/scripts/publish_provider.py qnn
