@@ -284,13 +284,15 @@ Some things cannot work there and say so rather than failing quietly:
   rather than returning a rounded one, since an index that is quietly wrong is
   worse than one that fails. `view.int64BigInts` is exact for any 64-bit value
   and is what to use when they really are that large.
-- **Compiled to WebAssembly rather than JavaScript, it does not work yet.**
-  Every runtime we ship is the threaded build, so its heap is a
-  `SharedArrayBuffer`. On a page that is not cross-origin isolated the browser
-  hides the `SharedArrayBuffer` global, and dart2wasm asserts that a buffer is
-  one of the two kinds it knows, which on such a page it cannot be. Serving
-  with COOP and COEP is expected to fix it, and is what threads need anyway,
-  but that is untested here. dart2js is what the browser tests run on.
+- **Compiled to WebAssembly, the page must be cross-origin isolated.** Every
+  runtime we ship is the threaded build, so its heap is a `SharedArrayBuffer`
+  whether or not the page can use the threads, and a browser hides that
+  constructor unless the page is cross-origin isolated. dart2js never looks,
+  so it works either way. dart2wasm checks a buffer's kind before viewing it,
+  finds nothing to compare against, and fails an assertion inside the first
+  allocation. Serve with COOP and COEP, which is what threads need anyway.
+  `test/web_environment_test.dart` checks this and says so when it is wrong.
+  Both compilers are tested, and on dart2wasm `view.int64s` works natively.
 - **Threads need a cross-origin isolated page.** The runtime uses real workers,
   which need `SharedArrayBuffer`, which needs COOP and COEP headers. That is
   the page's choice, so the default is the hardware concurrency when the page

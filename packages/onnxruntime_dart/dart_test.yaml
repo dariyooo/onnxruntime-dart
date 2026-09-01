@@ -3,3 +3,16 @@ tags:
   # concurrently. Run with --tags exclusive --concurrency 1.
   exclusive:
     timeout: 2x
+
+# Chrome hides the SharedArrayBuffer constructor on a page that is not
+# cross-origin isolated, and the test server sends no COOP or COEP headers.
+# Every runtime we ship is the threaded build, so its heap is backed by one,
+# and dart2wasm asserts that a buffer is an ArrayBuffer or a SharedArrayBuffer
+# before it will view it. Without the global there is nothing to compare
+# against and the assert fails, so this exposes it the way an isolated page
+# would. It changes nothing else: crossOriginIsolated stays false, so the
+# runtime still starts single-threaded, which is the case worth testing here.
+override_platforms:
+  chrome:
+    settings:
+      arguments: "--enable-features=SharedArrayBuffer"
