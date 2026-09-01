@@ -119,29 +119,66 @@ Provider packages ship no Dart API. They install a library; that call finds it.
 It lives in `native.dart` because finding a loaded library means asking the
 loader, which needs `dart:ffi`.
 
-| Provider | Targets |
+| Package | Targets |
 | --- | --- |
-| WebGPU | Android arm64 and x86_64, iOS, macOS, Linux, Windows |
-| CUDA | Linux and Windows x64, arm64 on CUDA 13 |
+| `onnxruntime_ep_webgpu` | Android arm64 and x86_64, iOS, macOS, Linux, Windows |
+| `onnxruntime_ep_cuda` | Linux and Windows x64, arm64 on CUDA 13 |
+| `onnxruntime_ep_qnn` | Linux and Windows, both architectures |
 
-WebGPU is built here. CUDA is mirrored from ONNX Runtime's own plugin release,
-because building it needs the toolkit and hours of compute. CUDA ships against
-two toolkits and defaults to 12, which asks less of the driver; `build: cuda13`
-selects the other where it exists.
+WebGPU is built here, reaching Vulkan on Android and Linux, D3D12 or Vulkan on
+Windows, and Metal on Apple. CUDA and QNN are mirrored from what ONNX Runtime
+publishes: CUDA because building it needs the toolkit and hours of compute, QNN
+because the Qualcomm SDK it links against is behind an authenticated download.
+The QNN package carries that SDK's runtime with it.
+
+CUDA ships against two toolkits and defaults to 12, which asks less of the
+driver. `build: cuda13` selects the other where it exists, which on arm64 is the
+only one there is.
 
 For a provider we do not package, `registerProviderLibrary(name:, path:)` takes
 any library exporting `CreateEpFactories`. Both calls must happen before the
 first session exists: they mutate process-global state.
 
+## Operators the runtime does not have
+
+Tokenizers, text, image and audio preprocessing come from
+[onnxruntime-extensions](https://github.com/microsoft/onnxruntime-extensions),
+which runs them inside the graph instead of making you rewrite BPE or a mel
+spectrogram in Dart.
+
+```sh
+dart pub add onnxruntime_extensions
+```
+
+```dart
+import 'package:onnxruntime_dart/native.dart';
+
+final path = extensionsLibraryPath();
+final session = Session.fromBytes(
+  bytes,
+  options: SessionOptions(customOpsLibraries: [if (path != null) path]),
+);
+```
+
+It is a plain shared library exporting `RegisterCustomOps`, so nothing about
+this is specific to that project: any library with that entry point works the
+same way. Every native target, not the web, where the operators have to be
+compiled into the runtime rather than loaded beside it.
+
 ## Web
 
-Not working yet, and the honest version is that only the last step is missing.
+Not working yet. One piece is missing, and it is the last one.
 
-Everything above the backend seam is platform-agnostic and compiles for the web
-today. The WebAssembly runtime is built and published as Flutter asset packages
-(`onnxruntime_web`, `onnxruntime_web_webgpu`, `onnxruntime_web_webgpu_webnn`).
-What does not exist is the code binding Dart to the wasm exports, so reaching
-the runtime throws `UnsupportedError` saying exactly that.
+What exists: the API above the backend seam is platform-agnostic and compiles
+for the web today, tested on Chrome and Firefox in CI. The WebAssembly runtime
+is built for all three accelerator variants and published as Flutter asset
+packages (`onnxruntime_web`, `onnxruntime_web_webgpu`,
+`onnxruntime_web_webgpu_webnn`).
+
+What does not: the backend that calls into those wasm exports. `OrtCalls` has
+38 methods and the web implementation of it is a stub, so anything reaching the
+runtime throws `UnsupportedError` naming the reason. Everything that does not
+touch the runtime already works there.
 
 ## Training
 
@@ -180,9 +217,14 @@ there when a wrapper cannot express what you need, such as a callback.
 ```text
 onnxruntime_dart        bindings and the ergonomic API, no binaries
 onnxruntime_binaries    the engine, one variant per build
-onnxruntime_ep_*        one execution provider each
+onnxruntime_ep_*        one execution provider each: webgpu, cuda, qnn
+onnxruntime_extensions  operators the runtime does not ship
 onnxruntime_web*        the wasm builds, as Flutter assets
 ```
+
+Each is built and released on its own pipeline, so a provider that will not
+compile cannot stop the runtime from being built. Every archive is checked
+against the SHA-256 published beside it before it is installed.
 
 Nothing depends on Flutter except the web asset packages. The bindings are
 generated and checked against the submodule in CI, so they cannot drift from
