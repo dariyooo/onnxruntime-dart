@@ -351,9 +351,6 @@ jobs:
         if: steps.archives.outputs.empty != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ steps.identity.outputs.tag }}
-          COMPONENT: ${{ steps.component.outputs.name }}
-          PRERELEASE: ${{ steps.identity.outputs.prerelease }}
         run: |
           set -euo pipefail
           notes="Prebuilt ONNX Runtime for every supported configuration, built"
@@ -361,21 +358,11 @@ jobs:
           notes="$notes Each archive is verified by the build hook against the"
           notes="$notes SHA-256 in its sidecar."
 
-          if gh release view "$TAG" >/dev/null 2>&1; then
-            echo "refreshing $TAG"
-            gh release upload "$TAG" dist/"$COMPONENT"/* --clobber
-            gh release edit "$TAG" --notes "$notes"
-          else
-            echo "creating $TAG"
-            flags=()
-            if [ "$PRERELEASE" = true ]; then
-              # Built from an ONNX Runtime that has no release of its own, so
-              # it must not look like one.
-              flags+=(--prerelease)
-            fi
-            gh release create "$TAG" dist/"$COMPONENT"/* \
-              --title "$TAG" --notes "$notes" "${flags[@]}"
-          fi
+          python3 .github/scripts/publish_release.py \
+            --tag "${{ steps.identity.outputs.tag }}" \
+            --directory "dist/${{ steps.component.outputs.name }}" \
+            --notes "$notes" \
+            ${{ steps.identity.outputs.prerelease == 'true' && '--prerelease' || '' }}
 
   all-green:
     name: all ${{ needs.plan.outputs.count }} configurations succeeded
