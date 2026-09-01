@@ -19,6 +19,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:onnxruntime_dart/native.dart';
+import 'package:onnxruntime_ep_webgpu/onnxruntime_ep_webgpu.dart'
+    as webgpu;
 import 'package:onnxruntime_dart/onnxruntime_dart.dart' hide runtimeVersion;
 
 void main() {
@@ -57,6 +59,53 @@ void main() {
 
     test('an address in no library reports nothing', () {
       expect(libraryPathOf(Pointer<Void>.fromAddress(1)), isNull);
+    });
+
+    test('the WebGPU provider is installed, found and registered', () {
+      // The whole point of the device jobs. Path recovery is the fragile part
+      // of the provider design, and these are the two platforms where the
+      // loader reports something that looks nothing like a desktop path.
+      final path = webgpu.providerPath();
+      expect(
+        path,
+        isNotNull,
+        reason: 'the package is a dependency, so its library must be found',
+      );
+      expect(path, contains(webgpu.providerLibraryStem));
+
+      expect(webgpu.registerWebGpu(), isTrue);
+    });
+
+    test('a model runs on the WebGPU provider', () async {
+      // Loading is not running. A provider that registers but computes
+      // something else is worse than one that fails to load.
+      webgpu.registerWebGpu();
+
+      final model =
+          (await rootBundle.load('assets/model.onnx')).buffer.asUint8List();
+      final session = Session.fromBytes(
+        model,
+        options: const SessionOptions(
+          providers: [(name: 'webgpu', configuration: {})],
+        ),
+      );
+      addTearDown(session.release);
+
+      final input = OrtTensor.fromData(
+        OrtElementType.float32,
+        Float32List(1 * 6)..fillRange(0, 6, 1),
+        [1, 6],
+      );
+      addTearDown(input.release);
+
+      final outputs = session.run({session.inputs.single.name: input});
+      addTearDown(() {
+        for (final output in outputs.values) {
+          output.release();
+        }
+      });
+
+      expect(outputs.values.single.view.float32s, hasLength(26));
     });
 
     test('a library that is not installed reports nothing on device', () {
