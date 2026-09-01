@@ -53,7 +53,14 @@ final class WasmCalls implements OrtCalls {
   String runtimeVersion() => wasmRuntimeVersion;
 
   @override
-  List<String> availableProviders() => const ['CPUExecutionProvider'];
+  List<String> availableProviders() => const [
+        // What every web build compiles in. The wasm build exports no way to
+        // ask, and which accelerators are present depends on which of the
+        // three builds was served, which this cannot see. WebGPU and WebNN
+        // report themselves through the session when they are there.
+        'CPUExecutionProvider',
+        'XnnpackExecutionProvider',
+      ];
 
   @override
   @NativeOnly('WebAssembly has no dlopen; providers are compiled into the '
