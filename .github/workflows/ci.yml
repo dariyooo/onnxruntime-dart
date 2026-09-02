@@ -396,7 +396,11 @@ jobs:
       matrix:
         include:
           # The emulator is x86_64, so that is the library it needs.
-          - { name: android, runner: ubuntu-24.04, artifact: android-x86_64 }
+          - { name: android-x64, runner: ubuntu-24.04, artifact: android-x86_64, arch: x86_64 }
+          # The arm64 image runs natively on an arm64 runner. Without this the
+          # architecture almost every Android phone actually uses is built and
+          # never run.
+          - { name: android-arm64, runner: ubuntu-24.04-arm, artifact: android-arm64-v8a, arch: arm64-v8a }
           - { name: ios, runner: macos-15, artifact: ios-sim-arm64 }
     steps:
       - uses: actions/checkout@v5
@@ -451,7 +455,7 @@ jobs:
           tail -6 integration/harness/pubspec.yaml
 
       - name: Set up Java
-        if: matrix.name == 'android'
+        if: startsWith(matrix.name, 'android')
         uses: actions/setup-java@v4
         with: { distribution: temurin, java-version: '17' }
 
@@ -459,7 +463,7 @@ jobs:
       # quietly falls back to software emulation rather than saying so. That is
       # the difference between six minutes and six hours.
       - name: Let the emulator use KVM
-        if: matrix.name == 'android'
+        if: startsWith(matrix.name, 'android')
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
             | sudo tee /etc/udev/rules.d/99-kvm4all.rules
@@ -478,11 +482,13 @@ jobs:
           fi
 
       - name: Run on an Android emulator
-        if: matrix.name == 'android'
+        if: startsWith(matrix.name, 'android')
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 34
-          arch: x86_64
+          # From the matrix: an arm64-v8a image needs an arm64 host, which is
+          # the only way the arm build gets run rather than only built.
+          arch: ${{ matrix.arch }}
           target: google_apis
           emulator-boot-timeout: 900
           disable-animations: true
