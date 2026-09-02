@@ -29,6 +29,18 @@ on:
     tags: ['v*']
   pull_request:
   workflow_dispatch:
+    inputs:
+      from_release:
+        description: >-
+          Skip building and test against a published release instead. Give a
+          runtime tag, or "latest" for the one this checkout pins. Empty builds
+          everything and tests what it built.
+        type: string
+        default: ''
+  schedule:
+    # Weekly, against what is published, so a release that stops installing is
+    # noticed without waiting for someone to push.
+    - cron: '0 6 * * 1'
 
 permissions:
   contents: read
@@ -38,6 +50,52 @@ permissions:
 # never finishes once. The fast jobs cancel per job instead, and the build has
 # its own group in build-runtime.yml that queues rather than cancels.
 jobs:
+  # The only switch in this file. Everything downstream reads its output
+  # rather than testing the input again, so there is one answer to "are we
+  # building or testing what is already published" and no way for two jobs to
+  # disagree about it.
+  mode:
+    name: build, or test what is published
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      building: ${{ steps.pick.outputs.building }}
+      release: ${{ steps.pick.outputs.release }}
+    steps:
+      - uses: actions/checkout@v5
+        with: { submodules: true }
+      # So the runtime release resolves to its version rather than its commit.
+      - run: git -C third_party/onnxruntime fetch --tags --force origin
+      - id: pick
+        run: |
+          set -euo pipefail
+          asked='${{ inputs.from_release }}'
+          if [ -z "$asked" ] && [ "${{ github.event_name }}" != schedule ]; then
+            echo "building=true" >> "$GITHUB_OUTPUT"
+            echo "release=" >> "$GITHUB_OUTPUT"
+            echo "building everything and testing what was built"
+            exit 0
+          fi
+
+          if [ -z "$asked" ] || [ "$asked" = latest ]; then
+            asked=$(python3 -c "
+          import sys; sys.path.insert(0, '.github/scripts')
+          import release_identity
+          print(release_identity.release_tag('runtime'))
+          ")
+          fi
+          echo "building=false" >> "$GITHUB_OUTPUT"
+          echo "release=$asked" >> "$GITHUB_OUTPUT"
+          echo "skipping the builds and testing $asked"
+
+      # Only when testing what is published. On a run that builds, the release
+      # for a version just bumped does not exist yet and is about to be made.
+      - name: Every component this checkout declares has a release
+        if: ${{ steps.pick.outputs.building != 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 .github/scripts/check_releases_exist.py
+
   static:
     name: format, analyze, matrix
     runs-on: ubuntu-24.04
@@ -147,76 +205,13 @@ jobs:
           fi
 
   # Stage 1. No native library, so the ABI tests skip. Everything else runs.
-  test:
-    name: test · ${{ matrix.name }}
-    runs-on: ${{ matrix.runner }}
-    timeout-minutes: 30
-    concurrency:
-      group: test-${{ github.ref }}-${{ matrix.name }}
-      cancel-in-progress: true
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - { name: linux-x64,     runner: ubuntu-24.04 }
-          - { name: linux-arm64,   runner: ubuntu-24.04-arm }
-          - { name: macos-arm64,   runner: macos-15 }
-          - { name: macos-x64,     runner: macos-15-intel }
-          - { name: windows-x64,   runner: windows-2025 }
-          - { name: windows-arm64, runner: windows-11-arm }
-    steps:
-      - uses: actions/checkout@v5
-        with: { submodules: true }
-      - uses: dart-lang/setup-dart@v1
-        with: { sdk: stable }
-      - run: dart pub get
-      - name: Test
-        run: dart test packages/onnxruntime_dart --exclude-tags exclusive --reporter expanded
-
-      # Resident-memory tests measure the whole process, so nothing else may
-      # allocate while they run.
-      - name: Test (exclusive)
-        run: dart test packages/onnxruntime_dart --tags exclusive --concurrency 1 --reporter expanded
-
-  # dart2js and dart2wasm. Only tests avoiding dart:io and dart:ffi compile
-  # here, which is the same boundary the wasm backend will sit behind.
-  test-web:
-    name: test · web · ${{ matrix.browser }}
-    runs-on: ubuntu-24.04
-    timeout-minutes: 30
-    concurrency:
-      group: test-web-${{ github.ref }}-${{ matrix.browser }}
-      cancel-in-progress: true
-    strategy:
-      fail-fast: false
-      matrix:
-        browser: [chrome, firefox]
-    env:
-      # Firefox does not go headless on its own and the runner has no display.
-      # Chrome ignores this.
-      MOZ_HEADLESS: 1
-    steps:
-      - uses: actions/checkout@v5
-        with: { submodules: true }
-      - uses: dart-lang/setup-dart@v1
-        with: { sdk: stable }
-      - run: dart pub get
-      # Browser tests must run from inside the package. package:test generates
-      # HTML that resolves packages/test/dart.js relative to the test file, and
-      # invoking dart test with a subdirectory path serves it as text/plain.
-      - working-directory: packages/onnxruntime_dart
-        run: dart test -p ${{ matrix.browser }} --reporter expanded
-
-  # The same suite again, against the WebAssembly runtime this run built.
-  #
-  # Separate from test-web because that one needs nothing and runs early; this
-  # one waits for the build. Without it the browser tests only prove the shared
-  # code compiles, which is how the WebAssembly backend was written but never
-  # executed.
   test-web-runtime:
     name: test · web · ${{ matrix.build }} · ${{ matrix.compiler }}
-    needs: build-runtime
-    if: ${{ !cancelled() && needs.build-runtime.result != 'cancelled' }}
+    needs: [mode, build-runtime]
+    if: >-
+      ${{ !cancelled()
+      && (needs.mode.outputs.building != 'true'
+          || needs.build-runtime.result == 'success') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     strategy:
@@ -238,9 +233,21 @@ jobs:
       - run: dart pub get
 
       - uses: actions/download-artifact@v4
+        if: ${{ needs.mode.outputs.building == 'true' }}
         with:
           name: onnxruntime-${{ matrix.build }}
           path: .local/artifacts
+
+      - name: Take the runtime from its release
+        if: ${{ needs.mode.outputs.building != 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p .local/artifacts/runtime
+          gh release download "${{ needs.mode.outputs.release }}" \
+            --pattern "${{ matrix.build }}.tar.gz" \
+            --dir .local/artifacts/runtime --clobber
 
       - name: Serve it to the browser
         shell: bash
@@ -285,7 +292,8 @@ jobs:
   # run is rejected before any job starts.
   build-runtime:
     name: build · base
-    needs: static
+    needs: [static, mode]
+    if: ${{ needs.mode.outputs.building == 'true' }}
     uses: ./.github/workflows/build-runtime.yml
     with:
       stream: base
@@ -294,7 +302,8 @@ jobs:
 
   build-runtime-full:
     name: build · full
-    needs: static
+    needs: [static, mode]
+    if: ${{ needs.mode.outputs.building == 'true' }}
     uses: ./.github/workflows/build-runtime.yml
     with:
       stream: full
@@ -303,7 +312,8 @@ jobs:
 
   build-ep-webgpu:
     name: build · webgpu
-    needs: static
+    needs: [static, mode]
+    if: ${{ needs.mode.outputs.building == 'true' }}
     uses: ./.github/workflows/build-runtime.yml
     with:
       stream: webgpu
@@ -312,14 +322,16 @@ jobs:
 
   build-ep-qnn:
     name: ep-qnn
-    needs: static
+    needs: [static, mode]
+    if: ${{ needs.mode.outputs.building == 'true' }}
     uses: ./.github/workflows/build-ep-qnn.yml
     permissions:
       contents: write
 
   build-extensions:
     name: extensions
-    needs: static
+    needs: [static, mode]
+    if: ${{ needs.mode.outputs.building == 'true' }}
     uses: ./.github/workflows/build-extensions.yml
     permissions:
       contents: write
@@ -336,7 +348,8 @@ jobs:
   # one, and finishes in minutes rather than hours.
   build-ep-cuda:
     name: ep-cuda
-    needs: static
+    needs: [static, mode]
+    if: ${{ needs.mode.outputs.building == 'true' }}
     uses: ./.github/workflows/build-ep-cuda.yml
     permissions:
       contents: write
@@ -354,9 +367,14 @@ jobs:
   # a code-signed framework. Neither resembles the desktop layout.
   test-on-device:
     name: test · ${{ matrix.name }} · device
-    needs: [build-runtime, build-ep-webgpu]
-    # As above: a cancelled build leaves nothing to test against.
-    if: ${{ !cancelled() && needs.build-runtime.result != 'cancelled' }}
+    needs: [mode, build-runtime, build-ep-webgpu]
+    # As above: a cancelled build leaves nothing to test against. The device
+    # harness installs from releases through the build hook, so it needs no
+    # artifacts and runs either way.
+    if: >-
+      ${{ !cancelled()
+      && (needs.mode.outputs.building != 'true'
+          || needs.build-runtime.result == 'success') }}
     runs-on: ${{ matrix.runner }}
     # A booted emulator running a handful of tests takes minutes. Without this
     # a hung one ran to the six hour default, twice.
@@ -375,6 +393,7 @@ jobs:
         with: { channel: stable }
 
       - uses: actions/download-artifact@v4
+        if: ${{ needs.mode.outputs.building == 'true' }}
         with:
           name: onnxruntime-${{ matrix.artifact }}
           path: .local/artifacts
@@ -501,8 +520,11 @@ jobs:
   # published, and never loaded.
   test-full-runtime:
     name: test · linux-x64 · full runtime
-    needs: build-runtime-full
-    if: ${{ !cancelled() && needs.build-runtime-full.result == 'success' }}
+    needs: [mode, build-runtime-full]
+    if: >-
+      ${{ !cancelled()
+      && (needs.mode.outputs.building != 'true'
+          || needs.build-runtime-full.result == 'success') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
@@ -513,9 +535,21 @@ jobs:
       - run: dart pub get
 
       - uses: actions/download-artifact@v4
+        if: ${{ needs.mode.outputs.building == 'true' }}
         with:
           name: onnxruntime-linux-x64-full
           path: .local/artifacts
+
+      - name: Take the full runtime from its release
+        if: ${{ needs.mode.outputs.building != 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p .local/artifacts/runtime
+          gh release download "${{ needs.mode.outputs.release }}" \
+            --pattern "linux-x64-full.tar.gz" \
+            --dir .local/artifacts/runtime --clobber
 
       - name: Point the suite at the full build
         run: python3 .github/scripts/locate_library.py linux-x64-full
@@ -536,13 +570,16 @@ jobs:
 
   test-against-our-build:
     name: test · ${{ matrix.name }} · our build
-    needs: [build-runtime, build-ep-webgpu, build-extensions, build-ep-qnn, build-ep-cuda]
+    needs: [mode, build-runtime, build-ep-webgpu, build-extensions, build-ep-qnn, build-ep-cuda]
     # Runs even when part of the matrix failed: these six need only their own
     # native artifact, and gating them on every configuration means one web
     # variant that will not link hides whether the libraries we ship work at
-    # all. Not when the build was cancelled, though, because then there is no
-    # artifact to download and the failure says nothing.
-    if: ${{ !cancelled() && needs.build-runtime.result != 'cancelled' }}
+    # all. When the builds were skipped entirely there is nothing to wait for,
+    # because the binaries are coming from a release instead.
+    if: >-
+      ${{ !cancelled()
+      && (needs.mode.outputs.building != 'true'
+          || needs.build-runtime.result == 'success') }}
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 30
     strategy:
@@ -570,6 +607,7 @@ jobs:
       # Its own pipeline, so its own artifact. Merged into the same tree
       # because locate_library.py reads both out of one place.
       - uses: actions/download-artifact@v4
+        if: ${{ needs.mode.outputs.building == 'true' }}
         with:
           name: onnxruntime-${{ matrix.artifact }}-webgpu
           path: .local/artifacts
@@ -579,11 +617,13 @@ jobs:
       # same reason as the others: a provider that is published without
       # anything ever loading it is a provider we do not know works.
       - uses: actions/download-artifact@v4
+        if: ${{ needs.mode.outputs.building == 'true' }}
         with:
           name: ep-qnn
           path: .local/artifacts/ep-qnn
 
       - uses: actions/download-artifact@v4
+        if: ${{ needs.mode.outputs.building == 'true' }}
         with:
           name: ep-cuda
           path: .local/artifacts/ep-cuda
@@ -592,9 +632,21 @@ jobs:
       # skip, and a component we publish for thirteen targets would go from
       # built to released with nothing ever loading it.
       - uses: actions/download-artifact@v4
+        if: ${{ needs.mode.outputs.building == 'true' }}
         with:
           name: extensions-${{ matrix.artifact }}
           path: .local/extensions
+
+      # The other side of the switch. Same binaries, same layout, taken from
+      # the release instead of from this run.
+      - name: Take the binaries from their release
+        if: ${{ needs.mode.outputs.building != 'true' }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 .github/scripts/fetch_release_binaries.py \
+            "${{ matrix.artifact }}" --runtime-tag "${{ needs.mode.outputs.release }}"
 
       - name: Unpack the operator library
         shell: bash
