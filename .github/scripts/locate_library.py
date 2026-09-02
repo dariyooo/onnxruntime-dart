@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import os
 import pathlib
+import re
 import sys
 import tarfile
 
@@ -73,6 +74,37 @@ def find(files: list[pathlib.Path], names: tuple[str, ...]) -> pathlib.Path | No
     return next((p for p in sorted(files) if p.name in names), None)
 
 
+def point_hook_at(directory: pathlib.Path) -> None:
+    """Points the build hook at the runtime this job downloaded.
+
+    Setting ONNXRUNTIME_LIB is enough for the tests that open the library
+    themselves, and not for anything that goes through the ordinary API: the
+    generated bindings resolve their symbols from a native asset, which the
+    build hook supplies. Without one every session-level test skips, which is
+    how a job can report success having exercised almost nothing.
+
+    The hook takes a directory from `user_defines`, which come from the
+    pubspec, so the pubspec is what has to say it. Rewritten here rather than
+    committed, because the path is whatever this runner unpacked to. Mutating a
+    tracked file is fine in a checkout that exists for one job.
+    """
+    pubspec = REPO_ROOT / "pubspec.yaml"
+    text = pubspec.read_text(encoding="utf-8")
+    updated = re.sub(
+        r"^(\s*local_build:).*$",
+        lambda m: f"{m.group(1)} {directory}",
+        text,
+        count=1,
+        flags=re.MULTILINE,
+    )
+    if updated == text:
+        raise SystemExit(
+            f"{pubspec} has no local_build line for the hook to be pointed at"
+        )
+    pubspec.write_text(updated, encoding="utf-8")
+    print(f"hook local_build={directory}")
+
+
 def export(key: str, value: pathlib.Path) -> None:
     print(f"{key}={value}")
     if env_file := os.environ.get("GITHUB_ENV"):
@@ -108,6 +140,7 @@ def main() -> None:
     if library is None:
         raise SystemExit(f"{runtime} holds no library named one of {LIBRARY_NAMES}")
     export("ONNXRUNTIME_LIB", library)
+    point_hook_at(library.parent)
 
     # Each provider is built by its own pipeline, into its own configuration
     # named after this one, so it arrives as a separate artifact.
