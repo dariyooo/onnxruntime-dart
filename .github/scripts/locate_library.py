@@ -46,6 +46,29 @@ def extract(archive: pathlib.Path, into: pathlib.Path) -> list[pathlib.Path]:
     return [p for p in into.rglob("*") if p.is_file()]
 
 
+def provider_archive(
+    directory: pathlib.Path, provider: str, config_id: str
+) -> pathlib.Path | None:
+    """The archive holding [provider]'s plugin for [config_id], however named.
+
+    A provider built through the runtime pipeline is named for the
+    configuration, `linux-x64-webgpu.tar.gz`, because its configuration ids
+    already end in the provider name. A mirrored one is named for itself,
+    `qnn-linux-x64.tar.gz`, and CUDA puts its toolkit in the middle,
+    `cuda-cuda12-linux-x64.tar.gz`. Matched rather than spelled out, so a new
+    provider needs nothing here.
+    """
+    if not directory.is_dir():
+        return None
+
+    candidates = [
+        path
+        for path in sorted(directory.glob("*.tar.gz"))
+        if config_id in path.name and provider in path.name
+    ]
+    return candidates[0] if candidates else None
+
+
 def find(files: list[pathlib.Path], names: tuple[str, ...]) -> pathlib.Path | None:
     return next((p for p in sorted(files) if p.name in names), None)
 
@@ -89,8 +112,8 @@ def main() -> None:
     # Each provider is built by its own pipeline, into its own configuration
     # named after this one, so it arrives as a separate artifact.
     for provider, variable in PROVIDER_VARIABLES.items():
-        archive = downloaded / f"ep-{provider}" / f"{config_id}-{provider}.tar.gz"
-        if archive.is_file():
+        archive = provider_archive(downloaded / f"ep-{provider}", provider, config_id)
+        if archive is not None:
             plugin = find(extract(archive, unpacked / f"ep-{provider}"), PLUGIN_NAMES)
             if plugin is None:
                 raise SystemExit(f"{archive} holds no {provider} plugin")
@@ -100,8 +123,8 @@ def main() -> None:
             # packaging or artifact failure. Letting it through would silently
             # skip the only tests that load a real provider.
             raise SystemExit(
-                f"{provider} is published for {config_id} but {archive} does "
-                f"not exist"
+                f"{provider} is published for {config_id} but no archive for "
+                f"it was staged in {downloaded / f'ep-{provider}'}"
             )
         else:
             print(f"no {provider} plugin for {config_id}; those tests will skip")

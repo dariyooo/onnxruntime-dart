@@ -496,7 +496,7 @@ jobs:
 
   test-against-our-build:
     name: test · ${{ matrix.name }} · our build
-    needs: [build-runtime, build-ep-webgpu, build-extensions]
+    needs: [build-runtime, build-ep-webgpu, build-extensions, build-ep-qnn, build-ep-cuda]
     # Runs even when part of the matrix failed: these six need only their own
     # native artifact, and gating them on every configuration means one web
     # variant that will not link hides whether the libraries we ship work at
@@ -534,6 +534,20 @@ jobs:
           name: onnxruntime-${{ matrix.artifact }}-webgpu
           path: .local/artifacts
 
+      # Mirrored rather than built, and one artifact holds every target, so
+      # the one matching this platform is picked out below. Downloaded for the
+      # same reason as the others: a provider that is published without
+      # anything ever loading it is a provider we do not know works.
+      - uses: actions/download-artifact@v4
+        with:
+          name: ep-qnn
+          path: .local/artifacts/ep-qnn
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: ep-cuda
+          path: .local/artifacts/ep-cuda
+
       # Built by its own pipeline in this run. Without it the extensions tests
       # skip, and a component we publish for thirteen targets would go from
       # built to released with nothing ever loading it.
@@ -553,7 +567,7 @@ jobs:
 
       - name: Point the suite at our build
         shell: bash
-        run: python3 .github/scripts/locate_library.py "${{ matrix.artifact }}" webgpu
+        run: python3 .github/scripts/locate_library.py "${{ matrix.artifact }}" webgpu qnn cuda
 
       - name: Test
         shell: bash
