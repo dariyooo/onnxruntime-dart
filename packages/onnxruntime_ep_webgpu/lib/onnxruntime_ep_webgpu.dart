@@ -29,7 +29,7 @@ String? providerPath() => loadedLibraryPath(
       stem: providerLibraryStem,
     );
 
-/// Registers the provider under , and reports whether it was there.
+/// Registers the provider under `webgpu`, and reports whether it was there.
 ///
 /// Register before creating a session that should use it. There is no need to
 /// do it first: ONNX Runtime places no ordering constraint on registration, so
@@ -39,16 +39,32 @@ String? providerPath() => loadedLibraryPath(
 ///
 /// It does mutate the environment, so do not race it against session creation
 /// on another isolate.
+///
+/// Calling twice is a no-op. Registration is process-wide, so a second call
+/// would otherwise fail with "already registered" for the unhelpful reason
+/// that the first one worked.
 bool registerWebGpu() {
   final path = providerPath();
   if (path == null) return false;
+  if (_registered) return true;
 
   final environment = OrtEnvironment.instance();
-  registerExecutionProviderLibrary(
-    environment.api,
-    environment.handle,
-    name: 'webgpu',
-    path: path,
-  );
+  try {
+    registerExecutionProviderLibrary(
+      environment.api,
+      environment.handle,
+      name: 'webgpu',
+      path: path,
+    );
+  } on OrtException catch (error) {
+    // Registration is process-wide but this flag is not, so another isolate
+    // may have done it already. That is the outcome asked for either way.
+    if (!error.message.contains('already registered')) rethrow;
+  }
+
+  _registered = true;
   return true;
 }
+
+/// Whether this isolate has already registered the provider.
+var _registered = false;
