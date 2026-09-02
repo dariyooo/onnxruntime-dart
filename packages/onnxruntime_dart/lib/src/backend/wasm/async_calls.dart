@@ -38,10 +38,56 @@ final class AsyncWasmCalls extends WasmCalls
     module.asyncInit();
   }
 
+  /// Creates a session synchronously, where nothing has to suspend.
+  ///
+  /// Setting up an accelerator is what suspends, and that only happens when
+  /// one was asked for. Without a provider this is the same work the plain
+  /// build does, so it is allowed rather than refused on principle.
   @override
-  @NativeOnly(_whySync)
-  OrtPtr createSession(Uint8List model, OrtPtr options) =>
-      unsupportedOnWeb('createSession', _whySync);
+  OrtPtr createSession(Uint8List model, OrtPtr options) {
+    final pending = pendingOptions(options);
+    if (pending.providers.isNotEmpty) {
+      throw UnsupportedError(
+        'a session on ${pending.providers.map((p) => p.$1).join(', ')} cannot '
+        'be created synchronously: requesting the device is asynchronous. Use '
+        'Session.load, which works on every build. Without a provider, '
+        'Session.fromBytes works here too.',
+      );
+    }
+
+    final arena = WasmArena(module);
+    var suspended = false;
+    try {
+      final built = buildOptions(arena, pending);
+      try {
+        final data = arena.data(model);
+        final outcome = module.ortCreateSessionMaybeAsync(
+          data.toJS,
+          model.lengthInBytes.toJS,
+          built.toJS,
+        );
+
+        if (outcome.isA<JSPromise>()) {
+          suspended = true;
+          (outcome as JSPromise<JSAny>).toDart.whenComplete(arena.releaseAll);
+          throw UnsupportedError(
+            'creating this session suspended even though no provider was '
+            'requested. Use Session.load, which can wait for it.',
+          );
+        }
+
+        return OrtPtr(checkHandle(
+          module,
+          (outcome as JSNumber).toDartInt,
+          'OrtCreateSession',
+        ));
+      } finally {
+        module.ortReleaseSessionOptions(built.toJS);
+      }
+    } finally {
+      if (!suspended) arena.releaseAll();
+    }
+  }
 
   @override
   Future<OrtPtr> createSessionAsync(Uint8List model, OrtPtr options) async {
@@ -86,11 +132,63 @@ final class AsyncWasmCalls extends WasmCalls
     }
   }
 
+  /// Runs synchronously, which works here as long as nothing suspends.
+  ///
+  /// Asyncify instruments the whole module but only suspends when a call
+  /// reaches something asynchronous, and a session on the CPU never does. So a
+  /// model that does not touch an accelerator runs synchronously on this build
+  /// exactly as it would on the plain one, and refusing it outright would be
+  /// stricter than the runtime is.
+  ///
+  /// If it does suspend there is no way to wait here, and the run is still
+  /// writing into the arena, so the arena is handed to the promise to free
+  /// when the run finishes rather than pulled out from under it. That case
+  /// throws, because there is no result to return.
   @override
-  @NativeOnly(_whySync)
   List<OrtPtr> run(OrtPtr session, Map<String, OrtPtr> inputs,
-          List<String> outputNames, OrtPtr runOptions) =>
-      unsupportedOnWeb('run', _whySync);
+      List<String> outputNames, OrtPtr runOptions) {
+    final arena = WasmArena(module);
+    var suspended = false;
+    try {
+      final names = arena.strings(inputs.keys.toList());
+      final values =
+          arena.handles([for (final value in inputs.values) value.address]);
+      final wanted = arena.strings(outputNames);
+      final results = arena.slots(outputNames.length);
+
+      final outcome = module.ortRunMaybeAsync(
+        session.address.toJS,
+        names.toJS,
+        values.toJS,
+        inputs.length.toJS,
+        wanted.toJS,
+        outputNames.length.toJS,
+        results.toJS,
+        runOptions.address.toJS,
+      );
+
+      if (outcome.isA<JSPromise>()) {
+        suspended = true;
+        // Still running, so its memory is still live. Freed when it finishes.
+        (outcome as JSPromise<JSAny>).toDart.whenComplete(arena.releaseAll);
+        throw UnsupportedError(
+          'this run suspended, which a synchronous call cannot wait for. That '
+          'happens when the session is on an accelerator: reading results '
+          'back off a GPU is asynchronous. Use runAsync, which works on every '
+          'build. The run itself was not cancelled and its memory is released '
+          'when it finishes.',
+        );
+      }
+
+      check(module, (outcome as JSNumber).toDartInt, 'OrtRun');
+      return [
+        for (var i = 0; i < outputNames.length; i++)
+          OrtPtr(module.readPointer(results + 4 * i)),
+      ];
+    } finally {
+      if (!suspended) arena.releaseAll();
+    }
+  }
 
   @override
   Future<List<OrtPtr>> runAsync(

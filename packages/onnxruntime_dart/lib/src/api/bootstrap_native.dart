@@ -20,13 +20,14 @@ Future<void> openOnnxRuntime({
   createCalls().init(loggingLevel: native?.logLevel ?? 2);
 }
 
-/// Whether this runtime accepts the synchronous calls.
+/// Whether the synchronous calls work for any session, accelerator included.
 ///
-/// True everywhere except a WebGPU or WebNN build of the web runtime. Those
-/// are compiled with Asyncify, where creating a session or running one can
-/// suspend, and a synchronous call has no way to wait for it. The synchronous
-/// forms refuse there rather than hand back a promise as though it were a
-/// result.
+/// False only on a WebGPU or WebNN build of the web runtime, which is compiled
+/// with Asyncify. That does not mean the synchronous calls are unavailable
+/// there: a session that stays on the CPU never suspends, so `fromBytes` and
+/// `run` work on every build. What an Asyncify build cannot do synchronously
+/// is anything that reaches an accelerator, because requesting a device and
+/// reading results back off one are asynchronous.
 ///
 /// Code that has to run on every build should use [Session.load] and
 /// `runAsync`, which work the same on all of them. This is here for code that
