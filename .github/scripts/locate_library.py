@@ -92,7 +92,9 @@ def point_hook_at(directory: pathlib.Path) -> None:
     how a job can report success having exercised almost nothing.
 
     The hook takes a directory from `user_defines`, which come from the
-    pubspec, so the pubspec is what has to say it. Rewritten here rather than
+    pubspec of the package the tests are run from, so that is the pubspec this
+    writes to. Running them from the workspace root instead makes the root the
+    entry package, and it depends on nothing, so no hook runs at all. Rewritten here rather than
     committed, because the path is whatever this runner unpacked to. Mutating a
     tracked file is fine in a checkout that exists for one job.
     """
