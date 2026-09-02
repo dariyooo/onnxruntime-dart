@@ -70,15 +70,24 @@ String? get skipWithoutWebGpuPlugin => findWebGpuPlugin() == null
 /// It supplies none when no release is published and no local build is
 /// configured, which is the normal state of a fresh checkout. Tests that call
 /// into the runtime through the asset skip rather than fail in that case.
-bool get hasNativeAsset {
+bool get hasNativeAsset => nativeAssetFailure == null;
+
+/// Why the native asset could not be used, or null when it can.
+///
+/// Kept rather than discarded. "The build hook supplied no native library" is
+/// true of a fresh checkout and of a hook that ran and failed, and those want
+/// different answers. Swallowing the exception cost an evening of guessing at
+/// which one it was.
+final String? nativeAssetFailure = () {
   try {
     runtimeVersion();
-    return true;
-  } on Object {
-    return false;
+    return null;
+  } on Object catch (error) {
+    return error.toString();
   }
-}
+}();
 
 /// Reason to skip, or null when the native asset is loadable.
-String? get skipWithoutNativeAsset =>
-    hasNativeAsset ? null : 'the build hook supplied no native library';
+String? get skipWithoutNativeAsset => hasNativeAsset
+    ? null
+    : 'the build hook supplied no native library: $nativeAssetFailure';
