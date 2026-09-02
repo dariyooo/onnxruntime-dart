@@ -44,6 +44,26 @@ void main() {
     );
   });
 
+  test('a JSPI build is refused rather than driven as a synchronous one', () {
+    // The failure this prevents is silent: a JSPI build defines no asyncInit,
+    // so it would be taken for the plain build and its promises read as
+    // numbers. Nothing would throw and every result would be wrong.
+    expect(
+      () => openOnnxRuntime(
+        web: const WebRuntimeOptions(
+          'https://example.test/ort-wasm-simd-threaded.jspi.mjs',
+        ),
+      ),
+      throwsA(
+        isA<UnsupportedError>().having(
+          (e) => e.message,
+          'message',
+          allOf(contains('JSPI'), contains('asyncify')),
+        ),
+      ),
+    );
+  });
+
   test('openOnnxRuntime needs somewhere to fetch the runtime from', () {
     // Native has the library already; the web has to be told where it is.
     // Saying so is better than a failure inside the loader.
