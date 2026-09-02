@@ -433,6 +433,7 @@ jobs:
       # The provider the harness registers. Its own pipeline, so its own
       # artifact.
       - uses: actions/download-artifact@v4
+        if: ${{ needs.mode.outputs.building == 'true' }}
         with:
           name: onnxruntime-${{ matrix.artifact || inputs.configuration || 'ios-sim-arm64' }}-webgpu
           path: .local/artifacts
@@ -662,6 +663,7 @@ jobs:
       - run: dart pub get
 
       - uses: actions/download-artifact@v4
+        if: ${{ needs.mode.outputs.building == 'true' }}
         with:
           name: onnxruntime-${{ matrix.artifact }}
           path: .local/artifacts
