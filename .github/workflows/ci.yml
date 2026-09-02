@@ -494,6 +494,46 @@ jobs:
           xcrun simctl spawn booted log show --last 10m --style compact \
             --predicate 'processImagePath CONTAINS "harness"' | tail -80
 
+  # The full runtime is the only one with training compiled in, so it is the
+  # only build the training tests can do more than skip against. One platform
+  # rather than six: what is being proved is that the API works at all, and
+  # that is the same code everywhere. Without this the full stream is built,
+  # published, and never loaded.
+  test-full-runtime:
+    name: test · linux-x64 · full runtime
+    needs: build-runtime-full
+    if: ${{ !cancelled() && needs.build-runtime-full.result == 'success' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+        with: { submodules: true }
+      - uses: dart-lang/setup-dart@v1
+        with: { sdk: stable }
+      - run: dart pub get
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: onnxruntime-linux-x64-full
+          path: .local/artifacts
+
+      - name: Point the suite at the full build
+        run: python3 .github/scripts/locate_library.py linux-x64-full
+
+      - name: The training tests must actually run
+        run: |
+          set -euo pipefail
+          out=$(dart test packages/onnxruntime_dart/test/training_test.dart \
+            --reporter expanded)
+          echo "$out"
+          if echo "$out" | grep -qi 'no training APIs'; then
+            echo "::error::the full runtime reported no training APIs, so the"
+            echo "::error::training tests skipped on the one build that has them"
+            exit 1
+          fi
+
+      - run: dart test packages/onnxruntime_dart --tags exclusive --concurrency 1 --reporter expanded
+
   test-against-our-build:
     name: test · ${{ matrix.name }} · our build
     needs: [build-runtime, build-ep-webgpu, build-extensions, build-ep-qnn, build-ep-cuda]
