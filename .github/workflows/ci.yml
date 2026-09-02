@@ -553,7 +553,7 @@ jobs:
 
       - name: Point the suite at our build
         shell: bash
-        run: python3 .github/scripts/locate_library.py "${{ matrix.artifact }}"
+        run: python3 .github/scripts/locate_library.py "${{ matrix.artifact }}" webgpu
 
       - name: Test
         shell: bash

@@ -58,10 +58,21 @@ def export(key: str, value: pathlib.Path) -> None:
 
 
 def main() -> None:
-    if len(sys.argv) != 2:
-        raise SystemExit("usage: locate_library.py <configuration-id>")
+    """Exports the paths the tests look for.
+
+    Which providers must be present is the caller's to say, because a job
+    stages only what it downloaded: requiring every provider published for the
+    target would fail a job that deliberately fetched one of them.
+    """
+    if len(sys.argv) < 2:
+        raise SystemExit(
+            "usage: locate_library.py <configuration-id> [provider ...]"
+        )
 
     config_id = sys.argv[1]
+    # The providers the caller staged, and so the ones whose absence is a
+    # failure rather than a reason for those tests to skip.
+    required = set(sys.argv[2:])
     downloaded = REPO_ROOT / ".local" / "artifacts"
     unpacked = REPO_ROOT / ".local" / "ort" / config_id
 
@@ -84,10 +95,10 @@ def main() -> None:
             if plugin is None:
                 raise SystemExit(f"{archive} holds no {provider} plugin")
             export(variable, plugin)
-        elif config_id in ep_matrix.by_name(provider).targets:
-            # Published for this target, so a missing plugin is a packaging or
-            # artifact failure. Letting it through would silently skip the only
-            # tests that load a real provider.
+        elif provider in required and config_id in ep_matrix.by_name(provider).targets:
+            # The caller said it staged this one, so a missing archive is a
+            # packaging or artifact failure. Letting it through would silently
+            # skip the only tests that load a real provider.
             raise SystemExit(
                 f"{provider} is published for {config_id} but {archive} does "
                 f"not exist"

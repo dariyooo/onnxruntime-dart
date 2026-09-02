@@ -63,7 +63,12 @@ jobs:
             ${{ inputs.runtime_tag && format('--runtime-tag {0}', inputs.runtime_tag) || '' }}
 
       - name: Point the suite at them
-        run: python3 .github/scripts/locate_library.py "${{ matrix.config }}"
+        run: |
+          # Every provider published for this target was fetched above,
+          # so a missing one here is a broken release rather than a
+          # reason to skip.
+          python3 .github/scripts/locate_library.py "${{ matrix.config }}" \
+            webgpu cuda qnn
 
       - run: dart test packages/onnxruntime_dart --exclude-tags exclusive --reporter expanded
       - run: dart test packages/onnxruntime_dart --tags exclusive --concurrency 1 --reporter expanded
