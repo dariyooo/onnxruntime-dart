@@ -297,6 +297,40 @@ class Providers(unittest.TestCase):
                 f"{provider.release_tag}",
             )
 
+    def test_the_installer_and_the_publisher_name_the_same_asset(self):
+        # The tag is not the only name that has to agree. A provider built
+        # through the runtime pipeline produces <target>-<provider>.tar.gz,
+        # because its configuration ids already end in the provider name, and
+        # a mirrored one produces <provider>-<target>.tar.gz. The hook asks for
+        # the second, so the first is renamed before publishing. This pins both
+        # halves: the shape the hook builds, and the shape the rename produces.
+        source = (
+            REPO_ROOT / "packages" / "onnxruntime_hook" / "lib" / "src" / "target.dart"
+        ).read_text(encoding="utf-8")
+        self.assertIn("'$provider-$targetId.tar.gz'", source)
+        self.assertIn("'$provider-$build-$targetId.tar.gz'", source)
+
+        sys.path.insert(0, str(REPO_ROOT / ".github" / "scripts"))
+        import rename_provider_assets  # noqa: PLC0415
+
+        with tempfile.TemporaryDirectory() as directory:
+            staged = pathlib.Path(directory)
+            for provider in ep_matrix.PROVIDERS:
+                for target in provider.targets:
+                    (staged / f"{target}-{provider.name}.tar.gz").touch()
+
+            for provider in ep_matrix.PROVIDERS:
+                sys.argv = ["", str(staged), provider.name]
+                rename_provider_assets.main()
+
+            for provider in ep_matrix.PROVIDERS:
+                for target in provider.targets:
+                    self.assertTrue(
+                        (staged / f"{provider.name}-{target}.tar.gz").is_file(),
+                        f"{provider.name}-{target}.tar.gz is not what publishing "
+                        f"would leave behind",
+                    )
+
     def test_every_provider_outlives_the_runtime_we_ship(self):
         ours = (
             ep_matrix.SUBMODULE / "VERSION_NUMBER"
