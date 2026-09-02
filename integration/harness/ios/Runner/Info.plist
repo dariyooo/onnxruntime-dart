@@ -66,5 +66,15 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<!-- Flutter finds the Dart VM service over mDNS, and on iOS that needs
+	     both of these declared. Without them `flutter test` installs the app,
+	     launches it, and then waits for a handshake that can never arrive,
+	     which reads as a silent hang rather than a missing permission. -->
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_dartVmService._tcp</string>
+	</array>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Lets the Flutter tools connect to the Dart VM service while running integration tests.</string>
 </dict>
 </plist>
