@@ -302,17 +302,11 @@ jobs:
           if [ "$component" = runtime ]; then
             python3 .github/scripts/package_headers.py
           fi
-          if [ "$component" != runtime ]; then
-            # A provider stream builds configurations whose ids already end in
-            # the provider name, so its archives come out as
-            # <target>-<provider>.tar.gz. The build hook asks for
-            # <provider>-<target>.tar.gz, which is what the mirrored providers
-            # publish, so rename to the one the installer looks for. The
-            # checksum sidecar names the file inside it, but the hook reads
-            # only the hash, so renaming both is enough.
-            python3 .github/scripts/rename_provider_assets.py \
-              "dist/$component" "${component#ep-}"
-          fi
+          # Every component publishes as <component>-<target>.tar.gz, which is
+          # the one name the build hook derives. What each job produced is
+          # named however its configuration ids are.
+          python3 .github/scripts/rename_release_assets.py \
+            "dist/$component" "$component"
           if [ -z "$(ls -A "dist/$component")" ]; then
             echo "no archives for $component in this build; nothing to publish"
             echo "empty=true" >> "$GITHUB_OUTPUT"

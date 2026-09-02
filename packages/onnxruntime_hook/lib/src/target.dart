@@ -113,7 +113,19 @@ String libraryFileName(OS os) => switch (os) {
 const _releases =
     'https://github.com/dariyooo/onnxruntime-dart/releases/download';
 
-String assetFileName(String targetId) => '$targetId.tar.gz';
+/// The published name of the runtime asset for [targetId].
+///
+/// Component first, the way every other asset is named: `base-linux-x64` and
+/// `full-linux-x64` beside `webgpu-linux-x64` and `extensions-linux-x64`. The
+/// identifier still carries the variant as a suffix, because that is how it is
+/// keyed everywhere else, so it is moved to the front here rather than
+/// threaded through every caller.
+String assetFileName(String targetId) {
+  const full = '-full';
+  return targetId.endsWith(full)
+      ? 'full-${targetId.substring(0, targetId.length - full.length)}.tar.gz'
+      : 'base-$targetId.tar.gz';
+}
 
 /// URL of the release asset for [targetId] at [releaseTag].
 Uri assetUrl({required String releaseTag, required String targetId}) =>
