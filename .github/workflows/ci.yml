@@ -616,9 +616,10 @@ jobs:
       - run: dart pub get
 
       - name: The training tests must actually run
+        working-directory: packages/onnxruntime_dart
         run: |
           set -euo pipefail
-          out=$(dart test packages/onnxruntime_dart/test/training_test.dart \
+          out=$(dart test test/training_test.dart \
             --reporter expanded)
           echo "$out"
           # Any skip, not just the training one. These also skip when the
@@ -633,7 +634,8 @@ jobs:
             exit 1
           fi
 
-      - run: dart test packages/onnxruntime_dart --tags exclusive --concurrency 1 --reporter expanded
+      - working-directory: packages/onnxruntime_dart
+        run: dart test --tags exclusive --concurrency 1 --reporter expanded
 
   test-against-our-build:
     name: test · ${{ matrix.name }} · our build
@@ -741,17 +743,19 @@ jobs:
 
       - name: Test
         shell: bash
-        run: dart test packages/onnxruntime_dart --exclude-tags exclusive --reporter expanded
+        working-directory: packages/onnxruntime_dart
+        run: dart test --exclude-tags exclusive --reporter expanded
 
       # A suite that skipped for want of a runtime has tested nothing and
       # reports the same green as one that tested everything. This job exists
       # to prove the binaries work, so failing to load them is a failure here,
       # not a reason to pass quietly.
       - name: Test (exclusive)
+        working-directory: packages/onnxruntime_dart
         shell: bash
         run: |
           set -euo pipefail
-          out=$(dart test packages/onnxruntime_dart --tags exclusive \
+          out=$(dart test --tags exclusive \
             --concurrency 1 --reporter expanded 2>&1) && status=0 || status=$?
           echo "$out"
           # See above: a pipe here inverts the test under pipefail.
@@ -766,10 +770,11 @@ jobs:
       # The ABI tests skip silently when no library is found, which would make
       # this whole job pass while proving nothing.
       - name: The ABI tests must have run
+        working-directory: packages/onnxruntime_dart
         shell: bash
         run: |
           set -euo pipefail
-          out=$(dart test packages/onnxruntime_dart/test/bindings_test.dart --reporter expanded)
+          out=$(dart test test/bindings_test.dart --reporter expanded)
           echo "$out"
           # A herestring, not a pipe: `echo | grep -q` returns 141 under
           # pipefail when grep matches early, so the guard would fire only
