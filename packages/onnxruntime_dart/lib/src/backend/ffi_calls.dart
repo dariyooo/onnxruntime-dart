@@ -117,11 +117,14 @@ final class FfiCalls implements OrtCalls, OrtAsyncCalls {
     // registering it produced.
     final devices = executionProviderDevices(_api, _environment.handle, name);
     if (devices.isEmpty) {
+      final present = executionProviderDeviceNames(_api, _environment.handle);
       throw OrtException(
         2,
         'no execution provider named "$name". It is not built into this '
-        'runtime, and no plugin registered under that name has contributed a '
-        'device. Register one with registerProviderLibrary first.',
+        'runtime, and no registered plugin contributed a device for it. The '
+        'devices that do exist are: ${present.join(', ')}. A plugin that '
+        'registered but contributed nothing usually means the machine has no '
+        'hardware it can drive.',
       );
     }
 
