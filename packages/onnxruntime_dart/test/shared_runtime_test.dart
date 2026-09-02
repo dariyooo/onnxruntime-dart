@@ -49,14 +49,13 @@ class Driver {
 /// property of the module that was fetched, and there is nothing to ask before
 /// that.
 List<Driver> driversFor({required bool haveRuntime}) => [
+      // No skip: nothing here asks for an accelerator, and a session that
+      // stays on the CPU never suspends, so it runs synchronously on every
+      // build, Asyncify included.
       Driver(
         'driven synchronously',
         (model) async => Session.fromBytes(model),
         (session, feeds) async => session.run(feeds),
-        skip: !haveRuntime || supportsSynchronousCalls
-            ? null
-            : 'this build is compiled with Asyncify, where a call can suspend, so '
-                'it offers only the asynchronous forms',
       ),
       Driver(
         'driven asynchronously',

@@ -314,14 +314,15 @@ Some things cannot work there and say so rather than failing quietly:
   has them and one when it does not: asking for more without them fails to
   start the runtime rather than degrading. `WebRuntimeOptions.threads` overrides
   it.
-- **The asynchronous form works on every build, the synchronous one does not.**
-  `Session.load` and `runAsync` are the way in everywhere. On the plain build
-  they complete with the result of the synchronous call, since nothing there
-  can suspend; on the WebGPU and WebNN builds, which ONNX Runtime compiles with
-  Asyncify, they genuinely suspend while the GPU works, and the synchronous
-  forms refuse rather than mistake a promise for a result. Ask
-  `supportsSynchronousCalls` if you want to take the synchronous path where it
-  exists. Note that the plain build still blocks the page while a model runs:
+- **Both forms work on every build; only an accelerator needs the
+  asynchronous one.** `Session.load` and `runAsync` work everywhere. So do
+  `Session.fromBytes` and `run`, including on the WebGPU and WebNN builds, as
+  long as the session stays on the CPU: those builds are compiled with
+  Asyncify, but Asyncify only suspends when a call reaches something
+  asynchronous, and CPU work never does. What cannot be synchronous is a
+  session on an accelerator, because requesting a device and reading results
+  back off one are asynchronous, and a synchronous call is holding the event
+  loop that would resume it. That case throws and points at `runAsync`. Note that the plain build still blocks the page while a model runs:
   awaiting it does not move the work, it only lets you await it. See
   [Keeping inference off the calling thread](#keeping-inference-off-the-calling-thread).
 
