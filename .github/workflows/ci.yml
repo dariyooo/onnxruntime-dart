@@ -419,6 +419,7 @@ jobs:
           path: .local/artifacts
 
       - name: Unpack the library this device needs
+        if: ${{ needs.mode.outputs.building == 'true' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -437,6 +438,7 @@ jobs:
           path: .local/artifacts
 
       - name: Unpack the provider
+        if: ${{ needs.mode.outputs.building == 'true' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -445,7 +447,11 @@ jobs:
             -C .local/ort/device/lib
           ls -la .local/ort/device/lib
 
+      # Only when testing what this run built. Otherwise the harness
+      # resolves through its own build hooks from the published releases,
+      # which is the path a user takes and the one worth exercising here.
       - name: Point the harness at it
+        if: ${{ needs.mode.outputs.building == 'true' }}
         shell: bash
         run: |
           set -euo pipefail
