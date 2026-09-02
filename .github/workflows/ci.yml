@@ -16,16 +16,10 @@ name: ci
 
 on:
   push:
-    # dev is where work lands and is proved. main is what has been proved.
-    #
-    # Pushing to a branch with a run in flight cancels it, because only one run
-    # may be pending per concurrency group. That cost several afternoons of
-    # device jobs that skipped because the build they needed was cancelled. On
-    # dev that is fine, since the next push supersedes the last. Merging to
-    # main then runs once more against what actually landed.
-    #
-    # Releases are gated on refs/heads/main, so nothing dev builds is published.
-    branches: [main, dev]
+    # main only. Work on dev pushes as often as it likes without starting
+    # anything; run it deliberately with the inputs below when there is
+    # something worth running. Merging to main then runs all of it.
+    branches: [main]
     tags: ['v*']
   pull_request:
   workflow_dispatch:
@@ -35,6 +29,12 @@ on:
           Skip building and test against a published release instead. Give a
           runtime tag, or "latest" for the one this checkout pins. Empty builds
           everything and tests what it built.
+        type: string
+        default: ''
+      only:
+        description: >-
+          Run part of it. Comma separated, any of: runtime, full, webgpu, qnn,
+          cuda, extensions, desktop, device, web. Empty runs everything.
         type: string
         default: ''
   schedule:
@@ -208,6 +208,7 @@ jobs:
     needs: [mode, build-runtime]
     if: >-
       ${{ !cancelled()
+      && (inputs.only == '' || contains(inputs.only, 'web'))
       && (needs.mode.outputs.building != 'true'
           || needs.build-runtime.result == 'success') }}
     runs-on: ubuntu-24.04
@@ -291,7 +292,9 @@ jobs:
   build-runtime:
     name: build · base
     needs: [static, mode]
-    if: ${{ needs.mode.outputs.building == 'true' }}
+    if: >-
+      ${{ needs.mode.outputs.building == 'true'
+      && (inputs.only == '' || contains(inputs.only, 'runtime')) }}
     uses: ./.github/workflows/build-runtime.yml
     with:
       stream: base
@@ -301,7 +304,9 @@ jobs:
   build-runtime-full:
     name: build · full
     needs: [static, mode]
-    if: ${{ needs.mode.outputs.building == 'true' }}
+    if: >-
+      ${{ needs.mode.outputs.building == 'true'
+      && (inputs.only == '' || contains(inputs.only, 'full')) }}
     uses: ./.github/workflows/build-runtime.yml
     with:
       stream: full
@@ -311,7 +316,9 @@ jobs:
   build-ep-webgpu:
     name: build · webgpu
     needs: [static, mode]
-    if: ${{ needs.mode.outputs.building == 'true' }}
+    if: >-
+      ${{ needs.mode.outputs.building == 'true'
+      && (inputs.only == '' || contains(inputs.only, 'webgpu')) }}
     uses: ./.github/workflows/build-runtime.yml
     with:
       stream: webgpu
@@ -321,7 +328,9 @@ jobs:
   build-ep-qnn:
     name: ep-qnn
     needs: [static, mode]
-    if: ${{ needs.mode.outputs.building == 'true' }}
+    if: >-
+      ${{ needs.mode.outputs.building == 'true'
+      && (inputs.only == '' || contains(inputs.only, 'qnn')) }}
     uses: ./.github/workflows/build-ep-qnn.yml
     permissions:
       contents: write
@@ -329,7 +338,9 @@ jobs:
   build-extensions:
     name: extensions
     needs: [static, mode]
-    if: ${{ needs.mode.outputs.building == 'true' }}
+    if: >-
+      ${{ needs.mode.outputs.building == 'true'
+      && (inputs.only == '' || contains(inputs.only, 'extensions')) }}
     uses: ./.github/workflows/build-extensions.yml
     permissions:
       contents: write
@@ -347,7 +358,9 @@ jobs:
   build-ep-cuda:
     name: ep-cuda
     needs: [static, mode]
-    if: ${{ needs.mode.outputs.building == 'true' }}
+    if: >-
+      ${{ needs.mode.outputs.building == 'true'
+      && (inputs.only == '' || contains(inputs.only, 'cuda')) }}
     uses: ./.github/workflows/build-ep-cuda.yml
     permissions:
       contents: write
@@ -371,6 +384,7 @@ jobs:
     # artifacts and runs either way.
     if: >-
       ${{ !cancelled()
+      && (inputs.only == '' || contains(inputs.only, 'device'))
       && (needs.mode.outputs.building != 'true'
           || needs.build-runtime.result == 'success') }}
     runs-on: ${{ matrix.runner }}
@@ -521,6 +535,7 @@ jobs:
     needs: [mode, build-runtime-full]
     if: >-
       ${{ !cancelled()
+      && (inputs.only == '' || contains(inputs.only, 'full'))
       && (needs.mode.outputs.building != 'true'
           || needs.build-runtime-full.result == 'success') }}
     runs-on: ubuntu-24.04
@@ -579,6 +594,7 @@ jobs:
     # because the binaries are coming from a release instead.
     if: >-
       ${{ !cancelled()
+      && (inputs.only == '' || contains(inputs.only, 'desktop'))
       && (needs.mode.outputs.building != 'true'
           || needs.build-runtime.result == 'success') }}
     runs-on: ${{ matrix.runner }}
