@@ -13,6 +13,8 @@
 name: build-runtime
 
 on:
+  # Called by ci.yml, which is the only entry point. Building on its own
+  # would be building without testing what was built.
   workflow_call:
     inputs:
       configurations:
@@ -23,26 +25,6 @@ on:
         description: 'Which pipeline: base, full or webgpu'
         type: string
         default: base
-  workflow_dispatch:
-    inputs:
-      configurations:
-        description: 'Subset to build (regex over the id field), or "all"'
-        type: string
-        default: all
-      stream:
-        description: 'Which pipeline: base, full or webgpu'
-        type: string
-        default: base
-  push:
-    tags: ['v*']
-  pull_request:
-    # A Dart-only change cannot break the native build, so do not spend an hour
-    # proving it. Anything that can break it does run the full matrix.
-    paths:
-      - '.github/workflows/build-runtime.yml'
-      - '.gitmodules'
-      - 'third_party/onnxruntime'
-
 permissions:
   contents: read
 

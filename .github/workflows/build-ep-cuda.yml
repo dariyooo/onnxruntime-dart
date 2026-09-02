@@ -15,16 +15,9 @@
 name: build-ep-cuda
 
 on:
+  # Called by ci.yml, which is the only entry point. Building on its own
+  # would be building without testing what was built.
   workflow_call:
-  workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/build-ep-cuda.yml'
-      - '.github/scripts/ep_matrix.py'
-      - '.github/scripts/fetch_provider.py'
-      - 'third_party/onnxruntime'
-
 permissions:
   contents: read
 

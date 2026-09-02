@@ -9,21 +9,9 @@
 name: build-extensions
 
 on:
+  # Called by ci.yml, which is the only entry point. Building on its own
+  # would be building without testing what was built.
   workflow_call:
-  workflow_dispatch:
-    inputs:
-      targets:
-        description: 'Subset to build (regex over the target id), or "all"'
-        type: string
-        default: all
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/build-extensions.yml'
-      - '.github/scripts/extensions_matrix.py'
-      - '.github/scripts/build_extensions.py'
-      - 'third_party/onnxruntime-extensions'
-
 permissions:
   contents: read
 
