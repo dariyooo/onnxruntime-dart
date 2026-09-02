@@ -479,6 +479,11 @@ jobs:
           else
             echo "::warning::/dev/kvm is not writable; the emulator will run "\
               "in software and will probably exceed this job's timeout"
+            # Which of the two it is matters: a missing device means this
+            # runner cannot host an emulator at all, a present one means the
+            # udev rule did not take. The warning above reads the same either
+            # way, so say which.
+            ls -l /dev/kvm || echo "::warning::/dev/kvm does not exist on ${{ matrix.runner }}"
           fi
 
       - name: Run on an Android emulator
