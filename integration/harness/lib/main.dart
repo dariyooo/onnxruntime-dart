@@ -15,8 +15,7 @@ class HarnessApp extends StatelessWidget {
   Widget build(BuildContext context) {
     late final String summary;
     try {
-      summary =
-          'ONNX Runtime ${runtimeVersion()}\n'
+      summary = 'ONNX Runtime ${runtimeVersion()}\n'
           'training: ${trainingIsAvailable()}\n'
           'library: ${libraryPathOf(ortApi().ref.GetTrainingApi.cast<Void>()) ?? "unknown"}';
     } on Object catch (e) {

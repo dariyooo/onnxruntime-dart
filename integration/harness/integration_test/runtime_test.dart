@@ -19,8 +19,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:onnxruntime_dart/native.dart';
-import 'package:onnxruntime_ep_webgpu/onnxruntime_ep_webgpu.dart'
-    as webgpu;
+import 'package:onnxruntime_ep_webgpu/onnxruntime_ep_webgpu.dart' as webgpu;
 import 'package:onnxruntime_dart/onnxruntime_dart.dart' hide runtimeVersion;
 
 void main() {
@@ -80,6 +79,24 @@ void main() {
       // Loading is not running. A provider that registers but computes
       // something else is worse than one that fails to load.
       webgpu.registerWebGpu();
+
+      // Registering is not the same as having something to run on. An
+      // emulator has no GPU, so the plugin loads and contributes no device,
+      // which is a property of the machine rather than of the build. Skipped
+      // with what was actually there, the same way providers that need absent
+      // hardware are skipped elsewhere.
+      final environment = OrtEnvironment.instance();
+      final devices = executionProviderDeviceNames(
+        environment.api,
+        environment.handle,
+      );
+      if (!devices.any((d) => d.toLowerCase().contains('webgpu'))) {
+        markTestSkipped(
+          'no WebGPU device on this machine; the providers with a device are: '
+          '${devices.join(', ')}',
+        );
+        return;
+      }
 
       final model =
           (await rootBundle.load('assets/model.onnx')).buffer.asUint8List();
