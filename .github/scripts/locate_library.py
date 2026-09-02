@@ -27,11 +27,17 @@ PROVIDER_VARIABLES = {
 }
 
 LIBRARY_NAMES = ("libonnxruntime.so", "libonnxruntime.dylib", "onnxruntime.dll")
-PLUGIN_NAMES = (
-    "libonnxruntime_providers_webgpu.so",
-    "libonnxruntime_providers_webgpu.dylib",
-    "onnxruntime_providers_webgpu.dll",
-)
+def plugin_names(provider: str) -> tuple[str, ...]:
+    """What the shared library for [provider] is called, per platform.
+
+    The stem comes from ep_matrix, which is what the mirror script already
+    searches upstream archives by, so there is one answer rather than two that
+    can drift. This was a fixed tuple naming the WebGPU library, from when that
+    was the only provider we shipped, so CUDA and QNN archives were searched
+    for a file that could not be in them.
+    """
+    stem = ep_matrix.by_name(provider).library_stem
+    return (f"lib{stem}.so", f"lib{stem}.dylib", f"{stem}.dll")
 
 EXTENSIONS_NAMES = (
     "libortextensions.so",
@@ -149,7 +155,10 @@ def main() -> None:
     for provider, variable in PROVIDER_VARIABLES.items():
         archive = provider_archive(downloaded / f"ep-{provider}", provider, config_id)
         if archive is not None:
-            plugin = find(extract(archive, unpacked / f"ep-{provider}"), PLUGIN_NAMES)
+            plugin = find(
+                extract(archive, unpacked / f"ep-{provider}"),
+                plugin_names(provider),
+            )
             if plugin is None:
                 raise SystemExit(f"{archive} holds no {provider} plugin")
             export(variable, plugin)
