@@ -80,6 +80,7 @@ Future<void> loadOrtWasm({
   int? threads,
 }) async {
   if (_module != null) return;
+  _refuseJspi(loaderUrl);
 
   final JSObject namespace;
   try {
@@ -126,3 +127,30 @@ Future<void> loadOrtWasm({
 
 /// Forgets the loaded module. For tests that need a fresh one.
 void resetOrtWasmForTesting() => _module = null;
+
+/// Refuses a JSPI build, which this package cannot drive.
+///
+/// ONNX Runtime can be built with JSPI instead of Asyncify, and upstream is
+/// moving that way: smaller, faster, and quicker to link. The two are not
+/// interchangeable here. A JSPI build defines no `asyncInit`, so the backend
+/// would be chosen as the synchronous one, and the five exports that suspend
+/// would hand back promises to be read as integers. Nothing would throw; the
+/// results would simply be wrong.
+///
+/// Detected by name, because upstream distinguishes the builds only by
+/// filename and the module carries no marker. A heuristic, but the failure it
+/// prevents is silent, and refusing a build we cannot drive is better than
+/// running it wrongly.
+void _refuseJspi(String loaderUrl) {
+  if (!loaderUrl.contains('.jspi.')) return;
+
+  throw UnsupportedError(
+    'this looks like a JSPI build of ONNX Runtime ($loaderUrl), which this '
+    'package cannot drive. It suspends through JavaScript Promise '
+    'Integration rather than Asyncify, and the two are told apart only by '
+    'file name, so a JSPI build would be taken for a synchronous one and its '
+    'results read as though a promise were a number. Serve the Asyncify build '
+    'instead: the same directory publishes ort-wasm-simd-threaded.asyncify.mjs '
+    'beside the .jspi one.',
+  );
+}

@@ -301,6 +301,13 @@ Some things cannot work there and say so rather than failing quietly:
   allocation. Serve with COOP and COEP, which is what threads need anyway.
   `test/web_environment_test.dart` checks this and says so when it is wrong.
   Both compilers are tested, and on dart2wasm `view.int64s` works natively.
+- **Serve the Asyncify build, not the JSPI one.** ONNX Runtime can be built
+  either way, and upstream is moving toward JSPI. This package drives Asyncify:
+  it tells the two kinds of build apart by whether the module defines
+  `asyncInit`, which a JSPI build does not, so one would be taken for the plain
+  synchronous build and its promises read as numbers. Nothing would throw and
+  every result would be wrong, so a loader URL containing `.jspi.` is refused
+  outright. The same directory publishes the `.asyncify.mjs` build beside it.
 - **Threads need a cross-origin isolated page.** The runtime uses real workers,
   which need `SharedArrayBuffer`, which needs COOP and COEP headers. That is
   the page's choice, so the default is the hardware concurrency when the page
