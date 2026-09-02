@@ -277,6 +277,14 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with: { submodules: true }
+
+      # Without tags, `git describe --exact-match` on the submodule finds
+      # nothing even when its commit is exactly a release tag, and the release
+      # gets named for the commit instead of the version. The build hook asks
+      # for the version, so the two would never meet.
+      - name: Fetch the submodule's tags
+        run: git -C third_party/onnxruntime fetch --tags --force origin
+
       - uses: actions/setup-python@v5
         with: { python-version: '3.12' }
 
