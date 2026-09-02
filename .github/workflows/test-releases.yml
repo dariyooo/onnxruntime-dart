@@ -62,6 +62,20 @@ jobs:
           python3 .github/scripts/fetch_release_binaries.py "${{ matrix.config }}" \
             ${{ inputs.runtime_tag && format('--runtime-tag {0}', inputs.runtime_tag) || '' }}
 
+      # Downloaded as an archive, and the tests want it unpacked, in the one
+      # place locate_library.py looks.
+      - name: Unpack the operator library
+        run: |
+          set -euo pipefail
+          archive=".local/extensions/extensions-${{ matrix.config }}.tar.gz"
+          if [ -f "$archive" ]; then
+            mkdir -p .local/ort-extensions
+            tar xzf "$archive" -C .local/ort-extensions
+            ls -la .local/ort-extensions
+          else
+            echo "no extensions archive for ${{ matrix.config }}; those tests will skip"
+          fi
+
       - name: Point the suite at them
         run: |
           # Every provider published for this target was fetched above,

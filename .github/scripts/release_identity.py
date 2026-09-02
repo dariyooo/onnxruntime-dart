@@ -72,6 +72,16 @@ def provider_version(component: str) -> str | None:
     plugin-ep directory, and reading one would silently fall back to the
     runtime version, which is the exact mistake this exists to prevent.
     """
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+    if component == "extensions":
+        # Versioned separately from the runtime, and published by
+        # publish_extensions.py from this same number. Asked here too so there
+        # is one answer to what a component's release is called.
+        import extensions_matrix  # noqa: PLC0415
+
+        return extensions_matrix.version()
+
     name = component.removeprefix("ep-")
     if name == component:
         return None

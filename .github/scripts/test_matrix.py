@@ -244,6 +244,32 @@ class ProviderTargets(unittest.TestCase):
             for target in self._claimed(provider):
                 self.assertIn(target, every, f"{provider} claims {target}")
 
+    def test_everything_names_the_extensions_release_the_same(self):
+        # Three places have an opinion: the publisher, release_identity, which
+        # anything looking for the release asks, and the build hook, which
+        # derives the tag from the package version. The last time these were
+        # allowed to differ, the release existed under a name nothing looked
+        # for.
+        import extensions_matrix
+        import release_identity
+
+        self.assertEqual(
+            release_identity.release_tag("extensions"),
+            extensions_matrix.release_tag(),
+        )
+
+        pubspec = (
+            REPO_ROOT / "packages" / "onnxruntime_extensions" / "pubspec.yaml"
+        ).read_text(encoding="utf-8")
+        installed = re.search(
+            r"^version:\s*(\S+)\s*$", pubspec, re.MULTILINE
+        ).group(1)
+        self.assertEqual(
+            f"extensions-v{installed}",
+            extensions_matrix.release_tag(),
+            f"the hook would look for extensions-v{installed}",
+        )
+
     def test_the_dart_side_agrees_about_the_targets(self):
         # The hook asks for an asset per target from this table, so a target
         # here that the matrix does not publish is a download that will 404,
