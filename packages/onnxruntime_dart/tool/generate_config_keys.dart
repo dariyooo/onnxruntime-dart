@@ -9,6 +9,17 @@
 
 import 'dart:io';
 
+import 'package:dart_style/dart_style.dart';
+import 'package:pub_semver/pub_semver.dart';
+
+/// Formatted the same way as the other generators, and pinned the same way.
+///
+/// The output is checked against a fresh run in CI, so it has to be identical
+/// on every machine. Left to the toolchain's default it would follow whatever
+/// style the installed dart_style prefers, and the file would drift the next
+/// time that changed.
+final _formatter = DartFormatter(languageVersion: Version(3, 6, 0));
+
 const _headers = {
   'SessionConfig': 'onnxruntime_session_options_config_keys.h',
   'RunConfig': 'onnxruntime_run_options_config_keys.h',
@@ -73,7 +84,7 @@ void main() {
   }
 
   File('$root/packages/onnxruntime_dart/lib/src/bindings/config_keys.g.dart')
-      .writeAsStringSync(buffer.toString());
+      .writeAsStringSync(_formatter.format(buffer.toString()));
   stdout.writeln('generated $total configuration keys');
 }
 
