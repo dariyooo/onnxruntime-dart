@@ -35,7 +35,13 @@ workspace:
 #
 # Only the base package is pointed anywhere, so the probe in runtime.dart finds
 # exactly one runtime and the tests run against a known library.
+#
+# The path below is a placeholder. In CI, locate_library.py rewrites this line
+# to whatever the job unpacked, which is how the tests get a native asset at
+# all: without one the generated bindings resolve nothing and every
+# session-level test skips. Locally, point it at your own build, or leave it
+# and let the build hook install from the release.
 hooks:
   user_defines:
     onnxruntime_binaries:
-      local_build: .local/ort/ours-macos-arm64/lib
+      local_build: .local/ort/current/lib
