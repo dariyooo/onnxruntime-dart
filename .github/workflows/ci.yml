@@ -591,7 +591,6 @@ jobs:
         with: { submodules: true }
       - uses: dart-lang/setup-dart@v1
         with: { sdk: stable }
-      - run: dart pub get
 
       - uses: actions/download-artifact@v4
         if: ${{ needs.mode.outputs.building == 'true' }}
@@ -612,6 +611,9 @@ jobs:
 
       - name: Point the suite at the full build
         run: python3 .github/scripts/locate_library.py linux-x64-full
+
+      # After the pubspec names a library; see test-against-our-build.
+      - run: dart pub get
 
       - name: The training tests must actually run
         run: |
@@ -660,7 +662,6 @@ jobs:
         with: { submodules: true }
       - uses: dart-lang/setup-dart@v1
         with: { sdk: stable }
-      - run: dart pub get
 
       - uses: actions/download-artifact@v4
         if: ${{ needs.mode.outputs.building == 'true' }}
@@ -728,6 +729,12 @@ jobs:
       - name: Point the suite at our build
         shell: bash
         run: python3 .github/scripts/locate_library.py "${{ matrix.artifact }}" webgpu qnn cuda
+
+      # After the pubspec names a library, never before. The build hook reads
+      # user_defines when it resolves, so resolving first leaves it with
+      # nothing and every test that needs the runtime skips while the job
+      # reports success.
+      - run: dart pub get
 
       - name: Test
         shell: bash
