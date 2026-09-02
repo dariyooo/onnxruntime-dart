@@ -746,6 +746,24 @@ jobs:
 
       # The ABI tests skip silently when no library is found, which would make
       # this whole job pass while proving nothing.
+      # A suite that skipped for want of a runtime has tested nothing, and
+      # reports the same green as one that tested everything. The job exists to
+      # prove the binaries work, so not being able to load them is a failure
+      # here, not a reason to pass quietly.
+      - name: Nothing may skip for want of the runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          out=$(dart test packages/onnxruntime_dart --tags exclusive \
+            --concurrency 1 --reporter expanded 2>&1) || true
+          echo "$out" | tail -40
+          if echo "$out" | grep -q 'supplied no native library'; then
+            echo "::error::the native asset did not load, so the tests that"
+            echo "::error::actually exercise the runtime all skipped"
+            echo "$out" | grep -m1 'supplied no native library'
+            exit 1
+          fi
+
       - name: The ABI tests must have run
         shell: bash
         run: |
