@@ -148,6 +148,38 @@ List<Pointer<OrtEpDevice>> executionProviderDevices(
   }
 }
 
+/// The provider name of every device the environment can see.
+///
+/// For saying what was there when the one being asked for was not. A provider
+/// that registered but contributed no device looks identical to one that was
+/// never registered, and the two want different answers.
+List<String> executionProviderDeviceNames(OrtApi api, Pointer<OrtEnv> env) {
+  final arena = Arena();
+  try {
+    final devices = arena<Pointer<Pointer<OrtEpDevice>>>();
+    final count = arena<Size>();
+    checkStatus(
+      api,
+      api.GetEpDevices.asFunction<
+          Pointer<OrtStatus> Function(
+            Pointer<OrtEnv>,
+            Pointer<Pointer<Pointer<OrtEpDevice>>>,
+            Pointer<Size>,
+          )>()(env, devices, count),
+    );
+
+    final epName = api.EpDevice_EpName.asFunction<
+        Pointer<Char> Function(Pointer<OrtEpDevice>)>();
+
+    return [
+      for (var i = 0; i < count.value; i++)
+        epName(devices.value[i]).cast<Utf8>().toDartString(),
+    ];
+  } finally {
+    arena.releaseAll();
+  }
+}
+
 /// Selects a registered plugin provider for a session.
 ///
 /// The by-name call resolves against the providers compiled into the runtime
