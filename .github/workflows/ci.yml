@@ -117,7 +117,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          files=$(find packages -name '*.dart' -not -name '*.g.dart')
+          # integration/ too: it is Dart we maintain, and leaving it out
+          # is how two files there drifted without anything noticing.
+          files=$(find packages integration -name '*.dart' -not -name '*.g.dart')
           if [ -z "$files" ]; then
             echo "::error::found no Dart files to format-check"
             exit 1
