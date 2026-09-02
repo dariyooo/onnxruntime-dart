@@ -18,6 +18,7 @@ export 'src/target.dart'
         assetFileName,
         assetUrl,
         extensionsAssetFileName,
+        providerAssetFileName,
         extensionsAssetUrl,
         libraryFileName,
         supportedTargets,

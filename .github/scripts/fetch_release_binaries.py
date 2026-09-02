@@ -54,8 +54,14 @@ def main() -> None:
     runtime_tag = args.runtime_tag or release_identity.release_tag("runtime")
 
     print(f"runtime: {runtime_tag}")
-    if not download(runtime_tag, f"{config}.tar.gz", ARTIFACTS / "runtime"):
-        raise SystemExit(f"{runtime_tag} has no {config}.tar.gz")
+    # Published component first, staged the way the build jobs hand it over,
+    # because locate_library.py reads the staged layout either way.
+    variant = "full" if config.endswith("-full") else "base"
+    published = f"{variant}-{config.removesuffix('-full')}.tar.gz"
+    into = ARTIFACTS / "runtime"
+    if not download(runtime_tag, published, into):
+        raise SystemExit(f"{runtime_tag} has no {published}")
+    (into / published).rename(into / f"{config}.tar.gz")
 
     for provider in ep_matrix.PROVIDERS:
         if config not in provider.targets:

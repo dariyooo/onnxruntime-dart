@@ -91,12 +91,29 @@ void main() {
       expect(libraryFileName(OS.android), 'libonnxruntime.so');
     });
 
+    test('every component names its asset the same way', () {
+      // Component first, target second. The runtime used to be the exception,
+      // named for the target alone with the variant appended, which read fine
+      // and sorted badly beside everything else.
+      expect(assetFileName('linux-x64'), 'base-linux-x64.tar.gz');
+      expect(assetFileName('linux-x64-full'), 'full-linux-x64.tar.gz');
+      expect(
+        providerAssetFileName('webgpu', 'linux-x64'),
+        'webgpu-linux-x64.tar.gz',
+      );
+      expect(
+        extensionsAssetFileName('linux-x64'),
+        'extensions-linux-x64.tar.gz',
+      );
+    });
+
     test('asset url points at the pinned release', () {
       final url = assetUrl(
         releaseTag: 'runtime-v1.29.0+1',
         targetId: 'linux-x64',
       );
-      expect(url.toString(), endsWith('/runtime-v1.29.0+1/linux-x64.tar.gz'));
+      expect(
+          url.toString(), endsWith('/runtime-v1.29.0+1/base-linux-x64.tar.gz'));
       expect(url.scheme, 'https');
     });
   });

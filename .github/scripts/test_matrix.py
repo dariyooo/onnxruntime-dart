@@ -408,6 +408,30 @@ class Providers(unittest.TestCase):
                 f"{provider.release_tag}",
             )
 
+    def test_the_runtime_publishes_the_name_the_hook_installs(self):
+        # The runtime used to be the one component named for the target alone,
+        # which read fine and sorted badly beside every other asset. Both sides
+        # now put the component first, and this is what keeps them there.
+        import rename_release_assets  # noqa: PLC0415
+
+        with tempfile.TemporaryDirectory() as directory:
+            staged = pathlib.Path(directory)
+            for name in ("linux-x64.tar.gz", "linux-x64-full.tar.gz", "headers.tar.gz"):
+                (staged / name).touch()
+
+            sys.argv = ["", str(staged), "runtime"]
+            rename_release_assets.main()
+
+            self.assertEqual(
+                {p.name for p in staged.iterdir()},
+                {"base-linux-x64.tar.gz", "full-linux-x64.tar.gz", "headers.tar.gz"},
+            )
+
+        source = (
+            REPO_ROOT / "packages" / "onnxruntime_hook" / "lib" / "src" / "target.dart"
+        ).read_text(encoding="utf-8")
+        self.assertIn("'base-$targetId.tar.gz'", source)
+
     def test_the_installer_and_the_publisher_name_the_same_asset(self):
         # The tag is not the only name that has to agree. A provider built
         # through the runtime pipeline produces <target>-<provider>.tar.gz,
@@ -422,7 +446,7 @@ class Providers(unittest.TestCase):
         self.assertIn("'$provider-$build-$targetId.tar.gz'", source)
 
         sys.path.insert(0, str(REPO_ROOT / ".github" / "scripts"))
-        import rename_provider_assets  # noqa: PLC0415
+        import rename_release_assets  # noqa: PLC0415
 
         with tempfile.TemporaryDirectory() as directory:
             staged = pathlib.Path(directory)
@@ -432,7 +456,7 @@ class Providers(unittest.TestCase):
 
             for provider in ep_matrix.PROVIDERS:
                 sys.argv = ["", str(staged), provider.name]
-                rename_provider_assets.main()
+                rename_release_assets.main()
 
             for provider in ep_matrix.PROVIDERS:
                 for target in provider.targets:
