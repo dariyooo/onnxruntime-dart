@@ -50,6 +50,7 @@ void main() {
       });
     },
         skip: skipWithoutOrt ??
+            skipWithoutNativeAsset ??
             (pluginPath(provider) == null
                 ? 'no $provider plugin supplied'
                 : null));

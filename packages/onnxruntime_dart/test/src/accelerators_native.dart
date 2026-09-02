@@ -42,7 +42,11 @@ List<Accelerator> accelerators() => [
           label: provider,
           name: provider,
           ensure: () => registerPlugin(provider),
+          // The asset as well as the library: registering a provider goes
+          // through the ordinary session API, which resolves its symbols from
+          // the native asset rather than from ONNXRUNTIME_LIB.
           skip: skipWithoutOrt ??
+              skipWithoutNativeAsset ??
               (pluginPath(provider) == null
                   ? 'no $provider plugin (${_pluginVariables[provider]} unset)'
                   : null),
