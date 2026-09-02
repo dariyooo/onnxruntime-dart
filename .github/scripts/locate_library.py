@@ -64,7 +64,9 @@ def provider_archive(
 
     candidates = [
         path
-        for path in sorted(directory.glob("*.tar.gz"))
+        # Walked, not globbed: an artifact may unpack with its own folder
+        # inside, and a plugin one level down is still the plugin.
+        for path in sorted(directory.rglob("*.tar.gz"))
         if config_id in path.name and provider in path.name
     ]
     return candidates[0] if candidates else None

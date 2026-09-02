@@ -648,13 +648,17 @@ jobs:
         if: ${{ needs.mode.outputs.building == 'true' }}
         with:
           name: ep-qnn
-          path: .local/artifacts/ep-qnn
+          # Into .local/artifacts, not a subdirectory of it: the mirror uploads
+          # dist/, so the archive already carries its own ep-qnn/ folder.
+          path: .local/artifacts
 
       - uses: actions/download-artifact@v4
         if: ${{ needs.mode.outputs.building == 'true' }}
         with:
           name: ep-cuda
-          path: .local/artifacts/ep-cuda
+          # Into .local/artifacts, not a subdirectory of it: the mirror uploads
+          # dist/, so the archive already carries its own ep-cuda/ folder.
+          path: .local/artifacts
 
       # Built by its own pipeline in this run. Without it the extensions tests
       # skip, and a component we publish for thirteen targets would go from
