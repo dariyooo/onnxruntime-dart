@@ -64,8 +64,6 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with: { submodules: true }
-      # So the runtime release resolves to its version rather than its commit.
-      - run: git -C third_party/onnxruntime fetch --tags --force origin
       - id: pick
         run: |
           set -euo pipefail
@@ -560,9 +558,12 @@ jobs:
           out=$(dart test packages/onnxruntime_dart/test/training_test.dart \
             --reporter expanded)
           echo "$out"
-          if echo "$out" | grep -qi 'no training APIs'; then
-            echo "::error::the full runtime reported no training APIs, so the"
-            echo "::error::training tests skipped on the one build that has them"
+          # Any skip, not just the training one. These also skip when the
+          # runtime resolved to nothing, and a job that reports success
+          # because it tested nothing is the failure mode worth catching.
+          if echo "$out" | grep -qi 'skip'; then
+            echo "::error::the training tests skipped on the one build that has"
+            echo "::error::training compiled in, so nothing exercised it"
             exit 1
           fi
 

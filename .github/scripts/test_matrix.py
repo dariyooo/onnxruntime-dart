@@ -19,6 +19,7 @@ import unittest
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import ep_matrix
+import extensions_matrix
 import ort_matrix as m
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
@@ -150,22 +151,106 @@ class ReleaseIdentity(unittest.TestCase):
             release_identity.identity(self._repo(tag="v1.29.0")), ("v1.29.0", False)
         )
 
-    def test_an_untagged_commit_is_named_for_itself_and_is_a_prerelease(self):
-        # Trying an upstream fix that is not in a release yet must produce
-        # something that cannot be mistaken for a version.
+    def test_an_untagged_commit_is_still_named_for_its_version(self):
+        # It is a prerelease, and it is still named for the version, because
+        # the build hook derives what it asks for from a package version and
+        # cannot know a commit. A name with a commit in it is one nothing
+        # looks for.
         version, prerelease = release_identity.identity(self._repo())
         self.assertTrue(prerelease)
-        self.assertTrue(version.startswith("v1.29.0-g"), version)
+        self.assertEqual(version, "v1.29.0")
 
     def test_a_tag_that_is_not_a_version_is_ignored(self):
-        # Upstream carries tags other than releases. Only vX.Y.Z names one.
+        # Upstream carries tags other than releases. Only vX.Y.Z names one, so
+        # this is a prerelease, but the name does not change.
         version, prerelease = release_identity.identity(self._repo(tag="rel-1.29.0"))
         self.assertTrue(prerelease)
-        self.assertIn("-g", version)
+        self.assertEqual(version, "v1.29.0")
 
     def test_the_version_comes_from_the_pinned_tree(self):
         version, _ = release_identity.identity(self._repo(version="1.30.1"))
-        self.assertTrue(version.startswith("v1.30.1-g"), version)
+        self.assertEqual(version, "v1.30.1")
+
+    def test_a_shallow_checkout_names_the_release_the_same(self):
+        # CI checks out submodules without tags, so `git describe` finds
+        # nothing even when the commit is exactly a release tag. That once
+        # renamed the release and made the base package uninstallable. The name
+        # must not depend on whether tags were fetched.
+        tagged = release_identity.identity(self._repo(tag="v1.29.0"))[0]
+        shallow = release_identity.identity(self._repo())[0]
+        self.assertEqual(tagged, shallow)
+
+    def test_the_runtime_release_is_what_the_installer_asks_for(self):
+        # The whole point. onnxruntime_binaries installs from a tag built out
+        # of its own pubspec version, so the publisher has to produce that
+        # exact name or nothing can install.
+        pubspec = (
+            REPO_ROOT / "packages" / "onnxruntime_binaries" / "pubspec.yaml"
+        ).read_text(encoding="utf-8")
+        installed = re.search(
+            r"^version:\s*(\S+)\s*$", pubspec, re.MULTILINE
+        ).group(1)
+        self.assertEqual(
+            release_identity.release_tag("runtime"),
+            f"runtime-v{installed}",
+            f"the hook would look for runtime-v{installed}",
+        )
+
+
+class PackageVersions(unittest.TestCase):
+    """A package that ships upstream binaries is versioned as those binaries.
+
+    Nothing here is a number someone chose. The point is that a reader can tell
+    which ONNX Runtime a package carries by looking at it, and that bumping the
+    submodule without bumping the pubspecs is caught here rather than by a
+    release nobody can install.
+    """
+
+    @staticmethod
+    def _version(package: str) -> str:
+        pubspec = (REPO_ROOT / "packages" / package / "pubspec.yaml").read_text(
+            encoding="utf-8"
+        )
+        return re.search(r"^version:\s*(\S+)\s*$", pubspec, re.MULTILINE).group(1)
+
+    def test_the_runtime_packages_carry_the_runtime_version(self):
+        upstream = (
+            REPO_ROOT / "third_party" / "onnxruntime" / "VERSION_NUMBER"
+        ).read_text(encoding="utf-8").strip()
+
+        for package in (
+            "onnxruntime_binaries",
+            "onnxruntime_hook",
+            "onnxruntime_web",
+            "onnxruntime_web_webgpu",
+            "onnxruntime_web_webgpu_webnn",
+        ):
+            self.assertEqual(self._version(package), upstream, package)
+
+    def test_the_extensions_package_carries_the_extensions_version(self):
+        self.assertEqual(
+            self._version("onnxruntime_extensions"), extensions_matrix.version()
+        )
+
+    def test_each_provider_package_carries_its_plugin_version(self):
+        for provider in ep_matrix.PROVIDERS:
+            self.assertEqual(
+                self._version(f"onnxruntime_ep_{provider.name}"),
+                provider.version,
+                provider.name,
+            )
+
+    def test_the_bindings_say_which_runtime_they_were_generated_against(self):
+        # The one package with a version of its own, because it is the API
+        # rather than a binary. It still names the runtime it was generated
+        # against, in the build metadata, so the pairing is visible.
+        upstream = (
+            REPO_ROOT / "third_party" / "onnxruntime" / "VERSION_NUMBER"
+        ).read_text(encoding="utf-8").strip()
+        self.assertTrue(
+            self._version("onnxruntime_dart").endswith(f"+onnxruntime-{upstream}"),
+            self._version("onnxruntime_dart"),
+        )
 
 
 class ProviderTargets(unittest.TestCase):
