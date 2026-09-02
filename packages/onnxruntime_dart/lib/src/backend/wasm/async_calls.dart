@@ -1,9 +1,20 @@
 /// The seam on an Asyncify build of the WebAssembly runtime.
 ///
 /// Everything that cannot suspend is inherited from the synchronous backend.
-/// The five calls Asyncify wraps are overridden: the asynchronous forms await
-/// what comes back, and the synchronous forms refuse rather than reading a
-/// promise as a handle.
+/// What is overridden here is the five calls Asyncify wraps, which return
+/// either a result or a promise depending on whether they actually suspended.
+///
+/// Being an Asyncify build does not make every call asynchronous. Asyncify
+/// suspends only when a call reaches something asynchronous, and a session on
+/// the CPU never does, so [createSession] and [run] still work synchronously
+/// here and only refuse when they find a promise in their hands. In that case
+/// the call is already in flight and still writing into its arena, so the
+/// arena is handed to the promise to free rather than pulled out from under
+/// it.
+///
+/// [runWithBinding] and [bindInput] refuse outright instead. Binding exists to
+/// keep tensors on the device between runs, so it is the accelerator path by
+/// definition and there is no synchronous case worth rescuing.
 ///
 /// This is the only backend that works with the WebGPU and WebNN builds,
 /// because reading results back off a GPU is what makes a run suspend.
