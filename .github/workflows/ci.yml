@@ -533,12 +533,36 @@ jobs:
 
       # Whatever the simulator itself logged, which is the only place a crash
       # on launch shows up when the harness just waits.
+      # The app launches, prints nothing, and never publishes a VM service,
+      # which looks the same whether it crashed on load or simply never got
+      # that far. The previous predicate looked for "harness", which is the
+      # bundle id; the executable is Runner, so it matched nothing and the
+      # failure stayed silent.
       - name: What the simulator logged
         if: failure() && matrix.name == 'ios'
         continue-on-error: true
         run: |
+          echo "=== log for the Runner process ==="
           xcrun simctl spawn booted log show --last 10m --style compact \
-            --predicate 'processImagePath CONTAINS "harness"' | tail -80
+            --predicate 'processImagePath CONTAINS "Runner"' | tail -80
+
+          echo "=== anything mentioning onnxruntime, dart or the VM service ==="
+          xcrun simctl spawn booted log show --last 10m --style compact \
+            --predicate 'eventMessage CONTAINS[c] "onnxruntime"
+                      OR eventMessage CONTAINS[c] "dart"
+                      OR eventMessage CONTAINS[c] "vm service"
+                      OR eventMessage CONTAINS[c] "dyld"' | tail -60
+
+          echo "=== crash reports, which is where a failed dlopen lands ==="
+          find ~/Library/Logs/DiagnosticReports -name '*.ips' -newermt '-30 minutes' \
+            2>/dev/null | head -5 | while read -r report; do
+            echo "--- $report"
+            head -60 "$report"
+          done || echo "no crash reports"
+
+          echo "=== is the library actually in the bundle? ==="
+          find integration/harness/build/ios -name 'libonnxruntime*' \
+            -o -name 'onnxruntime*.framework' 2>/dev/null | head -5
 
   # The full runtime is the only one with training compiled in, so it is the
   # only build the training tests can do more than skip against. One platform
