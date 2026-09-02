@@ -397,10 +397,12 @@ jobs:
         include:
           # The emulator is x86_64, so that is the library it needs.
           - { name: android-x64, runner: ubuntu-24.04, artifact: android-x86_64, arch: x86_64 }
-          # The arm64 image runs natively on an arm64 runner. Without this the
-          # architecture almost every Android phone actually uses is built and
-          # never run.
-          - { name: android-arm64, runner: ubuntu-24.04-arm, artifact: android-arm64-v8a, arch: arm64-v8a }
+          # On macOS, because Flutter publishes no linux-arm64 SDK: an
+          # ubuntu-24.04-arm runner cannot run `flutter test` at all. Apple
+          # silicon is arm64, has Flutter, and runs an arm64-v8a image natively
+          # through HVF. Without this the architecture almost every Android
+          # phone actually uses is built and never run.
+          - { name: android-arm64, runner: macos-15, artifact: android-arm64-v8a, arch: arm64-v8a }
           - { name: ios, runner: macos-15, artifact: ios-sim-arm64 }
     steps:
       - uses: actions/checkout@v5
@@ -463,7 +465,7 @@ jobs:
       # quietly falls back to software emulation rather than saying so. That is
       # the difference between six minutes and six hours.
       - name: Let the emulator use KVM
-        if: startsWith(matrix.name, 'android')
+        if: startsWith(matrix.name, 'android') && runner.os == 'Linux'
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
             | sudo tee /etc/udev/rules.d/99-kvm4all.rules
