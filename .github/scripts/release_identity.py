@@ -44,17 +44,24 @@ def _git(checkout: pathlib.Path, *args: str) -> str | None:
 
 
 def identity(checkout: pathlib.Path = SUBMODULE) -> tuple[str, bool]:
-    """The version part of the release name, and whether the ONNX Runtime it
-    was built from is unreleased."""
-    exact = _git(checkout, "describe", "--tags", "--exact-match", "HEAD")
-    if exact and _VERSION_TAG.match(exact):
-        return exact, False
+    """The version part of the release name, and whether the source was tagged.
 
-    # Not on a tag. Name it for the version in the tree plus the commit, so it
-    # sorts beside its neighbours and still says exactly which build it is.
+    The name is the version and nothing else. It used to carry the commit when
+    the submodule was not sitting on a tag, which read well and could never be
+    installed: the build hook derives the tag it asks for from a package
+    version, so a name with a commit in it is one nothing looks for. The commit
+    is in the release notes instead, where it informs without being load
+    bearing.
+
+    Whether the commit is exactly a tag only sets the prerelease flag, so it is
+    allowed to be unknown. A shallow checkout has no tags, and answering "not
+    tagged" there is wrong but harmless.
+    """
     version = (checkout / "VERSION_NUMBER").read_text(encoding="utf-8").strip()
-    commit = _git(checkout, "rev-parse", "--short=12", "HEAD") or "unknown"
-    return f"v{version}-g{commit}", True
+
+    exact = _git(checkout, "describe", "--tags", "--exact-match", "HEAD")
+    tagged = bool(exact and _VERSION_TAG.match(exact))
+    return f"v{version}", not tagged
 
 
 def provider_version(component: str) -> str | None:
