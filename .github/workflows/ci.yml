@@ -624,7 +624,10 @@ jobs:
           # Any skip, not just the training one. These also skip when the
           # runtime resolved to nothing, and a job that reports success
           # because it tested nothing is the failure mode worth catching.
-          if echo "$out" | grep -qi 'skip'; then
+          # A herestring, not a pipe: `echo | grep -q` returns 141 under
+          # pipefail when grep matches early, so the guard would fire only
+          # when the string was absent.
+          if grep -qi 'skip' <<< "$out"; then
             echo "::error::the training tests skipped on the one build that has"
             echo "::error::training compiled in, so nothing exercised it"
             exit 1
@@ -751,10 +754,11 @@ jobs:
           out=$(dart test packages/onnxruntime_dart --tags exclusive \
             --concurrency 1 --reporter expanded 2>&1) && status=0 || status=$?
           echo "$out"
-          if echo "$out" | grep -q 'supplied no native library'; then
+          # See above: a pipe here inverts the test under pipefail.
+          if grep -q 'supplied no native library' <<< "$out"; then
             echo "::error::the native asset did not load, so every test that"
             echo "::error::exercises the runtime skipped. Reason reported:"
-            echo "$out" | grep -m1 'supplied no native library'
+            grep -m1 'supplied no native library' <<< "$out" || true
             exit 1
           fi
           exit $status
@@ -767,7 +771,10 @@ jobs:
           set -euo pipefail
           out=$(dart test packages/onnxruntime_dart/test/bindings_test.dart --reporter expanded)
           echo "$out"
-          if echo "$out" | grep -qi 'skip'; then
+          # A herestring, not a pipe: `echo | grep -q` returns 141 under
+          # pipefail when grep matches early, so the guard would fire only
+          # when the string was absent.
+          if grep -qi 'skip' <<< "$out"; then
             echo "::error::bindings_test skipped. Our build was not found."
             exit 1
           fi
