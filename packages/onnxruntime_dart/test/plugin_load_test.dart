@@ -25,6 +25,11 @@ void main() {
       setUpAll(() => env = OrtEnvironment.instance());
 
       test('opens, and its factory runs', () {
+        // A driver, not just a toolkit: the CUDA plugin links libcuda.so.1,
+        // which ships with the NVIDIA driver rather than with cudart. A
+        // machine without one cannot load it, and saying so beats a stack
+        // trace from inside registration.
+
         final before = executionProviderDeviceCount(env.api, env.handle);
 
         // Registration succeeding proves the library loaded and exported

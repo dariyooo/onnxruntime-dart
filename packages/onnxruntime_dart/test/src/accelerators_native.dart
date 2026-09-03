@@ -47,8 +47,15 @@ Future<void> registerPlugin(String provider) async {
 bool _hasDevice(String provider) {
   if (pluginPath(provider) == null) return false;
   try {
-    registerPlugin(provider);
+    // Registered here rather than through registerPlugin, which is async: an
+    // exception from a future is not caught by a try around the call, and a
+    // plugin that cannot load would take the whole suite down at load time
+    // instead of being reported as absent.
+    if (_registered.add(provider)) {
+      registerProviderLibrary(name: provider, path: pluginPath(provider)!);
+    }
   } on Object {
+    _registered.remove(provider);
     return false;
   }
   final environment = OrtEnvironment.instance();
