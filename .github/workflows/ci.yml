@@ -770,7 +770,11 @@ jobs:
           # list or apt is asked for a package that does not exist. The plugin
           # links both, and a missing cublas fails the load as surely as a
           # missing cudart does.
-          sub-packages: '["cudart"]'
+          # cudart-dev as well, because that is the package carrying
+          # lib64/stubs/libcuda.so. The plugin links libcuda.so.1, which
+          # belongs to the NVIDIA driver rather than the toolkit, and the stub
+          # is the only way a GPU-less runner can load the library at all.
+          sub-packages: '["cudart", "cudart-dev"]'
           non-cuda-sub-packages: '["libcublas"]'
 
       # The plugin also links libcuda.so.1, which belongs to the NVIDIA driver

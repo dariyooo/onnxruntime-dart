@@ -63,13 +63,24 @@ bool _hasDevice(String provider) {
       .any((name) => name.toLowerCase().contains(provider.toLowerCase()));
 }
 
+/// Providers that enumerate a device without being able to use it.
+///
+/// QNN contributes a device wherever its plugin loads, because the plugin
+/// carries the Qualcomm runtime, and then fails at session creation with
+/// "Could not determine default backend path" because there is no NPU behind
+/// it. Having a device is therefore not proof of being usable, and no hosted
+/// runner has the hardware, so it is load-tested and never run.
+/// `plugin_load_test.dart` is what covers it.
+const _neverRunnable = {'qnn'};
+
 /// The providers this machine can actually run a model on.
 ///
 /// Filtered rather than skipped: a provider with no hardware behind it is not
 /// a test that did not run, it is a test that does not apply here.
 List<Accelerator> accelerators() => [
       for (final provider in _pluginVariables.keys)
-        if (skipWithoutOrt == null &&
+        if (!_neverRunnable.contains(provider) &&
+            skipWithoutOrt == null &&
             skipWithoutNativeAsset == null &&
             _hasDevice(provider))
           Accelerator(
