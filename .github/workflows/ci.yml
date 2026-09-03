@@ -957,11 +957,12 @@ jobs:
           fi
           python3 .github/scripts/locate_library.py "${{ matrix.artifact }}" $required
 
-      # Beside the plugin, not merely on PATH. Windows resolves a DLL's own
-      # dependencies from the directory of the module loading them before it
-      # looks at PATH, and Dawn's dxil.dll load fails with error 87 when it is
-      # only on PATH. This is also what an application has to do: ship these
-      # next to the provider it loads.
+      # Beside the plugin, and also on PATH from the step above. Placing them
+      # next to the provider is what made this work on x64, and it is what an
+      # application shipping the provider has to do anyway, so that is what is
+      # exercised here. Whether PATH alone would now suffice is untested: the
+      # error 87 chased at length on ARM64 turned out to be an ARM64EC binary
+      # rather than anything to do with where it sat.
       - name: Put the dependent DLLs beside the plugins
         if: runner.os == 'Windows'
         shell: pwsh
