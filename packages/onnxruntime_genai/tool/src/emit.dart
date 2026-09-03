@@ -300,6 +300,19 @@ Wrapped? _wrap(CFunction function, String? owner, String? dartName) {
   final parameters = function.parameters;
   final out = _outOf(function);
 
+  // A call that writes a borrowed array as two out parameters at once, the
+  // pointer and its length. Detected before the loop below, which would
+  // otherwise reject the pointer half as a type it does not know.
+  CParameter? arrayOut;
+  if (out != null &&
+      out.type.replaceAll(' ', '') == 'size_t*' &&
+      parameters.length >= 2) {
+    final before = parameters[parameters.length - 2];
+    if (before.isHandleOut && nativeSlot(before.pointee) != null) {
+      arrayOut = before;
+    }
+  }
+
   final selfIndex = owner == null
       ? -1
       : parameters.indexWhere((p) => p.pointee == owner && !p.isHandleOut);
@@ -324,7 +337,7 @@ Wrapped? _wrap(CFunction function, String? owner, String? dartName) {
 
   for (var i = 0; i < parameters.length; i++) {
     final parameter = parameters[i];
-    if (parameter == out) continue;
+    if (parameter == out || parameter == arrayOut) continue;
     if (owner != null && !isFactory && i == selfIndex) {
       forwarded.add('pointer<$owner>(handle)');
       continue;
@@ -363,17 +376,6 @@ Wrapped? _wrap(CFunction function, String? owner, String? dartName) {
       prologue.isEmpty ? '' : '${prologue.map((l) => '      $l').join('\n')}\n';
   final signature = declared.join(', ');
   final arguments = passed.join(', ');
-
-  // The pair before the count, when a call writes both at once.
-  CParameter? arrayOut;
-  if (out != null &&
-      out.type.replaceAll(' ', '') == 'size_t*' &&
-      parameters.length >= 2) {
-    final before = parameters[parameters.length - 2];
-    if (before.isHandleOut && nativeSlot(before.pointee) != null) {
-      arrayOut = before;
-    }
-  }
 
   String? returns;
   String body;

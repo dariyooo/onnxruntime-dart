@@ -1,4 +1,4 @@
-14 of 150 functions are not wrapped.
+12 of 150 functions are not wrapped.
 
 OgaResultGetError: parameter result is const OgaResult*
 OgaSetLogCallback: takes a callback, which needs a wrapper
@@ -6,9 +6,7 @@ OgaDestroyResult: parameter result is OgaResult*
 OgaLoadImagesFromBuffers: parameter image_data_sizes is const size_t*
 OgaLoadAudiosFromBuffers: parameter audio_data_sizes is const size_t*
 OgaRuntimeSettingsSetHandle: parameter handle is void*
-OgaGenerator_GetNextTokens: parameter out_count is size_t*
 OgaUpdateTokenizerOptions: parameter keys is const char* const*
-OgaTokenizerGetEosTokenIds: parameter token_count is size_t*
 OgaCreateTensorFromBuffer: parameter data is void*
 OgaTensorGetType: returns OgaResult*
 OgaTensorGetData: returns OgaResult*

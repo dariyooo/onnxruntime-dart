@@ -27,8 +27,7 @@ final class UnsupportedGenAiCalls implements GenAiCalls {
   const UnsupportedGenAiCalls();
 
   @override
-  void shutdown() =>
-      throw const GenAiUnsupported('shutdown');
+  void shutdown() => throw const GenAiUnsupported('shutdown');
 
   @override
   void setTelemetryEnabled(bool enabled) =>
@@ -55,7 +54,8 @@ final class UnsupportedGenAiCalls implements GenAiCalls {
       throw const GenAiUnsupported('getCurrentGpuDeviceId');
 
   @override
-  void registerExecutionProviderLibrary(String registrationName, String libraryPath) =>
+  void registerExecutionProviderLibrary(
+          String registrationName, String libraryPath) =>
       throw const GenAiUnsupported('registerExecutionProviderLibrary');
 
   @override
@@ -95,8 +95,7 @@ final class UnsupportedGenAiCalls implements GenAiCalls {
       throw const GenAiUnsupported('destroySequences');
 
   @override
-  GenAiPtr createSequences() =>
-      throw const GenAiUnsupported('createSequences');
+  GenAiPtr createSequences() => throw const GenAiUnsupported('createSequences');
 
   @override
   int sequencesCount(GenAiPtr handle) =>
@@ -199,11 +198,13 @@ final class UnsupportedGenAiCalls implements GenAiCalls {
       throw const GenAiUnsupported('configAppendProvider');
 
   @override
-  void configSetProviderOption(GenAiPtr handle, String provider, String key, String value) =>
+  void configSetProviderOption(
+          GenAiPtr handle, String provider, String key, String value) =>
       throw const GenAiUnsupported('configSetProviderOption');
 
   @override
-  void configAddModelData(GenAiPtr handle, String modelFilename, Uint8List modelData) =>
+  void configAddModelData(
+          GenAiPtr handle, String modelFilename, Uint8List modelData) =>
       throw const GenAiUnsupported('configAddModelData');
 
   @override
@@ -211,28 +212,40 @@ final class UnsupportedGenAiCalls implements GenAiCalls {
       throw const GenAiUnsupported('configRemoveModelData');
 
   @override
-  void configSetDecoderProviderOptionsHardwareDeviceType(GenAiPtr handle, String provider, String hardwareDeviceType) =>
-      throw const GenAiUnsupported('configSetDecoderProviderOptionsHardwareDeviceType');
+  void configSetDecoderProviderOptionsHardwareDeviceType(
+          GenAiPtr handle, String provider, String hardwareDeviceType) =>
+      throw const GenAiUnsupported(
+          'configSetDecoderProviderOptionsHardwareDeviceType');
 
   @override
-  void configSetDecoderProviderOptionsHardwareDeviceId(GenAiPtr handle, String provider, int hardwareDeviceId) =>
-      throw const GenAiUnsupported('configSetDecoderProviderOptionsHardwareDeviceId');
+  void configSetDecoderProviderOptionsHardwareDeviceId(
+          GenAiPtr handle, String provider, int hardwareDeviceId) =>
+      throw const GenAiUnsupported(
+          'configSetDecoderProviderOptionsHardwareDeviceId');
 
   @override
-  void configSetDecoderProviderOptionsHardwareVendorId(GenAiPtr handle, String provider, int hardwareVendorId) =>
-      throw const GenAiUnsupported('configSetDecoderProviderOptionsHardwareVendorId');
+  void configSetDecoderProviderOptionsHardwareVendorId(
+          GenAiPtr handle, String provider, int hardwareVendorId) =>
+      throw const GenAiUnsupported(
+          'configSetDecoderProviderOptionsHardwareVendorId');
 
   @override
-  void configClearDecoderProviderOptionsHardwareDeviceType(GenAiPtr handle, String provider) =>
-      throw const GenAiUnsupported('configClearDecoderProviderOptionsHardwareDeviceType');
+  void configClearDecoderProviderOptionsHardwareDeviceType(
+          GenAiPtr handle, String provider) =>
+      throw const GenAiUnsupported(
+          'configClearDecoderProviderOptionsHardwareDeviceType');
 
   @override
-  void configClearDecoderProviderOptionsHardwareDeviceId(GenAiPtr handle, String provider) =>
-      throw const GenAiUnsupported('configClearDecoderProviderOptionsHardwareDeviceId');
+  void configClearDecoderProviderOptionsHardwareDeviceId(
+          GenAiPtr handle, String provider) =>
+      throw const GenAiUnsupported(
+          'configClearDecoderProviderOptionsHardwareDeviceId');
 
   @override
-  void configClearDecoderProviderOptionsHardwareVendorId(GenAiPtr handle, String provider) =>
-      throw const GenAiUnsupported('configClearDecoderProviderOptionsHardwareVendorId');
+  void configClearDecoderProviderOptionsHardwareVendorId(
+          GenAiPtr handle, String provider) =>
+      throw const GenAiUnsupported(
+          'configClearDecoderProviderOptionsHardwareVendorId');
 
   @override
   void configOverlay(GenAiPtr handle, String json) =>
@@ -291,7 +304,8 @@ final class UnsupportedGenAiCalls implements GenAiCalls {
       throw const GenAiUnsupported('destroyGeneratorParams');
 
   @override
-  void generatorParamsSetSearchNumber(GenAiPtr handle, String name, double value) =>
+  void generatorParamsSetSearchNumber(
+          GenAiPtr handle, String name, double value) =>
       throw const GenAiUnsupported('generatorParamsSetSearchNumber');
 
   @override
@@ -299,7 +313,8 @@ final class UnsupportedGenAiCalls implements GenAiCalls {
       throw const GenAiUnsupported('generatorParamsSetSearchBool');
 
   @override
-  void generatorParamsSetGuidance(GenAiPtr handle, String type, String data, bool enableFfTokens) =>
+  void generatorParamsSetGuidance(
+          GenAiPtr handle, String type, String data, bool enableFfTokens) =>
       throw const GenAiUnsupported('generatorParamsSetGuidance');
 
   @override
@@ -351,6 +366,10 @@ final class UnsupportedGenAiCalls implements GenAiCalls {
       throw const GenAiUnsupported('generatorGenerateNextToken');
 
   @override
+  List<int> generatorGetNextTokens(GenAiPtr handle) =>
+      throw const GenAiUnsupported('generatorGetNextTokens');
+
+  @override
   void generatorSetRuntimeOption(GenAiPtr handle, String key, String value) =>
       throw const GenAiUnsupported('generatorSetRuntimeOption');
 
@@ -383,7 +402,8 @@ final class UnsupportedGenAiCalls implements GenAiCalls {
       throw const GenAiUnsupported('generatorGetSequenceData');
 
   @override
-  void setActiveAdapter(GenAiPtr handle, GenAiPtr adapters, String adapterName) =>
+  void setActiveAdapter(
+          GenAiPtr handle, GenAiPtr adapters, String adapterName) =>
       throw const GenAiUnsupported('setActiveAdapter');
 
   @override
@@ -393,6 +413,10 @@ final class UnsupportedGenAiCalls implements GenAiCalls {
   @override
   int tokenizerGetBosTokenId(GenAiPtr handle) =>
       throw const GenAiUnsupported('tokenizerGetBosTokenId');
+
+  @override
+  List<int> tokenizerGetEosTokenIds(GenAiPtr handle) =>
+      throw const GenAiUnsupported('tokenizerGetEosTokenIds');
 
   @override
   int tokenizerGetPadTokenId(GenAiPtr handle) =>
@@ -435,7 +459,8 @@ final class UnsupportedGenAiCalls implements GenAiCalls {
       throw const GenAiUnsupported('tokenizerDecode');
 
   @override
-  String tokenizerApplyChatTemplate(GenAiPtr handle, String templateStr, String messages, String tools, bool addGenerationPrompt) =>
+  String tokenizerApplyChatTemplate(GenAiPtr handle, String templateStr,
+          String messages, String tools, bool addGenerationPrompt) =>
       throw const GenAiUnsupported('tokenizerApplyChatTemplate');
 
   @override
@@ -447,27 +472,33 @@ final class UnsupportedGenAiCalls implements GenAiCalls {
       throw const GenAiUnsupported('destroyMultiModalProcessor');
 
   @override
-  GenAiPtr processorProcessImages(GenAiPtr handle, String prompt, GenAiPtr images) =>
+  GenAiPtr processorProcessImages(
+          GenAiPtr handle, String prompt, GenAiPtr images) =>
       throw const GenAiUnsupported('processorProcessImages');
 
   @override
-  GenAiPtr processorProcessImagesAndPrompts(GenAiPtr handle, GenAiPtr prompts, GenAiPtr images) =>
+  GenAiPtr processorProcessImagesAndPrompts(
+          GenAiPtr handle, GenAiPtr prompts, GenAiPtr images) =>
       throw const GenAiUnsupported('processorProcessImagesAndPrompts');
 
   @override
-  GenAiPtr processorProcessAudios(GenAiPtr handle, String prompt, GenAiPtr audios) =>
+  GenAiPtr processorProcessAudios(
+          GenAiPtr handle, String prompt, GenAiPtr audios) =>
       throw const GenAiUnsupported('processorProcessAudios');
 
   @override
-  GenAiPtr processorProcessAudiosAndPrompts(GenAiPtr handle, GenAiPtr prompts, GenAiPtr audios) =>
+  GenAiPtr processorProcessAudiosAndPrompts(
+          GenAiPtr handle, GenAiPtr prompts, GenAiPtr audios) =>
       throw const GenAiUnsupported('processorProcessAudiosAndPrompts');
 
   @override
-  GenAiPtr processorProcessImagesAndAudios(GenAiPtr handle, String prompt, GenAiPtr images, GenAiPtr audios) =>
+  GenAiPtr processorProcessImagesAndAudios(
+          GenAiPtr handle, String prompt, GenAiPtr images, GenAiPtr audios) =>
       throw const GenAiUnsupported('processorProcessImagesAndAudios');
 
   @override
-  GenAiPtr processorProcessImagesAndAudiosAndPrompts(GenAiPtr handle, GenAiPtr prompts, GenAiPtr images, GenAiPtr audios) =>
+  GenAiPtr processorProcessImagesAndAudiosAndPrompts(GenAiPtr handle,
+          GenAiPtr prompts, GenAiPtr images, GenAiPtr audios) =>
       throw const GenAiUnsupported('processorProcessImagesAndAudiosAndPrompts');
 
   @override
@@ -503,7 +534,8 @@ final class UnsupportedGenAiCalls implements GenAiCalls {
       throw const GenAiUnsupported('destroyAdapters');
 
   @override
-  void loadAdapter(GenAiPtr handle, String adapterFilePath, String adapterName) =>
+  void loadAdapter(
+          GenAiPtr handle, String adapterFilePath, String adapterName) =>
       throw const GenAiUnsupported('loadAdapter');
 
   @override
@@ -569,5 +601,4 @@ final class UnsupportedGenAiCalls implements GenAiCalls {
   @override
   String streamingProcessorGetOption(GenAiPtr handle, String key) =>
       throw const GenAiUnsupported('streamingProcessorGetOption');
-
 }
