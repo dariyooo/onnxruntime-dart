@@ -1280,19 +1280,22 @@ class ApiAndBinariesAreSeparate(unittest.TestCase):
     def test_an_api_package_does_not_require_its_binaries(self):
         """The binary stays optional, which is the point of the split.
 
-        Naming it as a dependency would make every application take our build
-        of it, and there would be no way to supply one at run time instead.
+        Naming it as a real dependency would make every application take our
+        build of it, and there would be no way to supply one at run time
+        instead. A dev dependency is fine and is how these packages test
+        themselves: dev dependencies are not transitive, so nothing an
+        application depends on is affected by one.
         """
+        import yaml
+
         for name in self._api_packages():
             with self.subTest(package=name):
-                deps = self._pubspec(name).split("dependencies:", 1)[1]
-                lines = [
-                    line
-                    for line in deps.splitlines()
-                    if line.strip().startswith(f"{name}_binaries:")
-                ]
-                self.assertEqual(
-                    lines, [], f"{name} requires {name}_binaries"
+                spec = yaml.safe_load(self._pubspec(name))
+                self.assertNotIn(
+                    f"{name}_binaries",
+                    spec.get("dependencies") or {},
+                    f"{name} requires {name}_binaries, so an application "
+                    f"cannot supply its own library",
                 )
 
     def test_an_api_version_names_the_binary_it_was_written_against(self):

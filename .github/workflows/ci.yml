@@ -34,7 +34,7 @@ on:
       only:
         description: >-
           Run part of it. Comma separated, any of: runtime, full, webgpu, qnn,
-          cuda, extensions, desktop, device, web. Empty runs everything.
+          cuda, extensions, genai, desktop, device, web. Empty runs everything.
         type: string
         default: ''
   schedule:
@@ -192,6 +192,13 @@ jobs:
         run: |
           dart run tool/generate_bindings.dart
           dart run tool/generate_config_keys.dart
+      # GenAI generates the same way and has to be as reproducible: its
+      # wrappers come from the pinned header, so a submodule bump nobody
+      # regenerated against shows up here rather than at a call site.
+      - working-directory: packages/onnxruntime_genai
+        run: |
+          dart run ffigen --config ffigen.yaml
+          dart run tool/generate_bindings.dart
       - name: Generated code must be unchanged
         run: |
           if ! git diff --exit-code --stat -- '*.g.dart' \
@@ -201,6 +208,9 @@ jobs:
             echo "  dart run ffigen --config ffigen.yaml"
             echo "  dart run tool/generate_bindings.dart"
             echo "  dart run tool/generate_config_keys.dart"
+            echo "and, in packages/onnxruntime_genai:"
+            echo "  dart run ffigen --config ffigen.yaml"
+            echo "  dart run tool/generate_bindings.dart"
             exit 1
           fi
 
@@ -364,6 +374,17 @@ jobs:
   # second, so it runs here every time. The expensive half is the build, which
   # is cached on the ORT commit and build flags, so a full rebuild and full
   # verification happen exactly when the submodule pin moves.
+  # Nothing is compiled: upstream publishes the GenAI library itself and we
+  # mirror it, the same arrangement the plugins have. Its own stream because it
+  # versions apart from the runtime and keeps working across runtime releases.
+  build-genai:
+    name: genai
+    needs: [static, mode]
+    if: >-
+      ${{ needs.mode.outputs.building == 'true'
+      && (inputs.only == '' || contains(inputs.only, 'genai')) }}
+    uses: ./.github/workflows/build-genai.yml
+
   # Nothing is compiled: ONNX Runtime publishes this plugin itself and we
   # mirror it. Separate from the runtime build because it shares nothing with
   # one, and finishes in minutes rather than hours.
