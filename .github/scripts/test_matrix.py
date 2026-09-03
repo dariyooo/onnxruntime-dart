@@ -25,6 +25,7 @@ import ort_matrix as m
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 import package_artifact
 import release_identity
+import rename_release_assets
 
 
 class CompleteBuilds(unittest.TestCase):
@@ -968,6 +969,73 @@ class Pipelines(unittest.TestCase):
                     providers.intersection(needs),
                     f"{name} waits on a provider",
                 )
+
+
+class ReleaseAssetNames(unittest.TestCase):
+    """That what we publish is what the jobs fetching it ask for.
+
+    The names differ on purpose: a build produces `linux-x64-full` and the
+    release carries `full-linux-x64`, because a release is a flat list where
+    the component has to come first to be legible. Two places knowing that rule
+    is what went wrong before, so the publisher owns it and everything else
+    asks. These tests hold that line.
+    """
+
+    def _targets(self) -> list[tuple[str, str]]:
+        """Every (local archive name, component) we ever publish."""
+        pairs = [(config.id, "runtime") for config in m.CONFIGURATIONS]
+        pairs += [(f"{config.id}-full", "runtime") for config in m.CONFIGURATIONS]
+        return pairs
+
+    def test_every_archive_gets_a_published_name(self):
+        # None means "leave it alone", which for a real target would publish
+        # the build's own name and 404 the hook that asks for the other one.
+        for local, component in self._targets():
+            with self.subTest(local=local):
+                self.assertIsNotNone(
+                    rename_release_assets.renamed(f"{local}.tar.gz", component),
+                    f"{local} would be published under the build's own name",
+                )
+
+    def test_published_names_are_unique(self):
+        seen: dict[str, str] = {}
+        for local, component in self._targets():
+            name = rename_release_assets.renamed(f"{local}.tar.gz", component)
+            self.assertNotIn(
+                name, seen, f"{local} and {seen.get(name)} both publish as {name}"
+            )
+            seen[name] = local
+
+    def test_base_and_full_stay_distinct(self):
+        # They differ by a suffix on one side and a prefix on the other, which
+        # is exactly the kind of rule that collapses under a careless edit.
+        for config in m.CONFIGURATIONS:
+            base = rename_release_assets.renamed(f"{config.id}.tar.gz", "runtime")
+            full = rename_release_assets.renamed(f"{config.id}-full.tar.gz", "runtime")
+            self.assertEqual(base, f"base-{config.id}.tar.gz")
+            self.assertEqual(full, f"full-{config.id}.tar.gz")
+
+    def test_nothing_spells_a_release_asset_out_by_hand(self):
+        """A job fetching from a release must derive the name, not type it.
+
+        Typing it is how the full-runtime job came to ask a release that
+        publishes `full-linux-x64` for `linux-x64-full`, which fails only when
+        that one job runs against a release.
+        """
+        text = (REPO_ROOT / ".github" / "workflows" / "ci.yml").read_text(
+            encoding="utf-8"
+        )
+        for line in text.splitlines():
+            if "--pattern" not in line or "$asset" in line:
+                continue
+            # The provider jobs match a family rather than one archive, which
+            # is a glob and not a name that can drift.
+            self.assertIn(
+                "*",
+                line,
+                f"{line.strip()} names a release asset outright; ask "
+                f"rename_release_assets.py --name for it instead",
+            )
 
 
 if __name__ == "__main__":
