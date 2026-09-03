@@ -731,6 +731,18 @@ jobs:
             -C .local/ort-extensions
           ls -la .local/ort-extensions
 
+      # Dawn reaches the GPU through Vulkan on Linux, and a hosted runner has
+      # neither a GPU nor a Vulkan driver, so the WebGPU provider loads and
+      # then finds no adapter. lavapipe is Mesa's software implementation:
+      # slow, and enough to make the provider genuinely testable rather than
+      # something we skip and hope about.
+      - name: A Vulkan driver for the WebGPU provider
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y mesa-vulkan-drivers vulkan-tools
+          vulkaninfo --summary 2>/dev/null | head -20 || true
+
       - name: Point the suite at our build
         shell: bash
         run: python3 .github/scripts/locate_library.py "${{ matrix.artifact }}" webgpu qnn cuda
