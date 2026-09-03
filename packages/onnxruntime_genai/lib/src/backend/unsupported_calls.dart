@@ -42,6 +42,10 @@ final class UnsupportedGenAiCalls implements GenAiCalls {
       throw const GenAiUnsupported('setLogString');
 
   @override
+  void setLogCallback(GenAiPtr callback) =>
+      throw const GenAiUnsupported('setLogCallback');
+
+  @override
   void destroyString(String value) =>
       throw const GenAiUnsupported('destroyString');
 
@@ -180,6 +184,11 @@ final class UnsupportedGenAiCalls implements GenAiCalls {
   @override
   GenAiPtr createRuntimeSettings() =>
       throw const GenAiUnsupported('createRuntimeSettings');
+
+  @override
+  void runtimeSettingsSetHandle(
+          GenAiPtr handle, String handleName, GenAiPtr value) =>
+      throw const GenAiUnsupported('runtimeSettingsSetHandle');
 
   @override
   GenAiPtr createModelWithRuntimeSettings(GenAiPtr handle, String configPath) =>
@@ -534,6 +543,11 @@ final class UnsupportedGenAiCalls implements GenAiCalls {
       throw const GenAiUnsupported('destroyTensor');
 
   @override
+  GenAiPtr createTensorFromBuffer(
+          GenAiPtr data, List<int> shapeDims, int elementType) =>
+      throw const GenAiUnsupported('createTensorFromBuffer');
+
+  @override
   int tensorGetType(GenAiPtr handle) =>
       throw const GenAiUnsupported('tensorGetType');
 
@@ -544,6 +558,10 @@ final class UnsupportedGenAiCalls implements GenAiCalls {
   @override
   void tensorGetShape(GenAiPtr handle, List<int> shapeDims) =>
       throw const GenAiUnsupported('tensorGetShape');
+
+  @override
+  GenAiPtr tensorGetData(GenAiPtr handle) =>
+      throw const GenAiUnsupported('tensorGetData');
 
   @override
   void destroyAdapters(GenAiPtr handle) =>
@@ -585,6 +603,14 @@ final class UnsupportedGenAiCalls implements GenAiCalls {
   @override
   void requestAddTokens(GenAiPtr handle, GenAiPtr tokens) =>
       throw const GenAiUnsupported('requestAddTokens');
+
+  @override
+  void requestSetOpaqueData(GenAiPtr handle, GenAiPtr opaqueData) =>
+      throw const GenAiUnsupported('requestSetOpaqueData');
+
+  @override
+  GenAiPtr requestGetOpaqueData(GenAiPtr handle) =>
+      throw const GenAiUnsupported('requestGetOpaqueData');
 
   @override
   bool requestHasUnseenTokens(GenAiPtr handle) =>

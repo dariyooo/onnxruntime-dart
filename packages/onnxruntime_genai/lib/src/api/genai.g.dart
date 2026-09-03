@@ -21,6 +21,9 @@ void setLogBool(String name, bool value) => _calls.setLogBool(name, value);
 void setLogString(String name, String value) =>
     _calls.setLogString(name, value);
 
+/// Wraps `OgaSetLogCallback`.
+void setLogCallback(GenAiPtr callback) => _calls.setLogCallback(callback);
+
 /// Wraps `OgaDestroyString`.
 void destroyString(String value) => _calls.destroyString(value);
 

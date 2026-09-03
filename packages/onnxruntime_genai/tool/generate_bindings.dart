@@ -42,7 +42,13 @@ void main() {
 
   File('$_outputDirectory/unmapped.txt').writeAsStringSync(
     '${generated.skipped.length} of ${functions.length} functions are not '
-    'wrapped.\n\n${generated.skipped.join('\n')}\n',
+    'wrapped.\n'
+    '\n'
+    'The two OgaResult calls are deliberate rather than pending. OgaResult is\n'
+    'how the C API reports failure, and check() in ffi_support.dart reads and\n'
+    'releases it on every call. Wrapping them would offer an error object that\n'
+    'is already spent, and a way to release one twice.\n'
+    '\n${generated.skipped.join('\n')}\n',
   );
 
   stdout.writeln(

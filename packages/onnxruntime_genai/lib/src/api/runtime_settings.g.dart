@@ -19,6 +19,10 @@ final class RuntimeSettings extends GenAiHandle {
   factory RuntimeSettings() =>
       RuntimeSettings._(_calls.createRuntimeSettings());
 
+  /// Wraps `OgaRuntimeSettingsSetHandle`.
+  void setHandle(String handleName, GenAiPtr value) =>
+      _calls.runtimeSettingsSetHandle(handle, handleName, value);
+
   /// Wraps `OgaCreateModelWithRuntimeSettings`.
   Model createModelWithRuntimeSettings(String configPath) =>
       Model._(_calls.createModelWithRuntimeSettings(handle, configPath));

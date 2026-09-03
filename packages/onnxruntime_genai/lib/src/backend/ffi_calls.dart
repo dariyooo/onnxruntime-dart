@@ -44,6 +44,13 @@ final class FfiGenAiCalls implements GenAiCalls {
       });
 
   @override
+  void setLogCallback(GenAiPtr callback) => withArena((arena) {
+        check(OgaSetLogCallback(
+            pointer<NativeFunction<Void Function(Pointer<Char>, Size)>>(
+                callback)));
+      });
+
+  @override
   void destroyString(String value) => withArena((arena) {
         OgaDestroyString(cString(arena, value));
       });
@@ -298,6 +305,14 @@ final class FfiGenAiCalls implements GenAiCalls {
         final out = arena<Pointer<OgaRuntimeSettings>>();
         check(OgaCreateRuntimeSettings(out));
         return handleOf(out.value);
+      });
+
+  @override
+  void runtimeSettingsSetHandle(
+          GenAiPtr handle, String handleName, GenAiPtr value) =>
+      withArena((arena) {
+        check(OgaRuntimeSettingsSetHandle(pointer<OgaRuntimeSettings>(handle),
+            cString(arena, handleName), pointer<Void>(value)));
       });
 
   @override
@@ -965,6 +980,20 @@ final class FfiGenAiCalls implements GenAiCalls {
       OgaDestroyTensor(pointer<OgaTensor>(handle));
 
   @override
+  GenAiPtr createTensorFromBuffer(
+          GenAiPtr data, List<int> shapeDims, int elementType) =>
+      withArena((arena) {
+        final shapeDimsNative = arena<Int64>(shapeDims.length);
+        for (var i = 0; i < shapeDims.length; i++) {
+          shapeDimsNative[i] = shapeDims[i];
+        }
+        final out = arena<Pointer<OgaTensor>>();
+        check(OgaCreateTensorFromBuffer(pointer<Void>(data), shapeDimsNative,
+            shapeDims.length, OgaElementType.fromValue(elementType), out));
+        return handleOf(out.value);
+      });
+
+  @override
   int tensorGetType(GenAiPtr handle) => withArena((arena) {
         final out = arena<UnsignedInt>();
         check(OgaTensorGetType(pointer<OgaTensor>(handle), out));
@@ -987,6 +1016,13 @@ final class FfiGenAiCalls implements GenAiCalls {
         }
         check(OgaTensorGetShape(
             pointer<OgaTensor>(handle), shapeDimsNative, shapeDims.length));
+      });
+
+  @override
+  GenAiPtr tensorGetData(GenAiPtr handle) => withArena((arena) {
+        final out = arena<Pointer<Void>>();
+        check(OgaTensorGetData(pointer<OgaTensor>(handle), out));
+        return handleOf(out.value);
       });
 
   @override
@@ -1047,6 +1083,20 @@ final class FfiGenAiCalls implements GenAiCalls {
   void requestAddTokens(GenAiPtr handle, GenAiPtr tokens) => withArena((arena) {
         check(OgaRequestAddTokens(
             pointer<OgaRequest>(handle), pointer<OgaSequences>(tokens)));
+      });
+
+  @override
+  void requestSetOpaqueData(GenAiPtr handle, GenAiPtr opaqueData) =>
+      withArena((arena) {
+        check(OgaRequestSetOpaqueData(
+            pointer<OgaRequest>(handle), pointer<Void>(opaqueData)));
+      });
+
+  @override
+  GenAiPtr requestGetOpaqueData(GenAiPtr handle) => withArena((arena) {
+        final out = arena<Pointer<Void>>();
+        check(OgaRequestGetOpaqueData(pointer<OgaRequest>(handle), out));
+        return handleOf(out.value);
       });
 
   @override

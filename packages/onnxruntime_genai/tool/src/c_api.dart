@@ -7,6 +7,8 @@ library;
 
 import 'dart:io';
 
+import 'types.dart';
+
 /// One parameter of a C function.
 final class CParameter {
   CParameter({required this.name, required this.type});
@@ -110,15 +112,27 @@ List<CFunction> readCApi(File header) {
     final name = match.group(3)!;
     final rawParameters = match.group(4)!.trim();
 
-    // A function pointer parameter has parentheses in it. Those are the log
-    // and streaming callbacks, which need a hand-written wrapper rather than
-    // a generated one, so they are reported instead of guessed at.
+    // A function pointer parameter has parentheses in it, which also means the
+    // list cannot be split on commas: the callback's own parameters are in
+    // there. Handled whole where the callback is the only parameter, which is
+    // how the header declares every one of them. Anything else is reported
+    // rather than guessed at.
     if (rawParameters.contains('(')) {
+      final callback = _callbackParameter(rawParameters);
+      if (callback == null) {
+        functions.add(CFunction(
+          name: name,
+          returns: returns,
+          parameters: [],
+          takesCallback: true,
+          documentation: documentation,
+        ));
+        continue;
+      }
       functions.add(CFunction(
         name: name,
         returns: returns,
-        parameters: [],
-        takesCallback: true,
+        parameters: [callback],
         documentation: documentation,
       ));
       continue;
@@ -149,4 +163,39 @@ List<CFunction> readCApi(File header) {
     ));
   }
   return functions;
+}
+
+/// A lone function-pointer parameter, spelled the way ffigen types it.
+///
+/// `void (*callback)(const char* string, size_t length)` becomes
+/// `Pointer<NativeFunction<Void Function(Pointer<Char>, Size)>>`, which is what
+/// the generated binding declares, so the wrapper can pass it straight on.
+/// Returns null when any part of it is a type this does not know, so an
+/// unfamiliar callback is reported rather than mis-declared.
+CParameter? _callbackParameter(String raw) {
+  final match = RegExp(
+    r'^([\w ]+?[\w*])\s*\(\s*\*\s*(\w+)\s*\)\s*\((.*)\)$',
+  ).firstMatch(raw.trim());
+  if (match == null) return null;
+
+  final returns = nativeTypeOf(match.group(1)!);
+  if (returns == null) return null;
+
+  final arguments = <String>[];
+  final inner = match.group(3)!.trim();
+  if (inner.isNotEmpty && inner != 'void') {
+    for (final piece in inner.split(',')) {
+      final part = piece.trim();
+      // The argument may or may not be named; the type is what matters.
+      final type = RegExp(r'^(.*?[ *])\w+$').firstMatch(part)?.group(1) ?? part;
+      final mapped = nativeTypeOf(type.replaceAll(' *', '*').trim());
+      if (mapped == null) return null;
+      arguments.add(mapped);
+    }
+  }
+
+  return CParameter(
+    name: match.group(2)!,
+    type: 'Pointer<NativeFunction<$returns Function(${arguments.join(', ')})>>',
+  );
 }

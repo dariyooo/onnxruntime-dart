@@ -35,6 +35,11 @@ final class Config extends GenAiHandle {
       _calls.configSetProviderOption(handle, provider, key, value);
 
   /// Wraps `OgaConfigAddModelData`.
+  ///
+  /// Keeps the buffer it is given rather than copying it, so that
+  /// memory must outlive the handle. It is the caller's to allocate
+  /// and to free, and freeing it first leaves the handle pointing
+  /// at nothing.
   void addModelData(String modelFilename, Uint8List modelData) =>
       _calls.configAddModelData(handle, modelFilename, modelData);
 
