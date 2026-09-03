@@ -6,15 +6,10 @@
 /// actually served it rather than which one was asked for.
 library;
 
-import 'dart:io';
-import 'dart:typed_data';
-
-import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:onnxruntime_dart/onnxruntime_dart.dart';
 
 import 'src/catalogue.dart';
-import 'src/inference.dart';
 import 'src/store.dart';
 import 'src/ui/model_page.dart';
 
@@ -267,23 +262,3 @@ class _FooterState extends State<_Footer> {
         ),
       );
 }
-
-/// Asks the platform for an image file.
-///
-/// Returns null when the person changed their mind, which is not an error.
-Future<Uint8List?> pickImage() async {
-  const kinds = XTypeGroup(
-    label: 'images',
-    extensions: ['jpg', 'jpeg', 'png', 'bmp', 'webp'],
-  );
-  final file = await openFile(acceptedTypeGroups: const [kinds]);
-  if (file == null) return null;
-  return File(file.path).readAsBytes();
-}
-
-/// The providers this build actually has, as choices.
-List<ProviderChoice> providerChoices() => [
-      ProviderChoice.cpu,
-      if (availableProviders().any((p) => p.toLowerCase().contains('webgpu')))
-        ProviderChoice.webgpu,
-    ];

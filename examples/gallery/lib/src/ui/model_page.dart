@@ -12,7 +12,7 @@ import '../diagnostics.dart';
 import '../generation.dart';
 import '../inference.dart';
 import '../store.dart';
-import '../../main.dart' show pickImage, providerChoices;
+import '../platform.dart';
 import 'diagnostics_panel.dart';
 
 class ModelPage extends StatefulWidget {
