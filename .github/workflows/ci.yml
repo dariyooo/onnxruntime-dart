@@ -981,11 +981,21 @@ jobs:
           # a leading @ as "this names a list file" and would look for one.
           & 7z e cuda.exe "-o$into" -y -r $wanted > $null
           if ($LASTEXITCODE -ne 0) { throw "7z could not read the installer" }
-          Remove-Item cuda.exe -Force
 
           $found = Get-ChildItem $into -Include $wanted -Recurse -ErrorAction SilentlyContinue
-          if (-not $found) { throw "none of $($wanted -join ', ') in the installer" }
+          if (-not $found) {
+            # Before giving up, say what the installer does hold. If these
+            # libraries turn out to sit inside a nested archive, this is the
+            # listing that says so, and the alternative is another whole run
+            # spent finding out.
+            Write-Host "  no $($wanted -join ', '); the installer holds:"
+            & 7z l cuda.exe | Select-String -Pattern '\.dll$' |
+              Select-Object -First 40 | ForEach-Object { Write-Host "    $_" }
+            throw "none of $($wanted -join ', ') in the installer"
+          }
           foreach ($f in $found) { Write-Host "  $($f.Name)  $([int]($f.Length/1MB)) MB" }
+          # Only once it is known to have yielded what was wanted.
+          Remove-Item cuda.exe -Force
           Add-Content $env:GITHUB_ENV "CUDA_LIB_DIR=$into"
 
       - name: Point the suite at our build
