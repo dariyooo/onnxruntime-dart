@@ -17,8 +17,6 @@ OrtApi.GetKeyValuePairs: output const char* const**, output const char* const**
 OrtApi.GetOpaqueValue: output void*
 OrtApi.GetResizedStringTensorElementBuffer: input char**
 OrtApi.GetSessionConfigEntry: output char*, inout size_t*, which is written back or kept
-OrtApi.GetSparseTensorIndices: input enum OrtSparseIndicesFormat
-OrtApi.GetSparseTensorIndicesTypeShape: input enum OrtSparseIndicesFormat
 OrtApi.GetStringTensorContent: output void*
 OrtApi.GetStringTensorElement: output void*
 OrtApi.GetTensorElementTypeAndShapeDataReference: output const int64_t**

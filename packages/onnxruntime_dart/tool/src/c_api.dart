@@ -206,8 +206,17 @@ List<String> _splitParameters(String text) {
 /// Read rather than listed: an enum added by a new ORT version would otherwise
 /// silently drop every function that takes one.
 Set<String> parseEnums(String header) => {
+      // Two spellings, and the header uses both. Most enums are typedef'd,
+      // `typedef enum { ... } OrtErrorCode;`, but a few are declared bare:
+      // `enum OrtSparseIndicesFormat { ... };`. Reading only the first kind
+      // leaves every parameter of the second looking like an unknown type.
       for (final match in RegExp(
         r'typedef\s+enum\s*\w*\s*\{[^}]*\}\s*(\w+)\s*;',
+        dotAll: true,
+      ).allMatches(header))
+        match.group(1)!,
+      for (final match in RegExp(
+        r'(?<!typedef\s)\benum\s+(\w+)\s*\{[^}]*\}\s*;',
         dotAll: true,
       ).allMatches(header))
         match.group(1)!,
