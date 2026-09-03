@@ -28,7 +28,15 @@ void main() {
     late TensorProto input;
 
     setUp(() {
-      session = Session.fromBytes(voiceCommands.model());
+      // Two intra-op threads, because that is what an asynchronous run needs:
+      // ONNX Runtime dispatches it onto that pool and refuses below two. The
+      // default is the machine's core count, which is enough on a laptop and
+      // not on every runner, so leaving it unset makes these pass or fail by
+      // where they run rather than by whether they work.
+      session = Session.fromBytes(
+        voiceCommands.model(),
+        options: const SessionOptions(intraOpNumThreads: 2),
+      );
       input = TensorProto.decode(voiceCommands.input(0));
     });
     tearDown(() => session.release());
