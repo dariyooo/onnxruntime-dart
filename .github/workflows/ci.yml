@@ -517,7 +517,18 @@ jobs:
             -no-window -gpu swiftshader_indirect -no-snapshot -noaudio
             -no-boot-anim -feature Vulkan
           working-directory: integration/harness
-          script: flutter test integration_test --reporter expanded
+          script: |
+            # What the emulator actually offers, before the tests run. The
+            # WebGPU provider reaches the GPU through Dawn, which wants
+            # Vulkan, and -feature Vulkan alone did not produce an adapter.
+            # This says whether the image has a Vulkan driver at all, which
+            # decides whether the accelerator is testable here or genuinely
+            # is not.
+            adb shell getprop ro.hardware.vulkan || true
+            adb shell getprop ro.kernel.qemu.gles || true
+            adb shell 'ls /vendor/lib64/hw/vulkan.* 2>/dev/null' || true
+            adb shell 'cmd gpu vkjson 2>/dev/null | head -c 400' || true
+            flutter test integration_test --reporter expanded
 
       - name: Run on an iOS simulator
         if: matrix.name == 'ios'
