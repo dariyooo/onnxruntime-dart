@@ -29,6 +29,12 @@ final class Mapped {
   final bool isString;
 }
 
+/// GenAI's enums, which cross as the integers they are.
+///
+/// The header declares one. It is passed by value and returned through an out
+/// parameter, and both are the same width as an int32.
+const _enums = {'OgaElementType'};
+
 const _scalars = <String, Mapped>{
   'bool': Mapped(ffi: 'bool', dart: 'bool'),
   'int32_t': Mapped(ffi: 'int', dart: 'int'),
@@ -51,6 +57,7 @@ Mapped? map(String type) {
     return const Mapped(ffi: 'Pointer<Char>', dart: 'String', isString: true);
   }
   if (_scalars.containsKey(bare)) return _scalars[bare];
+  if (_enums.contains(bare)) return const Mapped(ffi: 'int', dart: 'int');
 
   // OgaResult is how the C API reports failure, not something a caller holds.
   // support.dart reads it and releases it inside check(), so wrapping it would
@@ -90,6 +97,9 @@ bool isHandle(String type) {
 /// int32_t writes the wrong number of bytes.
 String? nativeSlot(String type) {
   final bare = type.replaceAll('const ', '').replaceAll(' ', '');
+  // ffigen types a C enum as unsigned int, so the slot has to match what the
+  // binding declares rather than what the values happen to fit in.
+  if (_enums.contains(bare)) return 'UnsignedInt';
   return switch (bare) {
     'size_t' => 'Size',
     'int32_t' => 'Int32',

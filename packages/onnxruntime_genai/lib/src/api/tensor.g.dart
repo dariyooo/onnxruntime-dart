@@ -15,6 +15,9 @@ final class Tensor extends GenAiHandle {
   @override
   void destroy(GenAiPtr handle) => _calls.destroyTensor(handle);
 
+  /// Wraps `OgaTensorGetType`.
+  int getType() => _calls.tensorGetType(handle);
+
   /// Wraps `OgaTensorGetShapeRank`.
   int getShapeRank() => _calls.tensorGetShapeRank(handle);
 

@@ -19,4 +19,8 @@ final class Images extends GenAiHandle {
   factory Images.loadImage(String imagePath) =>
       Images._(_calls.loadImage(imagePath));
 
+  /// Wraps `OgaLoadImagesFromBuffers`.
+  factory Images.loadImagesFromBuffers(List<Uint8List> imageData) =>
+      Images._(_calls.loadImagesFromBuffers(imageData));
+
 }

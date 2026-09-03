@@ -97,6 +97,9 @@ abstract interface class GenAiCalls {
   /// Wraps `OgaLoadImage`.
   GenAiPtr loadImage(String imagePath);
 
+  /// Wraps `OgaLoadImagesFromBuffers`.
+  GenAiPtr loadImagesFromBuffers(List<Uint8List> imageData);
+
   /// Wraps `OgaDestroyStringArray`.
   void destroyStringArray(GenAiPtr handle);
 
@@ -126,6 +129,9 @@ abstract interface class GenAiCalls {
 
   /// Wraps `OgaLoadAudio`.
   GenAiPtr loadAudio(String audioPath);
+
+  /// Wraps `OgaLoadAudiosFromBuffers`.
+  GenAiPtr loadAudiosFromBuffers(List<Uint8List> audioData);
 
   /// Wraps `OgaDestroyRuntimeSettings`.
   void destroyRuntimeSettings(GenAiPtr handle);
@@ -392,6 +398,9 @@ abstract interface class GenAiCalls {
 
   /// Wraps `OgaDestroyTensor`.
   void destroyTensor(GenAiPtr handle);
+
+  /// Wraps `OgaTensorGetType`.
+  int tensorGetType(GenAiPtr handle);
 
   /// Wraps `OgaTensorGetShapeRank`.
   int tensorGetShapeRank(GenAiPtr handle);

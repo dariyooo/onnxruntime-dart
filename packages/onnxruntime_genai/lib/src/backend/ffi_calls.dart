@@ -183,6 +183,25 @@ final class FfiGenAiCalls implements GenAiCalls {
       });
 
   @override
+  GenAiPtr loadImagesFromBuffers(List<Uint8List> imageData) =>
+      withArena((arena) {
+        final imageDataData = arena<Pointer<Void>>(imageData.length);
+        final imageDataSizes = arena<Size>(imageData.length);
+        for (var i = 0; i < imageData.length; i++) {
+          final bytes = arena<Uint8>(imageData[i].length);
+          for (var b = 0; b < imageData[i].length; b++) {
+            bytes[b] = imageData[i][b];
+          }
+          imageDataData[i] = bytes.cast();
+          imageDataSizes[i] = imageData[i].length;
+        }
+        final out = arena<Pointer<OgaImages>>();
+        check(OgaLoadImagesFromBuffers(
+            imageDataData, imageDataSizes, imageData.length, out));
+        return handleOf(out.value);
+      });
+
+  @override
   void destroyStringArray(GenAiPtr handle) =>
       OgaDestroyStringArray(pointer<OgaStringArray>(handle));
 
@@ -248,6 +267,25 @@ final class FfiGenAiCalls implements GenAiCalls {
   GenAiPtr loadAudio(String audioPath) => withArena((arena) {
         final out = arena<Pointer<OgaAudios>>();
         check(OgaLoadAudio(cString(arena, audioPath), out));
+        return handleOf(out.value);
+      });
+
+  @override
+  GenAiPtr loadAudiosFromBuffers(List<Uint8List> audioData) =>
+      withArena((arena) {
+        final audioDataData = arena<Pointer<Void>>(audioData.length);
+        final audioDataSizes = arena<Size>(audioData.length);
+        for (var i = 0; i < audioData.length; i++) {
+          final bytes = arena<Uint8>(audioData[i].length);
+          for (var b = 0; b < audioData[i].length; b++) {
+            bytes[b] = audioData[i][b];
+          }
+          audioDataData[i] = bytes.cast();
+          audioDataSizes[i] = audioData[i].length;
+        }
+        final out = arena<Pointer<OgaAudios>>();
+        check(OgaLoadAudiosFromBuffers(
+            audioDataData, audioDataSizes, audioData.length, out));
         return handleOf(out.value);
       });
 
@@ -910,6 +948,13 @@ final class FfiGenAiCalls implements GenAiCalls {
   @override
   void destroyTensor(GenAiPtr handle) =>
       OgaDestroyTensor(pointer<OgaTensor>(handle));
+
+  @override
+  int tensorGetType(GenAiPtr handle) => withArena((arena) {
+        final out = arena<UnsignedInt>();
+        check(OgaTensorGetType(pointer<OgaTensor>(handle), out));
+        return out.value;
+      });
 
   @override
   int tensorGetShapeRank(GenAiPtr handle) => withArena((arena) {
