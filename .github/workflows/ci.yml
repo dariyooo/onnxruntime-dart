@@ -786,9 +786,22 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          stubs="${CUDA_PATH:-/usr/local/cuda}/lib64/stubs"
-          ls "$stubs"
-          echo "LD_LIBRARY_PATH=$stubs:${LD_LIBRARY_PATH:-}" >> "$GITHUB_ENV"
+          # Searched rather than assumed: the network install lays the stub out
+          # per version and only some layouts have lib64/stubs.
+          stub=$(find "${CUDA_PATH:-/usr/local}" /usr/local/cuda* \
+            -name 'libcuda.so*' -path '*stub*' 2>/dev/null | head -1)
+          if [ -z "$stub" ]; then
+            echo "::warning::no libcuda stub found; the CUDA plugin will not load"
+            find "${CUDA_PATH:-/usr/local}" -maxdepth 3 -name 'lib*' -type d 2>/dev/null | head -10
+            exit 0
+          fi
+          dir=$(dirname "$stub")
+          ls "$dir"
+          # dlopen looks for libcuda.so.1, and the stub is named libcuda.so.
+          if [ ! -e "$dir/libcuda.so.1" ]; then
+            sudo ln -sf "$dir/libcuda.so" "$dir/libcuda.so.1"
+          fi
+          echo "LD_LIBRARY_PATH=$dir:${LD_LIBRARY_PATH:-}" >> "$GITHUB_ENV"
 
       # Dawn reaches the GPU through D3D12 on Windows and compiles shaders
       # with the DirectX Shader Compiler, which it dlopens by name. The runner
