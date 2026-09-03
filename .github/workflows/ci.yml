@@ -970,6 +970,14 @@ jobs:
         if: runner.os == 'Windows' && runner.arch == 'ARM64'
         shell: pwsh
         run: |
+          function Get-Machine($path) {
+            try {
+              $bytes = [IO.File]::ReadAllBytes($path)
+              $at = [BitConverter]::ToUInt16($bytes, [BitConverter]::ToInt32($bytes, 0x3c) + 4)
+              switch ($at) { 0xaa64 { 'ARM64' } 0x8664 { 'AMD64' } 0x14c { 'X86' } default { "$at" } }
+            } catch { 'unreadable' }
+          }
+
           $url = 'https://packages.nvidia.com/prerelease/cuda/13.4.0/' +
                  'local_installers/cuda_13.4.0_windows_arm64.exe'
           Write-Host "  $url"
@@ -989,14 +997,22 @@ jobs:
           # installer onto a runner that has about 14 GB free is how a job
           # fails on disk space instead of on the thing it was testing.
           $wanted = 'cublas64_13.dll', 'cublasLt64_13.dll', 'cudart64_13.dll'
-          New-Item -ItemType Directory -Force .local/cuda-lib > $null
+          New-Item -ItemType Directory -Force .local/cuda-unpack, .local/cuda-lib > $null
+          $unpack = (Resolve-Path .local/cuda-unpack).Path
           $into = (Resolve-Path .local/cuda-lib).Path
+
+          # `x` and not `e`: the Windows ARM installer carries x64 copies of
+          # these libraries as well, for cross compilation, and flattening the
+          # tree lets one overwrite the other. Which one you get is then down
+          # to extraction order, and an x64 cublas beside an ARM64 plugin
+          # fails as error 193, "not a valid Win32 application".
+          #
           # $wanted rather than @wanted: PowerShell expands both, but 7z reads
           # a leading @ as "this names a list file" and would look for one.
-          & 7z e cuda.exe "-o$into" -y -r $wanted > $null
+          & 7z x cuda.exe "-o$unpack" -y -r $wanted > $null
           if ($LASTEXITCODE -ne 0) { throw "7z could not read the installer" }
 
-          $found = Get-ChildItem $into -Include $wanted -Recurse -ErrorAction SilentlyContinue
+          $found = Get-ChildItem $unpack -Include $wanted -Recurse -ErrorAction SilentlyContinue
           if (-not $found) {
             # Before giving up, say what the installer does hold. If these
             # libraries turn out to sit inside a nested archive, this is the
@@ -1007,9 +1023,24 @@ jobs:
               Select-Object -First 40 | ForEach-Object { Write-Host "    $_" }
             throw "none of $($wanted -join ', ') in the installer"
           }
-          foreach ($f in $found) { Write-Host "  $($f.Name)  $([int]($f.Length/1MB)) MB" }
+
+          # Chosen by what each file is, not by where it sits. Reading the PE
+          # header is the only thing that tells an ARM64 build from an x64 one
+          # with the same name.
+          foreach ($name in $wanted) {
+            $copies = @($found | Where-Object Name -eq $name)
+            $native = $copies | Where-Object { (Get-Machine $_.FullName) -eq 'ARM64' } |
+              Select-Object -First 1
+            foreach ($c in $copies) {
+              Write-Host "    $(Get-Machine $c.FullName)  $($c.FullName.Substring($unpack.Length))"
+            }
+            if (-not $native) { throw "no ARM64 $name in the installer" }
+            Copy-Item $native.FullName $into -Force
+            Write-Host "  $name  $([int]($native.Length/1MB)) MB"
+          }
           # Only once it is known to have yielded what was wanted.
           Remove-Item cuda.exe -Force
+          Remove-Item $unpack -Recurse -Force
           Add-Content $env:GITHUB_ENV "CUDA_LIB_DIR=$into"
 
       - name: Point the suite at our build
