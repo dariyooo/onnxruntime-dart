@@ -15,4 +15,8 @@ final class Audios extends GenAiHandle {
   @override
   void destroy(GenAiPtr handle) => _calls.destroyAudios(handle);
 
+  /// Wraps `OgaLoadAudio`.
+  factory Audios.loadAudio(String audioPath) =>
+      Audios._(_calls.loadAudio(audioPath));
+
 }

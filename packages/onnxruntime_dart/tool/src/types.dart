@@ -137,7 +137,15 @@ Mapping _mapInput(String type, CParameter parameter) {
   }
   // An enum crosses as its underlying integer: the function pointer takes the
   // raw value, and the typed enum sits above this boundary.
-  if (_scalars.contains(type) || parameter.isEnum) {
+  // `const int64_t` is `int64_t`. Const on a value parameter says nothing
+  // about the call, only that the callee will not reassign its own copy, so it
+  // is dropped here. On a pointer it does mean something, which is why this
+  // only strips it once the type is known to have no star.
+  final value = type.startsWith('const ') && !type.contains('*')
+      ? type.substring('const '.length)
+      : type;
+
+  if (_scalars.contains(value) || parameter.isEnum) {
     return const InputMapping.scalar();
   }
   // Integer arrays, always paired with a length parameter the caller passes.
