@@ -1,10 +1,8 @@
-32 of 150 functions are not wrapped.
+20 of 150 functions are not wrapped.
 
 OgaResultGetError: parameter result is const OgaResult*
 OgaSetLogCallback: takes a callback, which needs a wrapper
 OgaDestroyResult: parameter result is OgaResult*
-OgaSetCurrentGpuDeviceId: parameter device_id is int
-OgaGetCurrentGpuDeviceId: parameter device_id is int*
 OgaSequencesGetSequenceData: returns const int32_t*
 OgaLoadImage: returns OgaResult*
 OgaLoadImagesFromBuffers: parameter image_data_sizes is const size_t*
@@ -13,21 +11,11 @@ OgaLoadAudio: returns OgaResult*
 OgaLoadAudiosFromBuffers: parameter audio_data_sizes is const size_t*
 OgaRuntimeSettingsSetHandle: parameter handle is void*
 OgaConfigAddModelData: parameter model_data is const void*
-OgaGeneratorParamsGetSearchNumber: parameter value is double*
-OgaGeneratorParamsGetSearchBool: parameter value is bool*
 OgaGenerator_GetNextTokens: parameter out_count is size_t*
 OgaGenerator_GetSequenceData: returns const int32_t*
 OgaUpdateTokenizerOptions: parameter keys is const char* const*
-OgaTokenizerGetBosTokenId: parameter token_id is int32_t*
 OgaTokenizerGetEosTokenIds: parameter token_count is size_t*
-OgaTokenizerGetPadTokenId: parameter token_id is int32_t*
-OgaTokenizerGetBotTokenId: parameter token_id is int32_t*
-OgaTokenizerGetEotTokenId: parameter token_id is int32_t*
-OgaTokenizerGetBorTokenId: parameter token_id is int32_t*
-OgaTokenizerGetEorTokenId: parameter token_id is int32_t*
-OgaTokenizerEncodeBatch: returns OgaResult*
-OgaTokenizerToTokenId: parameter token_id is int32_t*
-OgaCreateTensorFromBuffer: OgaElementType has no destructor, so it is not owned
+OgaCreateTensorFromBuffer: parameter data is void*
 OgaTensorGetType: returns OgaResult*
 OgaTensorGetData: returns OgaResult*
 OgaRequestSetOpaqueData: parameter opaque_data is void*

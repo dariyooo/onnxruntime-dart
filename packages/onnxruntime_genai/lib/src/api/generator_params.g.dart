@@ -27,6 +27,20 @@ final class GeneratorParams extends GenAiHandle<OgaGeneratorParams> {
         check(OgaGeneratorParamsSetGuidance(handle, cString(arena, type), cString(arena, data), enableFfTokens));
       });
 
+  /// Wraps `OgaGeneratorParamsGetSearchNumber`.
+  double getSearchNumber(String name) => withArena((arena) {
+        final out = arena<Double>();
+        check(OgaGeneratorParamsGetSearchNumber(handle, cString(arena, name), out));
+        return out.value;
+      });
+
+  /// Wraps `OgaGeneratorParamsGetSearchBool`.
+  bool getSearchBool(String name) => withArena((arena) {
+        final out = arena<Bool>();
+        check(OgaGeneratorParamsGetSearchBool(handle, cString(arena, name), out));
+        return out.value;
+      });
+
   /// Wraps `OgaCreateRequest`.
   Request createRequest() => withArena((arena) {
         final out = arena<Pointer<OgaRequest>>();

@@ -35,6 +35,9 @@ const _scalars = <String, Mapped>{
   'int64_t': Mapped(ffi: 'int', dart: 'int'),
   'uint32_t': Mapped(ffi: 'int', dart: 'int'),
   'size_t': Mapped(ffi: 'int', dart: 'int'),
+  // Plain int, which the GPU device functions use where the rest of the
+  // header is explicit about width.
+  'int': Mapped(ffi: 'int', dart: 'int'),
   'float': Mapped(ffi: 'double', dart: 'double'),
   'double': Mapped(ffi: 'double', dart: 'double'),
   'void': Mapped(ffi: 'void', dart: 'void'),
@@ -79,7 +82,6 @@ bool isHandle(String type) {
   final bare = type.replaceAll('const ', '').replaceAll('*', '').trim();
   return bare.startsWith('Oga') && bare != 'OgaResult';
 }
-
 
 /// The dart:ffi type an out-parameter of C type [type] is read through.
 ///
