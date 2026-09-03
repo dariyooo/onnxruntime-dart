@@ -127,6 +127,19 @@ void main() {
         ),
       );
 
+      // Registered is not the same as usable. A machine with no GPU Dawn can
+      // drive contributes no device, and asking for the provider then fails
+      // for a reason that has nothing to do with the plugin. The test above
+      // already proved it loads; this one is about running, so it applies
+      // only where there is something to run on.
+      final devices = executionProviderDeviceNames(env.api, env.handle);
+      if (!devices.any((d) => d.toLowerCase().contains('webgpu'))) {
+        markTestSkipped(
+          'no WebGPU device on this machine; the providers with a device are: '
+          '${devices.join(', ')}',
+        );
+        return;
+      }
       final session = Session.fromBytes(
         absModel(),
         options: const SessionOptions(
