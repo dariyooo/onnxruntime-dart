@@ -14,6 +14,8 @@
 /// conditional export in calls.dart.
 library;
 
+import 'dart:typed_data';
+
 import 'interface.dart';
 import 'types.dart';
 
@@ -183,6 +185,11 @@ final class UnsupportedGenAiCalls implements GenAiCalls {
   void configSetProviderOption(
           GenAiPtr handle, String provider, String key, String value) =>
       throw const GenAiUnsupported('configSetProviderOption');
+
+  @override
+  void configAddModelData(
+          GenAiPtr handle, String modelFilename, Uint8List modelData) =>
+      throw const GenAiUnsupported('configAddModelData');
 
   @override
   void configRemoveModelData(GenAiPtr handle, String modelFilename) =>

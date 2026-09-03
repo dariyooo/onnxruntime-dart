@@ -11,6 +11,8 @@
 /// Dart value.
 library;
 
+import 'dart:typed_data';
+
 import 'types.dart';
 
 /// The calls a backend has to be able to make.
@@ -140,6 +142,10 @@ abstract interface class GenAiCalls {
   /// Wraps `OgaConfigSetProviderOption`.
   void configSetProviderOption(
       GenAiPtr handle, String provider, String key, String value);
+
+  /// Wraps `OgaConfigAddModelData`.
+  void configAddModelData(
+      GenAiPtr handle, String modelFilename, Uint8List modelData);
 
   /// Wraps `OgaConfigRemoveModelData`.
   void configRemoveModelData(GenAiPtr handle, String modelFilename);

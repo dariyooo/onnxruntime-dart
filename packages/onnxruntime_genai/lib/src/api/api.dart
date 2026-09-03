@@ -9,6 +9,8 @@
 /// a private constructor is private to its library.
 library;
 
+import 'dart:typed_data';
+
 import '../backend/calls.dart';
 import '../backend/interface.dart';
 import '../backend/types.dart';
