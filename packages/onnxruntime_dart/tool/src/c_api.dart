@@ -118,9 +118,13 @@ Map<String, List<CFunction>> parseApis(String header) {
     r'ORT_API2_STATUS\(\s*(\w+)\s*,([^;]*)\)\s*;',
     multiLine: true,
   ).allMatches(header)) {
-    final parameters = _parseParameters(match.group(2)!, enums, callbacks);
-    if (parameters == null) continue;
-    add(match.start, CFunction(name: match.group(1)!, parameters: parameters));
+    final name = match.group(1)!;
+    final parsed = _parseParameters(match.group(2)!, enums, callbacks);
+    if (parsed == null) continue;
+    add(
+      match.start,
+      CFunction(name: name, parameters: _withOverrides(name, parsed)),
+    );
   }
 
   for (final match in RegExp(
@@ -268,6 +272,18 @@ List<CParameter>? _parseParameters(
   return _withArrayLengths(parameters);
 }
 
+/// Parameters the header annotates in a way that contradicts what it does.
+///
+/// `GetCurrentGpuDeviceId(_In_ int* device_id)` reads the id into `device_id`,
+/// which makes it an output whatever the annotation says. Its own doc comment
+/// describes it that way, and `SetCurrentGpuDeviceId` takes the id by value, so
+/// there is nothing an input pointer could mean here. Listed rather than
+/// inferred: a heuristic that promoted pointers to outputs would be wrong far
+/// more often than this table is long.
+const _directionOverrides = <String, Map<String, Direction>>{
+  'GetCurrentGpuDeviceId': {'device_id': Direction.output},
+};
+
 /// Suffixes naming the length of another parameter.
 const _lengthSuffixes = ['_length', '_len', '_count'];
 
@@ -319,10 +335,39 @@ String? _countAfter(
   int index,
 ) {
   if (!parameter.isCalleeAllocated) return null;
-  if (index + 1 >= parameters.length) return null;
-  final next = parameters[index + 1];
-  if (next.direction != Direction.output) return null;
-  return const {'size_t*', 'int64_t*'}.contains(next.type) ? next.name : null;
+  // Scanning rather than looking at the next parameter alone, because a run of
+  // arrays can share one count: `GetKeyValuePairs` hands back keys and values
+  // with a single `num_entries` after both. Only sibling arrays are stepped
+  // over, so this cannot reach past the group into an unrelated output.
+  for (var i = index + 1; i < parameters.length; i++) {
+    final next = parameters[i];
+    if (next.direction != Direction.output) return null;
+    if (const {'size_t*', 'int64_t*'}.contains(next.type)) return next.name;
+    if (!next.isCalleeAllocated) return null;
+  }
+  return null;
+}
+
+/// Applies [_directionOverrides] to a parsed parameter list.
+List<CParameter> _withOverrides(String function, List<CParameter> parameters) {
+  final overrides = _directionOverrides[function];
+  if (overrides == null) return parameters;
+  return [
+    for (final parameter in parameters)
+      if (overrides[parameter.name] case final direction?)
+        CParameter(
+          name: parameter.name,
+          type: parameter.type,
+          direction: direction,
+          arrayLengthParameter: parameter.arrayLengthParameter,
+          isOptional: parameter.isOptional,
+          isEnum: parameter.isEnum,
+          isCalleeAllocated: parameter.isCalleeAllocated,
+          isFunctionPointer: parameter.isFunctionPointer,
+        )
+      else
+        parameter,
+  ];
 }
 
 String? _lengthOf(String name, Set<String> names) {
