@@ -46,8 +46,22 @@ def renamed(name: str, component: str) -> str | None:
 
 
 def main() -> None:
+    # `--name <local id> <component>` prints the published name for one
+    # archive without touching anything, so a job that fetches from a release
+    # asks this module rather than spelling the convention out again. Deriving
+    # it twice is how `linux-x64-full` came to be requested from a release that
+    # publishes `full-linux-x64`, which fails only when that job runs.
+    if len(sys.argv) == 4 and sys.argv[1] == "--name":
+        local, component = sys.argv[2], sys.argv[3].removeprefix("ep-")
+        wanted = renamed(f"{local}.tar.gz", component)
+        print(wanted or f"{local}.tar.gz")
+        return
+
     if len(sys.argv) != 3:
-        raise SystemExit("usage: rename_release_assets.py <directory> <component>")
+        raise SystemExit(
+            "usage: rename_release_assets.py <directory> <component>\n"
+            "       rename_release_assets.py --name <local id> <component>"
+        )
 
     directory = pathlib.Path(sys.argv[1])
     component = sys.argv[2].removeprefix("ep-")

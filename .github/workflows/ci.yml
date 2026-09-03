@@ -246,9 +246,15 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p .local/artifacts/runtime
+          # Asked for by the publisher's own rule, then put back under the
+          # name the build path uses, so every later step is identical whether
+          # the archive was built here or fetched from a release.
+          asset=$(python3 .github/scripts/rename_release_assets.py \
+            --name "${{ matrix.build }}" runtime)
           gh release download "${{ needs.mode.outputs.release }}" \
-            --pattern "${{ matrix.build }}.tar.gz" \
-            --dir .local/artifacts/runtime --clobber
+            --pattern "$asset" --dir .local/artifacts/runtime --clobber
+          mv ".local/artifacts/runtime/$asset" \
+             ".local/artifacts/runtime/${{ matrix.build }}.tar.gz"
 
       - name: Serve it to the browser
         shell: bash
@@ -623,9 +629,15 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p .local/artifacts/runtime
+          # See the web job: the release publishes full-linux-x64, the build
+          # path produces linux-x64-full, and the publisher owns the rule that
+          # maps between them.
+          asset=$(python3 .github/scripts/rename_release_assets.py \
+            --name linux-x64-full runtime)
           gh release download "${{ needs.mode.outputs.release }}" \
-            --pattern "linux-x64-full.tar.gz" \
-            --dir .local/artifacts/runtime --clobber
+            --pattern "$asset" --dir .local/artifacts/runtime --clobber
+          mv ".local/artifacts/runtime/$asset" \
+             ".local/artifacts/runtime/linux-x64-full.tar.gz"
 
       - name: Point the suite at the full build
         run: python3 .github/scripts/locate_library.py linux-x64-full
