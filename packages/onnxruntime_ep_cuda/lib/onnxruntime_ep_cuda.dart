@@ -18,7 +18,7 @@ const minimumRuntime = '1.24.4';
 
 @Native<Void Function()>(
   symbol: 'CreateEpFactories',
-  assetId: 'package:onnxruntime_ep_cuda/provider',
+  assetId: 'package:onnxruntime_ep_cuda_binaries/provider',
 )
 external void _entryPoint();
 

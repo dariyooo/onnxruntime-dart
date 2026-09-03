@@ -22,7 +22,7 @@ const extensionsLibraryStem = 'ortextensions';
 
 @Native<Void Function()>(
   symbol: 'RegisterCustomOps',
-  assetId: 'package:onnxruntime_extensions/extensions',
+  assetId: 'package:onnxruntime_extensions_binaries/extensions',
 )
 external void _entryPoint();
 

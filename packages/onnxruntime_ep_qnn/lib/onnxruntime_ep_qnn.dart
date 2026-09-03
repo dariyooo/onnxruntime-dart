@@ -18,7 +18,7 @@ const minimumRuntime = '1.24.2';
 
 @Native<Void Function()>(
   symbol: 'CreateEpFactories',
-  assetId: 'package:onnxruntime_ep_qnn/provider',
+  assetId: 'package:onnxruntime_ep_qnn_binaries/provider',
 )
 external void _entryPoint();
 
