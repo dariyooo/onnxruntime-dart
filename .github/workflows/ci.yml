@@ -884,8 +884,11 @@ jobs:
             # the load with the same error 87 as copying nothing.
             $arch = if ($env:RUNNER_ARCH -eq 'ARM64') { 'arm64' } else { 'x64' }
             Write-Host "  dxc flavour: $arch"
+            # -like rather than -match: a path fragment is a literal, and
+            # writing it as a regex invites \a and friends to be read as
+            # escapes.
             Get-ChildItem .local/dxc -Recurse -Include dxil.dll, dxcompiler.dll |
-              Where-Object { $_.FullName -match "\\$arch\\" } |
+              Where-Object { $_.FullName -like "*\$arch\*" } |
               ForEach-Object {
                 Copy-Item $_.FullName $webgpu.Directory -Force
                 Write-Host "  $($_.Name) -> $($webgpu.Directory)"
