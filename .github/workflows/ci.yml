@@ -765,9 +765,13 @@ jobs:
           # stopped at 12.9, so the pin above matters as much as this.
           cuda: '13.0.2'
           method: network
-          # cublas as well as cudart: the plugin links both, and a missing
-          # cublas64 fails the load just as surely as a missing cudart.
-          sub-packages: '["cudart", "libcublas"]'
+          # cudart is a cuda-* package, cublas is not: the action prefixes
+          # sub-packages with `cuda-`, so libcublas has to go in the other
+          # list or apt is asked for a package that does not exist. The plugin
+          # links both, and a missing cublas fails the load as surely as a
+          # missing cudart does.
+          sub-packages: '["cudart"]'
+          non-cuda-sub-packages: '["libcublas"]'
 
       # Dawn reaches the GPU through D3D12 on Windows and compiles shaders with
       # the DirectX Shader Compiler, which it dlopens by name. The runner image
