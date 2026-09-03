@@ -874,12 +874,18 @@ jobs:
               "C:\Program Files\Microsoft Visual Studio",
               "C:\Program Files (x86)\Microsoft Visual Studio"
             ) | Where-Object { Test-Path $_ }
-            foreach ($found in Get-ChildItem $roots -Recurse -Filter dxcompiler.dll -ErrorAction SilentlyContinue) {
+            # Newest first. Dawn wants a recent compiler, and an SDK carries
+            # every version ever installed, so taking whichever the filesystem
+            # happened to list first is how a 2022 build gets picked over a
+            # 2024 one sitting beside it.
+            $all = Get-ChildItem $roots -Recurse -Filter dxcompiler.dll -ErrorAction SilentlyContinue |
+              Sort-Object { [version]($_.VersionInfo.FileVersion -replace '[^0-9.]', '') } -Descending
+            foreach ($found in $all) {
               $machine = Get-Machine $found.FullName
               # dxil.dll is the validator and has to sit beside it, or the
               # compiler loads and then refuses to sign anything it produces.
               $paired = Test-Path (Join-Path $found.Directory 'dxil.dll')
-              Write-Host "    $machine  dxil beside it: $paired  $($found.FullName)"
+              Write-Host "    $machine  $($found.VersionInfo.FileVersion)  dxil beside it: $paired  $($found.FullName)"
               if (-not $chosen -and $machine -eq $want -and $paired) { $chosen = $found }
             }
             if (-not $chosen) { Write-Host "    none usable" }
