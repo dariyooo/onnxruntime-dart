@@ -821,23 +821,34 @@ jobs:
       # beyond CI: an application shipping this provider on Windows needs both
       # DLLs beside it.
       #
-      # From NuGet rather than from the GitHub release, because the release
-      # has no ARM64 build. What it ships as bin/arm64 is ARM64EC: the PE
-      # header says AMD64, the load config carries a CHPE pointer, and there
-      # is no ARM64X relocation table, so a native ARM64 process cannot load
-      # it and LoadLibrary fails with error 87. Microsoft.Direct3D.DXC ships
-      # all three as native code, so one source covers every architecture.
+      # Two sources, because neither covers both architectures. The GitHub
+      # release is the compiler this provider is known to work against on x64,
+      # but what it ships as bin/arm64 is ARM64EC: the PE header says AMD64,
+      # the load config carries a CHPE pointer, and there is no ARM64X
+      # relocation table, so a native ARM64 process cannot load it and
+      # LoadLibrary fails with error 87. Microsoft.Direct3D.DXC on NuGet ships
+      # a genuinely native ARM64 build, so that is where ARM64 gets it.
       - name: The DirectX shader compiler, for the WebGPU provider
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          $version = (Invoke-RestMethod `
-            https://api.nuget.org/v3-flatcontainer/microsoft.direct3d.dxc/index.json
-          ).versions[-1]
-          Write-Host "  Microsoft.Direct3D.DXC $version"
-
-          Invoke-WebRequest -OutFile dxc.zip ("https://api.nuget.org/v3-flatcontainer" +
-            "/microsoft.direct3d.dxc/$version/microsoft.direct3d.dxc.$version.nupkg")
+          if ($env:RUNNER_ARCH -eq 'ARM64') {
+            $version = (Invoke-RestMethod `
+              https://api.nuget.org/v3-flatcontainer/microsoft.direct3d.dxc/index.json
+            ).versions[-1]
+            Write-Host "  Microsoft.Direct3D.DXC $version"
+            Invoke-WebRequest -OutFile dxc.zip ("https://api.nuget.org/v3-flatcontainer" +
+              "/microsoft.direct3d.dxc/$version/microsoft.direct3d.dxc.$version.nupkg")
+          } else {
+            $asset = (Invoke-RestMethod `
+              https://api.github.com/repos/microsoft/DirectXShaderCompiler/releases/latest
+            ).assets | Where-Object { $_.name -like 'dxc_*.zip' } | Select-Object -First 1
+            Write-Host "  $($asset.browser_download_url)"
+            Invoke-WebRequest $asset.browser_download_url -OutFile dxc.zip
+          }
+          # PowerShell rather than unzip: both archives store backslash
+          # separators, which Git Bash turns into filenames containing
+          # backslashes rather than directories.
           Expand-Archive dxc.zip -DestinationPath .local/dxc -Force
 
           $onArm = $env:RUNNER_ARCH -eq 'ARM64'
