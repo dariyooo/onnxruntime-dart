@@ -192,15 +192,12 @@ Notes on the table:
   dies on with no message at all.
 - **CUDA** ships against two toolkits and defaults to 12, which asks less of the
   driver. `build: cuda13` selects the other, and on arm64 it is the only one.
-- **CUDA on Windows ARM is published but untested.** ONNX Runtime builds that
-  provider and we mirror it, and it is genuine ARM64 code. It imports
-  `cublas64_13.dll` and `cublasLt64_13.dll`, which NVIDIA does not carry for
-  Windows on ARM in its public redistributables: as of CUDA 13.3.1, `libcublas`
-  and `cuda_cudart` ship for `linux-sbsa`, `linux-x86_64` and `windows-x86_64`
-  and nothing else. So CI cannot install what the plugin needs in order to load
-  it, and it is the one provider we ship without ever having loaded it. If your
-  machine has those libraries it should work, and we would like to hear about
-  it.
+- **CUDA on Windows ARM needs the 13.4 developer preview.** That target is
+  newer than the stable redistributables, which carry `libcublas` and
+  `cuda_cudart` for `linux-sbsa`, `linux-x86_64` and `windows-x86_64` only. The
+  toolkit for it lives under `packages.nvidia.com/prerelease/cuda/13.4.0`, and
+  the provider wants `cublas64_13.dll` and `cublasLt64_13.dll` from it beside
+  the plugin, as on x64. Preview software, so treat it as such.
 - **QNN** carries the Qualcomm AI Runtime with it. Not Android: there QNN is
   linked into a whole runtime rather than published as a loadable plugin.
 - **On the web** nothing is loaded: WebGPU and WebNN are compiled into two of
