@@ -857,7 +857,15 @@ jobs:
 
       - name: Point the suite at our build
         shell: bash
-        run: python3 .github/scripts/locate_library.py "${{ matrix.artifact }}" webgpu qnn cuda
+        run: |
+          set -euo pipefail
+          # The providers this job staged, which is what may be required. CUDA
+          # is not among them on Windows ARM, where its runtime cannot exist.
+          required="webgpu qnn cuda"
+          if [ "${{ runner.os }}" = Windows ] && [ "${{ runner.arch }}" = ARM64 ]; then
+            required="webgpu qnn"
+          fi
+          python3 .github/scripts/locate_library.py "${{ matrix.artifact }}" $required
 
       # Beside the plugin, not merely on PATH. Windows resolves a DLL's own
       # dependencies from the directory of the module loading them before it
