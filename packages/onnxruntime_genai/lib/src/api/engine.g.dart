@@ -22,6 +22,11 @@ final class Engine extends GenAiHandle {
   bool hasPendingRequests() => _calls.engineHasPendingRequests(handle);
 
   /// Wraps `OgaEngineAddRequest`.
+  ///
+  /// Keeps the buffer it is given rather than copying it, so that
+  /// memory must outlive the handle. It is the caller's to allocate
+  /// and to free, and freeing it first leaves the handle pointing
+  /// at nothing.
   void addRequest(GenAiPtr request) => _calls.engineAddRequest(handle, request);
 
   /// Wraps `OgaEngineRemoveRequest`.

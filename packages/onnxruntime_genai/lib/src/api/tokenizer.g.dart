@@ -16,6 +16,11 @@ final class Tokenizer extends GenAiHandle {
   void destroy(GenAiPtr handle) => _calls.destroyTokenizer(handle);
 
   /// Wraps `OgaUpdateTokenizerOptions`.
+  ///
+  /// Keeps the buffer it is given rather than copying it, so that
+  /// memory must outlive the handle. It is the caller's to allocate
+  /// and to free, and freeing it first leaves the handle pointing
+  /// at nothing.
   void updateTokenizerOptions(Map<String, String> options) =>
       _calls.updateTokenizerOptions(handle, options);
 

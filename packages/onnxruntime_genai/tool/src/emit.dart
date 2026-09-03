@@ -211,6 +211,35 @@ String _callName(CFunction function) {
   return _lowerFirst(joined);
 }
 
+/// Whether the call keeps the buffer it is handed rather than copying it.
+///
+/// Read out of the header's own prose, because the signature cannot say it.
+/// Passing a pointer that dies before the handle does is the highest-risk
+/// mistake available here, so the wrapper repeats the warning rather than
+/// leaving the caller to find the C header.
+bool keepsItsBuffer(CFunction function) {
+  final documentation = function.documentation.toLowerCase();
+  return documentation.contains('must remain valid') ||
+      documentation.contains('must be valid for the lifetime');
+}
+
+/// The doc comment for a wrapper, with any warning the header carries.
+String _docFor(CFunction function, String indent) {
+  final buffer = StringBuffer('$indent/// Wraps `${function.name}`.\n');
+  if (keepsItsBuffer(function)) {
+    buffer
+      ..writeln('$indent///')
+      ..writeln(
+          '$indent/// Keeps the buffer it is given rather than copying it, so that')
+      ..writeln(
+          '$indent/// memory must outlive the handle. It is the caller\'s to allocate')
+      ..writeln(
+          '$indent/// and to free, and freeing it first leaves the handle pointing')
+      ..writeln('$indent/// at nothing.');
+  }
+  return buffer.toString();
+}
+
 /// Why a function was left out, for unmapped.txt.
 String _why(CFunction function) {
   if (function.takesCallback) return 'takes a callback, which needs a wrapper';
@@ -220,9 +249,7 @@ String _why(CFunction function) {
   // something pointing at freed memory. The header says when this applies, and
   // saying so here is the difference between a missing rule and a decision
   // somebody has to make.
-  final documentation = function.documentation.toLowerCase();
-  if (documentation.contains('must remain valid') ||
-      documentation.contains('must be valid for the lifetime')) {
+  if (keepsItsBuffer(function)) {
     return 'keeps the buffer it is given, so an arena cannot own it. Needs a '
         'wrapper that keeps it alive as long as the handle';
   }
@@ -439,13 +466,27 @@ Wrapped? _wrap(CFunction function, String? owner, String? dartName) {
 
     final mapped = map(parameter.type);
     if (mapped == null) return null;
-    final name = _dartParameterName(parameter.name);
+    var name = _dartParameterName(parameter.name);
+    // The receiver is always called `handle`, so a parameter of that name has
+    // to give way: `OgaRuntimeSettingsSetHandle` takes one.
+    if (name == 'handle' && owner != null) name = 'value';
     if (mapped.isString) {
       declared.add('String $name');
       forwarded.add('cString(arena, $name)');
     } else if (mapped.isHandle) {
       declared.add('GenAiPtr $name');
       forwarded.add('pointer<${parameter.pointee}>($name)');
+    } else if (isEnumType(parameter.type)) {
+      // The seam carries the integer, which is what the C API takes and what
+      // the web side could pass. ffigen's wrapper declares the Dart enum, so
+      // it is rebuilt here rather than being widened there.
+      declared.add('int $name');
+      forwarded.add('${parameter.type.trim()}.fromValue($name)');
+    } else if (mapped.isRawPointer) {
+      // Raw memory and callbacks cross as an address, like handles, so that
+      // the interface stays spellable on a platform without dart:ffi.
+      declared.add('GenAiPtr $name');
+      forwarded.add('pointer<${mapped.nativePointee}>($name)');
     } else {
       declared.add('${mapped.dart} $name');
       forwarded.add(name);
@@ -476,6 +517,15 @@ $setUp      final out = arena<Pointer<$slot>>();
       check(${function.name}(${[...forwarded, 'out', 'count'].join(', ')}));
       final data = out.value;
       return List<$dart>.generate(count.value, (i) => data[i]);''';
+  } else if (out != null && out.type.replaceAll(' ', '') == 'void**') {
+    // Raw memory the call points at: the tensor's own buffer, or whatever the
+    // caller parked on the request. Handed back as an address for the same
+    // reason it goes in as one, and it stays the caller's to reason about.
+    returns = 'GenAiPtr';
+    body = '''
+$setUp      final out = arena<Pointer<Void>>();
+      check(${function.name}(${[...forwarded, 'out'].join(', ')}));
+      return handleOf(out.value);''';
   } else if (isFactory || producesHandle) {
     final produced = isFactory ? owner : out.pointee;
     returns = 'GenAiPtr';
@@ -523,7 +573,7 @@ $setUp      final out = arena<$slot>();
     }
   }
 
-  final declaration = '  /// Wraps `${function.name}`.\n'
+  final declaration = '${_docFor(function, '  ')}'
       '  $returns $name($signature);\n';
   final implementation = '  @override\n'
       '  $returns $name($signature) => withArena((arena) {\n'
@@ -534,7 +584,7 @@ $setUp      final out = arena<$slot>();
   // marshalling: that is the backend's job, on the other side of the seam.
   final String method;
   if (owner == null) {
-    method = '/// Wraps `${function.name}`.\n'
+    method = '${_docFor(function, '')}'
         '$returns ${_lowerFirst(name)}($signature) =>\n'
         '    _calls.$name($arguments);\n';
   } else if (isFactory) {
@@ -546,7 +596,7 @@ $setUp      final out = arena<$slot>();
         : named.startsWith(type)
             ? 'factory $type.${_lowerFirst(named.substring(type.length))}'
             : 'factory $type.${_lowerFirst(named)}';
-    method = '  /// Wraps `${function.name}`.\n'
+    method = '${_docFor(function, '  ')}'
         '  $constructor($signature) =>\n'
         '      $type._(_calls.$name($arguments));\n';
   } else {
@@ -554,10 +604,10 @@ $setUp      final out = arena<$slot>();
     final call = '_calls.$name($arguments)';
     final methodName = _methodName(function, owner);
     method = produced != null
-        ? '  /// Wraps `${function.name}`.\n'
+        ? '${_docFor(function, '  ')}'
             '  ${dartNameOf(produced)} $methodName(${_above(declared)}) =>\n'
             '      ${dartNameOf(produced)}._($call);\n'
-        : '  /// Wraps `${function.name}`.\n'
+        : '${_docFor(function, '  ')}'
             '  $returns $methodName(${_above(declared)}) => $call;\n';
   }
 

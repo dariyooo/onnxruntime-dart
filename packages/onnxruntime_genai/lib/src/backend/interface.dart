@@ -33,6 +33,9 @@ abstract interface class GenAiCalls {
   /// Wraps `OgaSetLogString`.
   void setLogString(String name, String value);
 
+  /// Wraps `OgaSetLogCallback`.
+  void setLogCallback(GenAiPtr callback);
+
   /// Wraps `OgaDestroyString`.
   void destroyString(String value);
 
@@ -139,6 +142,10 @@ abstract interface class GenAiCalls {
   /// Wraps `OgaCreateRuntimeSettings`.
   GenAiPtr createRuntimeSettings();
 
+  /// Wraps `OgaRuntimeSettingsSetHandle`.
+  void runtimeSettingsSetHandle(
+      GenAiPtr handle, String handleName, GenAiPtr value);
+
   /// Wraps `OgaCreateModelWithRuntimeSettings`.
   GenAiPtr createModelWithRuntimeSettings(GenAiPtr handle, String configPath);
 
@@ -162,6 +169,11 @@ abstract interface class GenAiCalls {
       GenAiPtr handle, String provider, String key, String value);
 
   /// Wraps `OgaConfigAddModelData`.
+  ///
+  /// Keeps the buffer it is given rather than copying it, so that
+  /// memory must outlive the handle. It is the caller's to allocate
+  /// and to free, and freeing it first leaves the handle pointing
+  /// at nothing.
   void configAddModelData(
       GenAiPtr handle, String modelFilename, Uint8List modelData);
 
@@ -226,6 +238,11 @@ abstract interface class GenAiCalls {
   GenAiPtr createAdapters(GenAiPtr handle);
 
   /// Wraps `OgaCreateEngine`.
+  ///
+  /// Keeps the buffer it is given rather than copying it, so that
+  /// memory must outlive the handle. It is the caller's to allocate
+  /// and to free, and freeing it first leaves the handle pointing
+  /// at nothing.
   GenAiPtr createEngine(GenAiPtr handle);
 
   /// Wraps `OgaCreateStreamingProcessor`.
@@ -315,6 +332,11 @@ abstract interface class GenAiCalls {
   void destroyTokenizer(GenAiPtr handle);
 
   /// Wraps `OgaUpdateTokenizerOptions`.
+  ///
+  /// Keeps the buffer it is given rather than copying it, so that
+  /// memory must outlive the handle. It is the caller's to allocate
+  /// and to free, and freeing it first leaves the handle pointing
+  /// at nothing.
   void updateTokenizerOptions(GenAiPtr handle, Map<String, String> options);
 
   /// Wraps `OgaTokenizerGetBosTokenId`.
@@ -402,6 +424,15 @@ abstract interface class GenAiCalls {
   /// Wraps `OgaDestroyTensor`.
   void destroyTensor(GenAiPtr handle);
 
+  /// Wraps `OgaCreateTensorFromBuffer`.
+  ///
+  /// Keeps the buffer it is given rather than copying it, so that
+  /// memory must outlive the handle. It is the caller's to allocate
+  /// and to free, and freeing it first leaves the handle pointing
+  /// at nothing.
+  GenAiPtr createTensorFromBuffer(
+      GenAiPtr data, List<int> shapeDims, int elementType);
+
   /// Wraps `OgaTensorGetType`.
   int tensorGetType(GenAiPtr handle);
 
@@ -410,6 +441,9 @@ abstract interface class GenAiCalls {
 
   /// Wraps `OgaTensorGetShape`.
   void tensorGetShape(GenAiPtr handle, List<int> shapeDims);
+
+  /// Wraps `OgaTensorGetData`.
+  GenAiPtr tensorGetData(GenAiPtr handle);
 
   /// Wraps `OgaDestroyAdapters`.
   void destroyAdapters(GenAiPtr handle);
@@ -430,6 +464,11 @@ abstract interface class GenAiCalls {
   bool engineHasPendingRequests(GenAiPtr handle);
 
   /// Wraps `OgaEngineAddRequest`.
+  ///
+  /// Keeps the buffer it is given rather than copying it, so that
+  /// memory must outlive the handle. It is the caller's to allocate
+  /// and to free, and freeing it first leaves the handle pointing
+  /// at nothing.
   void engineAddRequest(GenAiPtr handle, GenAiPtr request);
 
   /// Wraps `OgaEngineRemoveRequest`.
@@ -440,6 +479,12 @@ abstract interface class GenAiCalls {
 
   /// Wraps `OgaRequestAddTokens`.
   void requestAddTokens(GenAiPtr handle, GenAiPtr tokens);
+
+  /// Wraps `OgaRequestSetOpaqueData`.
+  void requestSetOpaqueData(GenAiPtr handle, GenAiPtr opaqueData);
+
+  /// Wraps `OgaRequestGetOpaqueData`.
+  GenAiPtr requestGetOpaqueData(GenAiPtr handle);
 
   /// Wraps `OgaRequestHasUnseenTokens`.
   bool requestHasUnseenTokens(GenAiPtr handle);

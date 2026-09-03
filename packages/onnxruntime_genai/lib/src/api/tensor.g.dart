@@ -15,6 +15,16 @@ final class Tensor extends GenAiHandle {
   @override
   void destroy(GenAiPtr handle) => _calls.destroyTensor(handle);
 
+  /// Wraps `OgaCreateTensorFromBuffer`.
+  ///
+  /// Keeps the buffer it is given rather than copying it, so that
+  /// memory must outlive the handle. It is the caller's to allocate
+  /// and to free, and freeing it first leaves the handle pointing
+  /// at nothing.
+  factory Tensor.fromBuffer(
+          GenAiPtr data, List<int> shapeDims, int elementType) =>
+      Tensor._(_calls.createTensorFromBuffer(data, shapeDims, elementType));
+
   /// Wraps `OgaTensorGetType`.
   int getType() => _calls.tensorGetType(handle);
 
@@ -24,4 +34,7 @@ final class Tensor extends GenAiHandle {
   /// Wraps `OgaTensorGetShape`.
   void getShape(List<int> shapeDims) =>
       _calls.tensorGetShape(handle, shapeDims);
+
+  /// Wraps `OgaTensorGetData`.
+  GenAiPtr getData() => _calls.tensorGetData(handle);
 }

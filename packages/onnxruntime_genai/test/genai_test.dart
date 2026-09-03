@@ -6,6 +6,10 @@
 /// live in the device and example suites.
 library;
 
+import 'dart:ffi';
+
+import 'package:ffi/ffi.dart';
+import 'package:onnxruntime_genai/native.dart';
 import 'package:onnxruntime_genai/onnxruntime_genai.dart';
 import 'package:test/test.dart';
 
@@ -72,6 +76,53 @@ void main() {
       expect(strings.getString(0), 'gamma');
     });
   }, skip: skipWithoutGenAi);
+
+  group('raw memory', () {
+    test('a tensor built on a buffer hands back that buffer', () {
+      // The tensor does not copy: it points at what it was given. Getting the
+      // same address back is what proves both wrappers agree about that, and
+      // that the address survived the trip through the seam as an integer.
+      final data = malloc<Float>(6);
+      addTearDown(() => malloc.free(data));
+      for (var i = 0; i < 6; i++) {
+        data[i] = i.toDouble();
+      }
+
+      final tensor = Tensor.fromBuffer(
+        GenAiPtr(data.address),
+        [2, 3],
+        OgaElementType.OgaElementType_float32.value,
+      );
+      addTearDown(tensor.release);
+
+      expect(tensor.getData().address, data.address);
+    });
+
+    test('a callback crosses the seam as an address and is accepted', () {
+      // The library keeps the pointer and calls it later, so the wrapper takes
+      // an address rather than a closure: only the caller knows how long the
+      // callable has to stay alive. The seam carries it as an integer, which
+      // is what lets the interface stay spellable without dart:ffi.
+      final callback =
+          NativeCallable<Void Function(Pointer<Char>, Size)>.isolateLocal(
+        (Pointer<Char> text, int length) {},
+      );
+      addTearDown(callback.close);
+
+      final address = GenAiPtr(callback.nativeFunction.address);
+      expect(address.address, isNot(0));
+
+      setLogCallback(address);
+      // Cleared before the callable is closed, or the library would be left
+      // holding a pointer to a callable that no longer exists.
+      setLogCallback(const GenAiPtr(0));
+
+      // What the callback receives is not asserted here: GenAI logs during
+      // generation, which needs a model this suite deliberately does not
+      // download. The base package covers the same mechanism end to end
+      // against ONNX Runtime's own logger.
+    });
+  });
 
   group('failure', () {
     test('a bad model path is an exception, not a crash', () {

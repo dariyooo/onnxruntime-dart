@@ -13,6 +13,8 @@ final class Mapped {
     required this.dart,
     this.isHandle = false,
     this.isString = false,
+    this.isRawPointer = false,
+    this.nativePointee,
   });
 
   /// The type in the generated ffigen bindings.
@@ -27,6 +29,16 @@ final class Mapped {
   /// Whether this is a C string, which has to be copied into the arena on the
   /// way in and read back out on the way out.
   final bool isString;
+
+  /// Whether this is raw memory, or a callback, that the caller owns.
+  ///
+  /// Crosses the seam as an address, the same as a handle does, because the
+  /// web side of the seam cannot name a `dart:ffi` type. Turning it back into
+  /// a pointer is the native backend's job.
+  final bool isRawPointer;
+
+  /// What the pointer points at, for the cast on the native side.
+  final String? nativePointee;
 }
 
 /// GenAI's enums, which cross as the integers they are.
@@ -53,8 +65,33 @@ const _scalars = <String, Mapped>{
 Mapped? map(String type) {
   final bare = type.replaceAll('const ', '').replaceAll(' ', '');
 
+  // A callback, already spelled the way ffigen types it. Crosses as the
+  // pointer itself: building one with NativeCallable, and keeping it alive for
+  // as long as the runtime holds it, is the caller's to do, because nothing
+  // here has a scope that outlives the call.
+  if (type.startsWith('Pointer<NativeFunction<')) {
+    return Mapped(
+      ffi: type,
+      dart: 'GenAiPtr',
+      isRawPointer: true,
+      nativePointee: type.substring('Pointer<'.length, type.length - 1),
+    );
+  }
+
   if (bare == 'char*') {
     return const Mapped(ffi: 'Pointer<Char>', dart: 'String', isString: true);
+  }
+  // Raw memory the caller owns, both ways: `OgaRequestSetOpaqueData` takes a
+  // pointer it hands back later, and `OgaTensorGetData` returns one into the
+  // tensor's own buffer. Neither is copied, so a pointer is the honest type
+  // and the lifetime stays where the caller can see it.
+  if (bare == 'void*' || bare == 'void**') {
+    return const Mapped(
+      ffi: 'Pointer<Void>',
+      dart: 'GenAiPtr',
+      isRawPointer: true,
+      nativePointee: 'Void',
+    );
   }
   if (_scalars.containsKey(bare)) return _scalars[bare];
   if (_enums.contains(bare)) return const Mapped(ffi: 'int', dart: 'int');
@@ -90,6 +127,22 @@ bool isHandle(String type) {
   return bare.startsWith('Oga') && bare != 'OgaResult';
 }
 
+/// The dart:ffi spelling of [type] as it appears inside a `NativeFunction`.
+///
+/// Different from [nativeSlot] on purpose: this is the native signature, where
+/// a `size_t` is `Size` and a string is a `Pointer<Char>`, rather than the
+/// Dart-side types those cross as.
+String? nativeTypeOf(String type) {
+  final bare = type.replaceAll('const ', '').replaceAll(' ', '');
+  if (bare == 'void') return 'Void';
+  if (bare == 'char*') return 'Pointer<Char>';
+  if (bare == 'void*') return 'Pointer<Void>';
+  if (bare.startsWith('Oga') && bare.endsWith('*')) {
+    return 'Pointer<${bare.replaceAll('*', '')}>';
+  }
+  return nativeSlot(bare);
+}
+
 /// The dart:ffi type an out-parameter of C type [type] is read through.
 ///
 /// Taken from the C type rather than from the Dart one it maps to. Every
@@ -109,6 +162,12 @@ String? nativeSlot(String type) {
     'bool' => 'Bool',
     'float' => 'Float',
     'double' => 'Double',
+    // An out-parameter of type `void**` is read through a pointer slot.
+    'void*' => 'Pointer<Void>',
     _ => null,
   };
 }
+
+/// Whether [type] names one of GenAI's C enums.
+bool isEnumType(String type) =>
+    _enums.contains(type.replaceAll('const ', '').replaceAll(' ', ''));

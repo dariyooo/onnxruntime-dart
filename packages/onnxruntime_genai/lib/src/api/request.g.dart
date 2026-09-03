@@ -18,6 +18,13 @@ final class Request extends GenAiHandle {
   /// Wraps `OgaRequestAddTokens`.
   void addTokens(GenAiPtr tokens) => _calls.requestAddTokens(handle, tokens);
 
+  /// Wraps `OgaRequestSetOpaqueData`.
+  void setOpaqueData(GenAiPtr opaqueData) =>
+      _calls.requestSetOpaqueData(handle, opaqueData);
+
+  /// Wraps `OgaRequestGetOpaqueData`.
+  GenAiPtr getOpaqueData() => _calls.requestGetOpaqueData(handle);
+
   /// Wraps `OgaRequestHasUnseenTokens`.
   bool hasUnseenTokens() => _calls.requestHasUnseenTokens(handle);
 

@@ -43,6 +43,11 @@ final class Model extends GenAiHandle {
   Adapters createAdapters() => Adapters._(_calls.createAdapters(handle));
 
   /// Wraps `OgaCreateEngine`.
+  ///
+  /// Keeps the buffer it is given rather than copying it, so that
+  /// memory must outlive the handle. It is the caller's to allocate
+  /// and to free, and freeing it first leaves the handle pointing
+  /// at nothing.
   Engine createEngine() => Engine._(_calls.createEngine(handle));
 
   /// Wraps `OgaCreateStreamingProcessor`.
