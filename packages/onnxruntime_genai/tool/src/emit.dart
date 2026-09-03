@@ -119,8 +119,10 @@ final class _ListParameter {
 /// The list [parameters] starting at [index] describe, if they describe one.
 _ListParameter? _asList(List<CParameter> parameters, int index) {
   if (index + 1 >= parameters.length) return null;
-  final pointer = parameters[index].type.replaceAll('const ', '').trim();
-  final count = parameters[index + 1].type.replaceAll('const ', '').trim();
+  final pointer =
+      parameters[index].type.replaceAll('const', '').replaceAll(' ', '');
+  final count =
+      parameters[index + 1].type.replaceAll('const', '').replaceAll(' ', '');
   if (count != 'size_t') return null;
   return switch (pointer) {
     'int32_t*' => const _ListParameter(dart: 'List<int>', element: 'Int32'),
@@ -301,10 +303,8 @@ Wrapped? _wrap(CFunction function, String? owner, String? dartName) {
   final selfIndex = owner == null
       ? -1
       : parameters.indexWhere((p) => p.pointee == owner && !p.isHandleOut);
-  final isFactory = owner != null &&
-      function.name.startsWith('OgaCreate') &&
-      out != null &&
-      out.pointee == owner;
+  final isFactory =
+      owner != null && out != null && out.pointee == owner && selfIndex < 0;
   if (owner != null && !isFactory && selfIndex < 0) return null;
 
   // The three parameter lists: what the interface declares, what the backend
@@ -364,12 +364,35 @@ Wrapped? _wrap(CFunction function, String? owner, String? dartName) {
   final signature = declared.join(', ');
   final arguments = passed.join(', ');
 
+  // The pair before the count, when a call writes both at once.
+  CParameter? arrayOut;
+  if (out != null &&
+      out.type.replaceAll(' ', '') == 'size_t*' &&
+      parameters.length >= 2) {
+    final before = parameters[parameters.length - 2];
+    if (before.isHandleOut && nativeSlot(before.pointee) != null) {
+      arrayOut = before;
+    }
+  }
+
   String? returns;
   String body;
 
   final producesHandle =
       out != null && out.isHandleOut && out.pointee.startsWith('Oga');
-  if (isFactory || producesHandle) {
+  if (arrayOut != null) {
+    final slot = nativeSlot(arrayOut.pointee)!;
+    final dart = map(arrayOut.pointee)!.dart;
+    returns = 'List<$dart>';
+    // Copied out, not viewed: the array belongs to the handle and is only good
+    // until it next moves on.
+    body = '''
+$setUp      final out = arena<Pointer<$slot>>();
+      final count = arena<Size>();
+      check(${function.name}(${[...forwarded, 'out', 'count'].join(', ')}));
+      final data = out.value;
+      return List<$dart>.generate(count.value, (i) => data[i]);''';
+  } else if (isFactory || producesHandle) {
     final produced = isFactory ? owner : out.pointee;
     returns = 'GenAiPtr';
     body = '''
@@ -432,10 +455,13 @@ $setUp      final out = arena<$slot>();
         '    _calls.$name($arguments);\n';
   } else if (isFactory) {
     final type = dartName!;
-    final named = function.name.substring('OgaCreate'.length);
+    var named = function.name.substring(3);
+    if (named.startsWith('Create')) named = named.substring('Create'.length);
     final constructor = named == type
         ? 'factory $type'
-        : 'factory $type.${_lowerFirst(named.substring(type.length))}';
+        : named.startsWith(type)
+            ? 'factory $type.${_lowerFirst(named.substring(type.length))}'
+            : 'factory $type.${_lowerFirst(named)}';
     method = '  /// Wraps `${function.name}`.\n'
         '  $constructor($signature) =>\n'
         '      $type._(_calls.$name($arguments));\n';

@@ -15,4 +15,8 @@ final class Images extends GenAiHandle {
   @override
   void destroy(GenAiPtr handle) => _calls.destroyImages(handle);
 
+  /// Wraps `OgaLoadImage`.
+  factory Images.loadImage(String imagePath) =>
+      Images._(_calls.loadImage(imagePath));
+
 }

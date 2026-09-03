@@ -43,8 +43,7 @@ abstract interface class GenAiCalls {
   int getCurrentGpuDeviceId();
 
   /// Wraps `OgaRegisterExecutionProviderLibrary`.
-  void registerExecutionProviderLibrary(
-      String registrationName, String libraryPath);
+  void registerExecutionProviderLibrary(String registrationName, String libraryPath);
 
   /// Wraps `OgaUnregisterExecutionProviderLibrary`.
   void unregisterExecutionProviderLibrary(String registrationName);
@@ -94,6 +93,9 @@ abstract interface class GenAiCalls {
   /// Wraps `OgaDestroyImages`.
   void destroyImages(GenAiPtr handle);
 
+  /// Wraps `OgaLoadImage`.
+  GenAiPtr loadImage(String imagePath);
+
   /// Wraps `OgaDestroyStringArray`.
   void destroyStringArray(GenAiPtr handle);
 
@@ -106,6 +108,9 @@ abstract interface class GenAiCalls {
   /// Wraps `OgaCreateStringArray`.
   GenAiPtr createStringArray();
 
+  /// Wraps `OgaCreateStringArrayFromStrings`.
+  GenAiPtr createStringArrayFromStrings(List<String> strs);
+
   /// Wraps `OgaStringArrayAddString`.
   void stringArrayAddString(GenAiPtr handle, String str);
 
@@ -117,6 +122,9 @@ abstract interface class GenAiCalls {
 
   /// Wraps `OgaDestroyAudios`.
   void destroyAudios(GenAiPtr handle);
+
+  /// Wraps `OgaLoadAudio`.
+  GenAiPtr loadAudio(String audioPath);
 
   /// Wraps `OgaDestroyRuntimeSettings`.
   void destroyRuntimeSettings(GenAiPtr handle);
@@ -143,39 +151,31 @@ abstract interface class GenAiCalls {
   void configAppendProvider(GenAiPtr handle, String provider);
 
   /// Wraps `OgaConfigSetProviderOption`.
-  void configSetProviderOption(
-      GenAiPtr handle, String provider, String key, String value);
+  void configSetProviderOption(GenAiPtr handle, String provider, String key, String value);
 
   /// Wraps `OgaConfigAddModelData`.
-  void configAddModelData(
-      GenAiPtr handle, String modelFilename, Uint8List modelData);
+  void configAddModelData(GenAiPtr handle, String modelFilename, Uint8List modelData);
 
   /// Wraps `OgaConfigRemoveModelData`.
   void configRemoveModelData(GenAiPtr handle, String modelFilename);
 
   /// Wraps `OgaConfigSetDecoderProviderOptionsHardwareDeviceType`.
-  void configSetDecoderProviderOptionsHardwareDeviceType(
-      GenAiPtr handle, String provider, String hardwareDeviceType);
+  void configSetDecoderProviderOptionsHardwareDeviceType(GenAiPtr handle, String provider, String hardwareDeviceType);
 
   /// Wraps `OgaConfigSetDecoderProviderOptionsHardwareDeviceId`.
-  void configSetDecoderProviderOptionsHardwareDeviceId(
-      GenAiPtr handle, String provider, int hardwareDeviceId);
+  void configSetDecoderProviderOptionsHardwareDeviceId(GenAiPtr handle, String provider, int hardwareDeviceId);
 
   /// Wraps `OgaConfigSetDecoderProviderOptionsHardwareVendorId`.
-  void configSetDecoderProviderOptionsHardwareVendorId(
-      GenAiPtr handle, String provider, int hardwareVendorId);
+  void configSetDecoderProviderOptionsHardwareVendorId(GenAiPtr handle, String provider, int hardwareVendorId);
 
   /// Wraps `OgaConfigClearDecoderProviderOptionsHardwareDeviceType`.
-  void configClearDecoderProviderOptionsHardwareDeviceType(
-      GenAiPtr handle, String provider);
+  void configClearDecoderProviderOptionsHardwareDeviceType(GenAiPtr handle, String provider);
 
   /// Wraps `OgaConfigClearDecoderProviderOptionsHardwareDeviceId`.
-  void configClearDecoderProviderOptionsHardwareDeviceId(
-      GenAiPtr handle, String provider);
+  void configClearDecoderProviderOptionsHardwareDeviceId(GenAiPtr handle, String provider);
 
   /// Wraps `OgaConfigClearDecoderProviderOptionsHardwareVendorId`.
-  void configClearDecoderProviderOptionsHardwareVendorId(
-      GenAiPtr handle, String provider);
+  void configClearDecoderProviderOptionsHardwareVendorId(GenAiPtr handle, String provider);
 
   /// Wraps `OgaConfigOverlay`.
   void configOverlay(GenAiPtr handle, String json);
@@ -220,15 +220,13 @@ abstract interface class GenAiCalls {
   void destroyGeneratorParams(GenAiPtr handle);
 
   /// Wraps `OgaGeneratorParamsSetSearchNumber`.
-  void generatorParamsSetSearchNumber(
-      GenAiPtr handle, String name, double value);
+  void generatorParamsSetSearchNumber(GenAiPtr handle, String name, double value);
 
   /// Wraps `OgaGeneratorParamsSetSearchBool`.
   void generatorParamsSetSearchBool(GenAiPtr handle, String name, bool value);
 
   /// Wraps `OgaGeneratorParamsSetGuidance`.
-  void generatorParamsSetGuidance(
-      GenAiPtr handle, String type, String data, bool enableFfTokens);
+  void generatorParamsSetGuidance(GenAiPtr handle, String type, String data, bool enableFfTokens);
 
   /// Wraps `OgaGeneratorParamsGetSearchNumber`.
   double generatorParamsGetSearchNumber(GenAiPtr handle, String name);
@@ -330,8 +328,7 @@ abstract interface class GenAiCalls {
   String tokenizerDecode(GenAiPtr handle, List<int> tokens);
 
   /// Wraps `OgaTokenizerApplyChatTemplate`.
-  String tokenizerApplyChatTemplate(GenAiPtr handle, String templateStr,
-      String messages, String tools, bool addGenerationPrompt);
+  String tokenizerApplyChatTemplate(GenAiPtr handle, String templateStr, String messages, String tools, bool addGenerationPrompt);
 
   /// Wraps `OgaCreateTokenizerStream`.
   GenAiPtr createTokenizerStream(GenAiPtr handle);
@@ -340,28 +337,22 @@ abstract interface class GenAiCalls {
   void destroyMultiModalProcessor(GenAiPtr handle);
 
   /// Wraps `OgaProcessorProcessImages`.
-  GenAiPtr processorProcessImages(
-      GenAiPtr handle, String prompt, GenAiPtr images);
+  GenAiPtr processorProcessImages(GenAiPtr handle, String prompt, GenAiPtr images);
 
   /// Wraps `OgaProcessorProcessImagesAndPrompts`.
-  GenAiPtr processorProcessImagesAndPrompts(
-      GenAiPtr handle, GenAiPtr prompts, GenAiPtr images);
+  GenAiPtr processorProcessImagesAndPrompts(GenAiPtr handle, GenAiPtr prompts, GenAiPtr images);
 
   /// Wraps `OgaProcessorProcessAudios`.
-  GenAiPtr processorProcessAudios(
-      GenAiPtr handle, String prompt, GenAiPtr audios);
+  GenAiPtr processorProcessAudios(GenAiPtr handle, String prompt, GenAiPtr audios);
 
   /// Wraps `OgaProcessorProcessAudiosAndPrompts`.
-  GenAiPtr processorProcessAudiosAndPrompts(
-      GenAiPtr handle, GenAiPtr prompts, GenAiPtr audios);
+  GenAiPtr processorProcessAudiosAndPrompts(GenAiPtr handle, GenAiPtr prompts, GenAiPtr audios);
 
   /// Wraps `OgaProcessorProcessImagesAndAudios`.
-  GenAiPtr processorProcessImagesAndAudios(
-      GenAiPtr handle, String prompt, GenAiPtr images, GenAiPtr audios);
+  GenAiPtr processorProcessImagesAndAudios(GenAiPtr handle, String prompt, GenAiPtr images, GenAiPtr audios);
 
   /// Wraps `OgaProcessorProcessImagesAndAudiosAndPrompts`.
-  GenAiPtr processorProcessImagesAndAudiosAndPrompts(
-      GenAiPtr handle, GenAiPtr prompts, GenAiPtr images, GenAiPtr audios);
+  GenAiPtr processorProcessImagesAndAudiosAndPrompts(GenAiPtr handle, GenAiPtr prompts, GenAiPtr images, GenAiPtr audios);
 
   /// Wraps `OgaProcessorDecode`.
   String processorDecode(GenAiPtr handle, List<int> tokens);
@@ -437,4 +428,5 @@ abstract interface class GenAiCalls {
 
   /// Wraps `OgaStreamingProcessorGetOption`.
   String streamingProcessorGetOption(GenAiPtr handle, String key);
+
 }

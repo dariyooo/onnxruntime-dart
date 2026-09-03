@@ -22,6 +22,18 @@ extension OrtTrainingApiCoreApi on OrtTrainingApi {
         return out0.value;
       });
 
+  /// `SaveCheckpoint`
+  void saveCheckpoint(Pointer<OrtCheckpointState> checkpointState,
+          String checkpointPath, bool includeOptimizerState) =>
+      withArena((arena) {
+        checkOrtStatus(this.SaveCheckpoint.asFunction<
+                Pointer<OrtStatus> Function(
+                    Pointer<OrtCheckpointState>, Pointer<Char>, bool)>()(
+            checkpointState,
+            allocateOrtPath(checkpointPath, arena),
+            includeOptimizerState));
+      });
+
   /// `LazyResetGrad`
   void lazyResetGrad(Pointer<OrtTrainingSession> session) =>
       checkOrtStatus(this.LazyResetGrad.asFunction<
@@ -100,6 +112,13 @@ extension OrtTrainingApiCoreApi on OrtTrainingApi {
           Pointer<OrtStatus> Function(Pointer<OrtTrainingSession>,
               Pointer<OrtRunOptions>)>()(sess, runOptions));
 
+  /// `RegisterLinearLRScheduler`
+  void registerLinearLRScheduler(Pointer<OrtTrainingSession> sess,
+          int warmupStepCount, int totalStepCount, double initialLr) =>
+      checkOrtStatus(this.RegisterLinearLRScheduler.asFunction<
+          Pointer<OrtStatus> Function(Pointer<OrtTrainingSession>, int, int,
+              double)>()(sess, warmupStepCount, totalStepCount, initialLr));
+
   /// `SchedulerStep`
   void schedulerStep(Pointer<OrtTrainingSession> sess) =>
       checkOrtStatus(this.SchedulerStep.asFunction<
@@ -149,6 +168,10 @@ extension OrtTrainingApiCoreApi on OrtTrainingApi {
             nativeStrings(graphOutputNames, arena)));
       });
 
+  /// `SetSeed`
+  void setSeed(int seed) => checkOrtStatus(
+      this.SetSeed.asFunction<Pointer<OrtStatus> Function(int)>()(seed));
+
   /// `AddProperty`
   void addProperty(Pointer<OrtCheckpointState> checkpointState,
           String propertyName, int propertyType, Pointer<Void> propertyValue) =>
@@ -183,6 +206,18 @@ extension OrtTrainingApiCoreApi on OrtTrainingApi {
             out0,
             out1));
         return (out0.value, out1.value);
+      });
+
+  /// `LoadCheckpointFromBuffer`
+  Pointer<OrtCheckpointState> loadCheckpointFromBuffer(
+          Pointer<Void> checkpointBuffer, int numBytes) =>
+      withArena((arena) {
+        final out0 = arena<Pointer<OrtCheckpointState>>();
+        checkOrtStatus(this.LoadCheckpointFromBuffer.asFunction<
+                Pointer<OrtStatus> Function(Pointer<Void>, int,
+                    Pointer<Pointer<OrtCheckpointState>>)>()(
+            checkpointBuffer, numBytes, out0));
+        return out0.value;
       });
 
   /// `GetParameterTypeAndShape`

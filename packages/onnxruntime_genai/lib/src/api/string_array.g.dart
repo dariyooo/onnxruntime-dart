@@ -27,6 +27,10 @@ final class StringArray extends GenAiHandle {
   factory StringArray() =>
       StringArray._(_calls.createStringArray());
 
+  /// Wraps `OgaCreateStringArrayFromStrings`.
+  factory StringArray.fromStrings(List<String> strs) =>
+      StringArray._(_calls.createStringArrayFromStrings(strs));
+
   /// Wraps `OgaStringArrayAddString`.
   void addString(String str) => _calls.stringArrayAddString(handle, str);
 
