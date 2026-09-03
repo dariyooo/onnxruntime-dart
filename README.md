@@ -7,6 +7,9 @@ plain Dart program, and works the same in a Flutter one.
 Start with [`onnxruntime_dart`](packages/onnxruntime_dart). Its README is the
 documentation. The rest of these exist so it has something to run against.
 
+Where this is going, and what has been decided, is in
+[ROADMAP.md](ROADMAP.md).
+
 ## The packages
 
 | Package | Version | What it is |
