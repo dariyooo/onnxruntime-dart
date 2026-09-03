@@ -18,3 +18,7 @@ Future<void> ensureRuntime() async {}
 /// enough on a developer's laptop and not on every CI runner, so leaving it
 /// unset would make the same test pass or fail by where it ran.
 const asyncSessionOptions = SessionOptions(intraOpNumThreads: 2);
+
+/// Intra-op threads an asynchronous run needs here, for callers that build
+/// their own options and cannot use [asyncSessionOptions] wholesale.
+const asyncIntraOpThreads = 2;
