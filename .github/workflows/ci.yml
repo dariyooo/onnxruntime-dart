@@ -1041,12 +1041,26 @@ jobs:
           # on it at once: "curl: (18) end of response with 3810773240 bytes
           # missing", before a single byte arrives. The cmdlet fetches the
           # whole 3.8 GB without complaint, so it is the one that works.
-          # Retried, because this is 3.8 GB from a host that sometimes drops
-          # the connection partway. One dropped download should not cost the
-          # job, and a whole platform's providers, a rerun by hand.
+          # Retried by hand, because the failure is a transport one and not a
+          # status: this host ends a 3.8 GB response partway through, which
+          # both curl and Invoke-WebRequest report and neither retries.
+          # -MaximumRetryCount covers HTTP statuses and does nothing here.
           $ProgressPreference = 'SilentlyContinue'
-          Invoke-WebRequest $url -OutFile cuda.exe `
-            -MaximumRetryCount 4 -RetryIntervalSec 15
+          $downloaded = $false
+          foreach ($attempt in 1..5) {
+            try {
+              Remove-Item cuda.exe -ErrorAction SilentlyContinue
+              Invoke-WebRequest $url -OutFile cuda.exe
+              $downloaded = $true
+              break
+            } catch {
+              Write-Host "  attempt ${attempt}: $($_.Exception.Message)"
+              Start-Sleep -Seconds (10 * $attempt)
+            }
+          }
+          if (-not $downloaded) {
+            throw "could not download the CUDA preview after 5 attempts"
+          }
           Write-Host "  $([int]((Get-Item cuda.exe).Length/1MB)) MB"
 
           # The installer is a 7-Zip self-extractor, so the libraries can be
