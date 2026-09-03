@@ -891,8 +891,15 @@ jobs:
             # every version ever installed, so taking whichever the filesystem
             # happened to list first is how a 2022 build gets picked over a
             # 2024 one sitting beside it.
+            # Matched rather than cast: a FileVersion can be missing, or
+            # carry a build tag after the number, and a cast that throws on
+            # one file takes the whole step down under ErrorActionPreference.
             $all = Get-ChildItem $roots -Recurse -Filter dxcompiler.dll -ErrorAction SilentlyContinue |
-              Sort-Object { [version]($_.VersionInfo.FileVersion -replace '[^0-9.]', '') } -Descending
+              Sort-Object {
+                if ($_.VersionInfo.FileVersion -match '\d+(\.\d+){1,3}') {
+                  [version]$Matches[0]
+                } else { [version]'0.0' }
+              } -Descending
             foreach ($found in $all) {
               $machine = Get-Machine $found.FullName
               # dxil.dll is the validator and has to sit beside it, or the
