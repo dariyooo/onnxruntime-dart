@@ -7,6 +7,10 @@ plain Dart program, and works the same in a Flutter one.
 Start with [`onnxruntime_dart`](packages/onnxruntime_dart). Its README is the
 documentation. The rest of these exist so it has something to run against.
 
+[`examples/gallery`](examples/gallery) runs six upstream models through the
+packages and reports which execution provider actually served each one, which is
+usually a different question from which one was asked for.
+
 Where this is going, and what has been decided, is in
 [ROADMAP.md](ROADMAP.md).
 
