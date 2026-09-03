@@ -756,35 +756,28 @@ jobs:
       # toolkit: nothing here compiles CUDA, it only needs the runtime present
       # so the plugin resolves. Inference needs a GPU this runner does not
       # have, and the accelerator tests exclude it for that reason.
-      - name: The CUDA runtime, so its plugin can be loaded
-        if: runner.arch == 'X64' && runner.os != 'macOS'
+      # Split by platform because the installers do not agree on names: the
+      # Linux packages are cudart, cudart-dev and libcublas, and the Windows
+      # installer has no cudart-dev at all and calls the other one cublas.
+      - name: The CUDA runtime, so its plugin can be loaded (Linux)
+        if: runner.os == 'Linux' && runner.arch == 'X64'
         uses: Jimver/cuda-toolkit@v0.2.36
         with:
-          # A 13.x, because the plugin dlopens libcudart.so.13. Which ones
-          # exist depends on the action version, not on NVIDIA: v0.2.24
-          # stopped at 12.9, so the pin above matters as much as this.
           cuda: '13.0.2'
           method: network
-          # cudart is a cuda-* package, cublas is not: the action prefixes
-          # sub-packages with `cuda-`, so libcublas has to go in the other
-          # list or apt is asked for a package that does not exist. The plugin
-          # links both, and a missing cublas fails the load as surely as a
-          # missing cudart does.
           # cudart-dev as well, because that is the package carrying
-          # lib64/stubs/libcuda.so. The plugin links libcuda.so.1, which
-          # belongs to the NVIDIA driver rather than the toolkit, and the stub
-          # is the only way a GPU-less runner can load the library at all.
+          # lib64/stubs/libcuda.so, which the next step needs.
           sub-packages: '["cudart", "cudart-dev"]'
           non-cuda-sub-packages: '["libcublas"]'
 
-      # The plugin also links libcuda.so.1, which belongs to the NVIDIA driver
-      # rather than the toolkit, and no GPU-less runner has one. The toolkit
-      # ships a stub of it for linking; putting that on the search path lets
-      # the library load, which is what the load test is for. It proves the
-      # plugin's symbols and its cudart and cublas dependencies resolve. It
-      # does not prove anything runs, and nothing here claims that: inference
-      # needs a real driver, and the accelerator tests exclude CUDA for
-      # exactly that reason.
+      - name: The CUDA runtime, so its plugin can be loaded (Windows)
+        if: runner.os == 'Windows' && runner.arch == 'X64'
+        uses: Jimver/cuda-toolkit@v0.2.36
+        with:
+          cuda: '13.0.2'
+          method: network
+          sub-packages: '["cudart", "cublas"]'
+
       - name: The driver stub, so the CUDA plugin can be loaded
         if: runner.os == 'Linux' && runner.arch == 'X64'
         shell: bash
