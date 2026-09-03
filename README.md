@@ -4,7 +4,7 @@ Comprehensive bindings to the ONNX Runtime C API from standalone Dart, with the
 binaries to go with them. No Flutter dependency: everything here works in a
 plain Dart program, and works the same in a Flutter one.
 
-Start with [`onnxruntime_dart`](packages/onnxruntime_dart) — its README is the
+Start with [`onnxruntime_dart`](packages/onnxruntime_dart). Its README is the
 documentation. The rest of these exist so it has something to run against.
 
 ## The packages
