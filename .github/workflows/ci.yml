@@ -849,6 +849,36 @@ jobs:
         shell: bash
         run: python3 .github/scripts/locate_library.py "${{ matrix.artifact }}" webgpu qnn cuda
 
+      # Beside the plugin, not merely on PATH. Windows resolves a DLL's own
+      # dependencies from the directory of the module loading them before it
+      # looks at PATH, and Dawn's dxil.dll load fails with error 87 when it is
+      # only on PATH. This is also what an application has to do: ship these
+      # next to the provider it loads.
+      - name: Put the dependent DLLs beside the plugins
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $webgpu = Get-ChildItem .local/ort -Recurse `
+            -Filter onnxruntime_providers_webgpu.dll | Select-Object -First 1
+          if ($webgpu) {
+            Get-ChildItem .local/dxc -Recurse -Include dxil.dll, dxcompiler.dll |
+              Where-Object { $_.FullName -match 'x64' } |
+              ForEach-Object {
+                Copy-Item $_.FullName $webgpu.Directory -Force
+                Write-Host "  $($_.Name) -> $($webgpu.Directory)"
+              }
+          }
+
+          $cuda = Get-ChildItem .local/ort -Recurse `
+            -Filter onnxruntime_providers_cuda.dll | Select-Object -First 1
+          if ($cuda -and $env:CUDA_PATH) {
+            Get-ChildItem "$env:CUDA_PATH/bin" -Filter '*64_13.dll' |
+              ForEach-Object {
+                Copy-Item $_.FullName $cuda.Directory -Force
+                Write-Host "  $($_.Name) -> $($cuda.Directory)"
+              }
+          }
+
       # After the pubspec names a library, never before. The build hook reads
       # user_defines when it resolves, so resolving first leaves it with
       # nothing and every test that needs the runtime skips while the job
