@@ -773,29 +773,36 @@ jobs:
           sub-packages: '["cudart"]'
           non-cuda-sub-packages: '["libcublas"]'
 
-      # Dawn reaches the GPU through D3D12 on Windows and compiles shaders with
-      # the DirectX Shader Compiler, which it dlopens by name. The runner image
-      # does not carry dxil.dll or dxcompiler.dll, so the provider loads and
-      # then fails when it first needs to compile. Worth knowing beyond CI: an
-      # application shipping this provider on Windows needs them beside it.
+      # Dawn reaches the GPU through D3D12 on Windows and compiles shaders
+      # with the DirectX Shader Compiler, which it dlopens by name. The runner
+      # image does not carry dxil.dll or dxcompiler.dll, so the provider loads
+      # and then fails the first time it needs to compile one. Worth knowing
+      # beyond CI: an application shipping this provider on Windows needs both
+      # DLLs beside it.
+      #
+      # PowerShell rather than bash: the release zip stores backslash
+      # separators, which Git Bash's unzip turns into filenames containing
+      # backslashes rather than directories.
       - name: The DirectX shader compiler, for the WebGPU provider
         if: runner.os == 'Windows'
-        shell: bash
+        shell: pwsh
         run: |
-          set -euo pipefail
-          url=$(curl -s https://api.github.com/repos/microsoft/DirectXShaderCompiler/releases/latest \
-            | python -c "
-          import json, sys
-          for a in json.load(sys.stdin)['assets']:
-              if a['name'].endswith('.zip') and 'dxc_' in a['name']:
-                  print(a['browser_download_url']); break
-          ")
-          echo "  $url"
-          curl -sL "$url" -o dxc.zip
-          unzip -q -o dxc.zip -d .local/dxc
-          find .local/dxc -name 'dxil.dll' -o -name 'dxcompiler.dll' | head -4
-          dir=$(dirname "$(find .local/dxc -name 'dxcompiler.dll' | grep -i x64 | head -1)")
-          echo "$dir" >> "$GITHUB_PATH"
+          $release = Invoke-RestMethod `
+            https://api.github.com/repos/microsoft/DirectXShaderCompiler/releases/latest
+          $asset = $release.assets |
+            Where-Object { $_.name -like 'dxc_*.zip' } |
+            Select-Object -First 1
+          Write-Host "  $($asset.browser_download_url)"
+
+          Invoke-WebRequest $asset.browser_download_url -OutFile dxc.zip
+          Expand-Archive dxc.zip -DestinationPath .local/dxc -Force
+
+          $dll = Get-ChildItem .local/dxc -Recurse -Filter dxcompiler.dll |
+            Where-Object { $_.FullName -match 'x64' } |
+            Select-Object -First 1
+          if (-not $dll) { throw "no x64 dxcompiler.dll in $($asset.name)" }
+          Write-Host "  $($dll.Directory)"
+          Add-Content $env:GITHUB_PATH $dll.Directory.FullName
 
       - name: Point the suite at our build
         shell: bash
