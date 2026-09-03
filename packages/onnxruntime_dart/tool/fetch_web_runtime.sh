@@ -25,20 +25,35 @@ run=$(gh run list --limit 30 --json databaseId --jq '.[].databaseId' | while rea
   fi
 done)
 
-if [ -z "$run" ]; then
-  echo "no unexpired onnxruntime-$build artifact in the last 30 runs." >&2
-  echo "artifacts expire in a day, so build one or pick another." >&2
+staging="$(mktemp -d)"
+trap 'rm -rf "$staging"' EXIT
+
+if [ -n "$run" ]; then
+  echo "taking onnxruntime-$build from run $run"
+  gh run download "$run" -n "onnxruntime-$build" -D "$staging"
+  archive="$staging/runtime/$build.tar.gz"
+else
+  # Artifacts expire in a day; the release does not. Published component
+  # first, so the base variant of a web build is base-<build>.tar.gz.
+  tag=$(cd "$here" && python3 -c "
+import sys; sys.path.insert(0, '.github/scripts')
+import release_identity
+print(release_identity.release_tag('runtime'))
+")
+  asset="base-$build.tar.gz"
+  echo "no unexpired artifact; taking $asset from $tag"
+  gh release download "$tag" --pattern "$asset" --dir "$staging" --clobber
+  archive="$staging/$asset"
+fi
+
+if [ ! -f "$archive" ]; then
+  echo "neither a run artifact nor a release asset holds $build." >&2
   exit 1
 fi
 
-echo "taking onnxruntime-$build from run $run"
-staging="$(mktemp -d)"
-trap 'rm -rf "$staging"' EXIT
-gh run download "$run" -n "onnxruntime-$build" -D "$staging"
-
 rm -rf "$target"
 mkdir -p "$target"
-tar xzf "$staging/runtime/$build.tar.gz" -C "$target"
+tar xzf "$archive" -C "$target"
 
 loader=$(cd "$target" && ls ./*.mjs | head -1 | xargs basename)
 wasm=$(cd "$target" && ls ./*.wasm | head -1 | xargs basename)
