@@ -30,6 +30,17 @@ void main() {
       expect(sequences.getSequenceCount(0), 4);
     });
 
+    test('gives back the tokens that were appended', () {
+      // The output path, and the one most easily wrong: the array belongs to
+      // the handle, so it is copied out rather than viewed. A view would read
+      // freed memory once the handle moved on.
+      final sequences = Sequences();
+      addTearDown(sequences.release);
+
+      sequences.appendTokenSequence([11, 22, 33]);
+      expect(sequences.getSequenceData(0), [11, 22, 33]);
+    });
+
     test('a released handle refuses further use rather than crashing', () {
       final sequences = Sequences()..release();
       expect(sequences.isReleased, isTrue);

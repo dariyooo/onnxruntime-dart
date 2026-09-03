@@ -31,4 +31,7 @@ final class Sequences extends GenAiHandle {
   /// Wraps `OgaSequencesGetSequenceCount`.
   int getSequenceCount(int sequenceIndex) => _calls.sequencesGetSequenceCount(handle, sequenceIndex);
 
+  /// Wraps `OgaSequencesGetSequenceData`.
+  List<int> getSequenceData(int sequenceIndex) => _calls.sequencesGetSequenceData(handle, sequenceIndex);
+
 }

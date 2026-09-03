@@ -162,6 +162,16 @@ final class FfiGenAiCalls implements GenAiCalls {
       });
 
   @override
+  List<int> sequencesGetSequenceData(GenAiPtr handle, int sequenceIndex) =>
+      withArena((arena) {
+        final length = OgaSequencesGetSequenceCount(
+            pointer<OgaSequences>(handle), sequenceIndex);
+        final data = OgaSequencesGetSequenceData(
+            pointer<OgaSequences>(handle), sequenceIndex);
+        return List<int>.generate(length, (i) => data[i]);
+      });
+
+  @override
   void destroyImages(GenAiPtr handle) =>
       OgaDestroyImages(pointer<OgaImages>(handle));
 
@@ -600,6 +610,16 @@ final class FfiGenAiCalls implements GenAiCalls {
       withArena((arena) {
         return OgaGenerator_GetSequenceCount(
             pointer<OgaGenerator>(handle), index);
+      });
+
+  @override
+  List<int> generatorGetSequenceData(GenAiPtr handle, int index) =>
+      withArena((arena) {
+        final length =
+            OgaGenerator_GetSequenceCount(pointer<OgaGenerator>(handle), index);
+        final data =
+            OgaGenerator_GetSequenceData(pointer<OgaGenerator>(handle), index);
+        return List<int>.generate(length, (i) => data[i]);
       });
 
   @override

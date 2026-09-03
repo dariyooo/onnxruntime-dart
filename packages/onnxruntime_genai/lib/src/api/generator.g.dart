@@ -63,6 +63,9 @@ final class Generator extends GenAiHandle {
   /// Wraps `OgaGenerator_GetSequenceCount`.
   int getSequenceCount(int index) => _calls.generatorGetSequenceCount(handle, index);
 
+  /// Wraps `OgaGenerator_GetSequenceData`.
+  List<int> getSequenceData(int index) => _calls.generatorGetSequenceData(handle, index);
+
   /// Wraps `OgaSetActiveAdapter`.
   void setActiveAdapter(GenAiPtr adapters, String adapterName) => _calls.setActiveAdapter(handle, adapters, adapterName);
 

@@ -88,6 +88,9 @@ abstract interface class GenAiCalls {
   /// Wraps `OgaSequencesGetSequenceCount`.
   int sequencesGetSequenceCount(GenAiPtr handle, int sequenceIndex);
 
+  /// Wraps `OgaSequencesGetSequenceData`.
+  List<int> sequencesGetSequenceData(GenAiPtr handle, int sequenceIndex);
+
   /// Wraps `OgaDestroyImages`.
   void destroyImages(GenAiPtr handle);
 
@@ -283,6 +286,9 @@ abstract interface class GenAiCalls {
 
   /// Wraps `OgaGenerator_GetSequenceCount`.
   int generatorGetSequenceCount(GenAiPtr handle, int index);
+
+  /// Wraps `OgaGenerator_GetSequenceData`.
+  List<int> generatorGetSequenceData(GenAiPtr handle, int index);
 
   /// Wraps `OgaSetActiveAdapter`.
   void setActiveAdapter(GenAiPtr handle, GenAiPtr adapters, String adapterName);

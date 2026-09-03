@@ -114,6 +114,10 @@ final class UnsupportedGenAiCalls implements GenAiCalls {
       throw const GenAiUnsupported('sequencesGetSequenceCount');
 
   @override
+  List<int> sequencesGetSequenceData(GenAiPtr handle, int sequenceIndex) =>
+      throw const GenAiUnsupported('sequencesGetSequenceData');
+
+  @override
   void destroyImages(GenAiPtr handle) =>
       throw const GenAiUnsupported('destroyImages');
 
@@ -376,6 +380,10 @@ final class UnsupportedGenAiCalls implements GenAiCalls {
   @override
   int generatorGetSequenceCount(GenAiPtr handle, int index) =>
       throw const GenAiUnsupported('generatorGetSequenceCount');
+
+  @override
+  List<int> generatorGetSequenceData(GenAiPtr handle, int index) =>
+      throw const GenAiUnsupported('generatorGetSequenceData');
 
   @override
   void setActiveAdapter(
