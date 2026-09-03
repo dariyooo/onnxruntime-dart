@@ -218,9 +218,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # The plain build is synchronous; the WebGPU one is compiled with
-        # Asyncify and takes the other backend. Both have to be exercised.
-        build: [web-wasm, web-wasm-webgpu]
+        # The plain build is synchronous; the other two are compiled with
+        # Asyncify and take the other backend. All three have to be exercised,
+        # and the WebNN one especially: it is the only build with that
+        # provider compiled in, so without it here every WebNN test skips with
+        # "this build has WebGPU but not WebNN" and the glue this package
+        # supplies for it is never run.
+        build: [web-wasm, web-wasm-webgpu, web-wasm-webgpu-webnn]
         # Both Dart web compilers. dart2wasm is not a formality here: it is
         # the one that checks what kind of buffer the runtime heap is, and it
         # gives real 64-bit integers, so it takes different paths through the
