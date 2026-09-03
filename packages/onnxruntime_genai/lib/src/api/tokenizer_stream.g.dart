@@ -17,5 +17,4 @@ final class TokenizerStream extends GenAiHandle {
 
   /// Wraps `OgaTokenizerStreamDecode`.
   String decode(int token) => _calls.tokenizerStreamDecode(handle, token);
-
 }

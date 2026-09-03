@@ -22,16 +22,20 @@ final class Generator extends GenAiHandle {
   bool isSessionTerminated() => _calls.generatorIsSessionTerminated(handle);
 
   /// Wraps `OgaGenerator_SetModelInput`.
-  void setModelInput(String name, GenAiPtr tensor) => _calls.generatorSetModelInput(handle, name, tensor);
+  void setModelInput(String name, GenAiPtr tensor) =>
+      _calls.generatorSetModelInput(handle, name, tensor);
 
   /// Wraps `OgaGenerator_SetInputs`.
-  void setInputs(GenAiPtr namedTensors) => _calls.generatorSetInputs(handle, namedTensors);
+  void setInputs(GenAiPtr namedTensors) =>
+      _calls.generatorSetInputs(handle, namedTensors);
 
   /// Wraps `OgaGenerator_AppendTokenSequences`.
-  void appendTokenSequences(GenAiPtr pSequences) => _calls.generatorAppendTokenSequences(handle, pSequences);
+  void appendTokenSequences(GenAiPtr pSequences) =>
+      _calls.generatorAppendTokenSequences(handle, pSequences);
 
   /// Wraps `OgaGenerator_AppendTokens`.
-  void appendTokens(List<int> inputIds) => _calls.generatorAppendTokens(handle, inputIds);
+  void appendTokens(List<int> inputIds) =>
+      _calls.generatorAppendTokens(handle, inputIds);
 
   /// Wraps `OgaGenerator_TokenCount`.
   int tokenCount() => _calls.generatorTokenCount(handle);
@@ -43,7 +47,8 @@ final class Generator extends GenAiHandle {
   List<int> getNextTokens() => _calls.generatorGetNextTokens(handle);
 
   /// Wraps `OgaGenerator_SetRuntimeOption`.
-  void setRuntimeOption(String key, String value) => _calls.generatorSetRuntimeOption(handle, key, value);
+  void setRuntimeOption(String key, String value) =>
+      _calls.generatorSetRuntimeOption(handle, key, value);
 
   /// Wraps `OgaGenerator_RewindTo`.
   void rewindTo(int newLength) => _calls.generatorRewindTo(handle, newLength);
@@ -57,19 +62,20 @@ final class Generator extends GenAiHandle {
       Tensor._(_calls.generatorGetOutput(handle, name));
 
   /// Wraps `OgaGenerator_GetLogits`.
-  Tensor getLogits() =>
-      Tensor._(_calls.generatorGetLogits(handle));
+  Tensor getLogits() => Tensor._(_calls.generatorGetLogits(handle));
 
   /// Wraps `OgaGenerator_SetLogits`.
   void setLogits(GenAiPtr tensor) => _calls.generatorSetLogits(handle, tensor);
 
   /// Wraps `OgaGenerator_GetSequenceCount`.
-  int getSequenceCount(int index) => _calls.generatorGetSequenceCount(handle, index);
+  int getSequenceCount(int index) =>
+      _calls.generatorGetSequenceCount(handle, index);
 
   /// Wraps `OgaGenerator_GetSequenceData`.
-  List<int> getSequenceData(int index) => _calls.generatorGetSequenceData(handle, index);
+  List<int> getSequenceData(int index) =>
+      _calls.generatorGetSequenceData(handle, index);
 
   /// Wraps `OgaSetActiveAdapter`.
-  void setActiveAdapter(GenAiPtr adapters, String adapterName) => _calls.setActiveAdapter(handle, adapters, adapterName);
-
+  void setActiveAdapter(GenAiPtr adapters, String adapterName) =>
+      _calls.setActiveAdapter(handle, adapters, adapterName);
 }

@@ -20,30 +20,38 @@ final class MultiModalProcessor extends GenAiHandle {
       NamedTensors._(_calls.processorProcessImages(handle, prompt, images));
 
   /// Wraps `OgaProcessorProcessImagesAndPrompts`.
-  NamedTensors processorProcessImagesAndPrompts(GenAiPtr prompts, GenAiPtr images) =>
-      NamedTensors._(_calls.processorProcessImagesAndPrompts(handle, prompts, images));
+  NamedTensors processorProcessImagesAndPrompts(
+          GenAiPtr prompts, GenAiPtr images) =>
+      NamedTensors._(
+          _calls.processorProcessImagesAndPrompts(handle, prompts, images));
 
   /// Wraps `OgaProcessorProcessAudios`.
   NamedTensors processorProcessAudios(String prompt, GenAiPtr audios) =>
       NamedTensors._(_calls.processorProcessAudios(handle, prompt, audios));
 
   /// Wraps `OgaProcessorProcessAudiosAndPrompts`.
-  NamedTensors processorProcessAudiosAndPrompts(GenAiPtr prompts, GenAiPtr audios) =>
-      NamedTensors._(_calls.processorProcessAudiosAndPrompts(handle, prompts, audios));
+  NamedTensors processorProcessAudiosAndPrompts(
+          GenAiPtr prompts, GenAiPtr audios) =>
+      NamedTensors._(
+          _calls.processorProcessAudiosAndPrompts(handle, prompts, audios));
 
   /// Wraps `OgaProcessorProcessImagesAndAudios`.
-  NamedTensors processorProcessImagesAndAudios(String prompt, GenAiPtr images, GenAiPtr audios) =>
-      NamedTensors._(_calls.processorProcessImagesAndAudios(handle, prompt, images, audios));
+  NamedTensors processorProcessImagesAndAudios(
+          String prompt, GenAiPtr images, GenAiPtr audios) =>
+      NamedTensors._(_calls.processorProcessImagesAndAudios(
+          handle, prompt, images, audios));
 
   /// Wraps `OgaProcessorProcessImagesAndAudiosAndPrompts`.
-  NamedTensors processorProcessImagesAndAudiosAndPrompts(GenAiPtr prompts, GenAiPtr images, GenAiPtr audios) =>
-      NamedTensors._(_calls.processorProcessImagesAndAudiosAndPrompts(handle, prompts, images, audios));
+  NamedTensors processorProcessImagesAndAudiosAndPrompts(
+          GenAiPtr prompts, GenAiPtr images, GenAiPtr audios) =>
+      NamedTensors._(_calls.processorProcessImagesAndAudiosAndPrompts(
+          handle, prompts, images, audios));
 
   /// Wraps `OgaProcessorDecode`.
-  String processorDecode(List<int> tokens) => _calls.processorDecode(handle, tokens);
+  String processorDecode(List<int> tokens) =>
+      _calls.processorDecode(handle, tokens);
 
   /// Wraps `OgaCreateTokenizerStreamFromProcessor`.
   TokenizerStream createTokenizerStreamFromProcessor() =>
       TokenizerStream._(_calls.createTokenizerStreamFromProcessor(handle));
-
 }

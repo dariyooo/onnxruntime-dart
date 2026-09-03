@@ -27,34 +27,50 @@ final class Config extends GenAiHandle {
   void clearProviders() => _calls.configClearProviders(handle);
 
   /// Wraps `OgaConfigAppendProvider`.
-  void appendProvider(String provider) => _calls.configAppendProvider(handle, provider);
+  void appendProvider(String provider) =>
+      _calls.configAppendProvider(handle, provider);
 
   /// Wraps `OgaConfigSetProviderOption`.
-  void setProviderOption(String provider, String key, String value) => _calls.configSetProviderOption(handle, provider, key, value);
+  void setProviderOption(String provider, String key, String value) =>
+      _calls.configSetProviderOption(handle, provider, key, value);
 
   /// Wraps `OgaConfigAddModelData`.
-  void addModelData(String modelFilename, Uint8List modelData) => _calls.configAddModelData(handle, modelFilename, modelData);
+  void addModelData(String modelFilename, Uint8List modelData) =>
+      _calls.configAddModelData(handle, modelFilename, modelData);
 
   /// Wraps `OgaConfigRemoveModelData`.
-  void removeModelData(String modelFilename) => _calls.configRemoveModelData(handle, modelFilename);
+  void removeModelData(String modelFilename) =>
+      _calls.configRemoveModelData(handle, modelFilename);
 
   /// Wraps `OgaConfigSetDecoderProviderOptionsHardwareDeviceType`.
-  void setDecoderProviderOptionsHardwareDeviceType(String provider, String hardwareDeviceType) => _calls.configSetDecoderProviderOptionsHardwareDeviceType(handle, provider, hardwareDeviceType);
+  void setDecoderProviderOptionsHardwareDeviceType(
+          String provider, String hardwareDeviceType) =>
+      _calls.configSetDecoderProviderOptionsHardwareDeviceType(
+          handle, provider, hardwareDeviceType);
 
   /// Wraps `OgaConfigSetDecoderProviderOptionsHardwareDeviceId`.
-  void setDecoderProviderOptionsHardwareDeviceId(String provider, int hardwareDeviceId) => _calls.configSetDecoderProviderOptionsHardwareDeviceId(handle, provider, hardwareDeviceId);
+  void setDecoderProviderOptionsHardwareDeviceId(
+          String provider, int hardwareDeviceId) =>
+      _calls.configSetDecoderProviderOptionsHardwareDeviceId(
+          handle, provider, hardwareDeviceId);
 
   /// Wraps `OgaConfigSetDecoderProviderOptionsHardwareVendorId`.
-  void setDecoderProviderOptionsHardwareVendorId(String provider, int hardwareVendorId) => _calls.configSetDecoderProviderOptionsHardwareVendorId(handle, provider, hardwareVendorId);
+  void setDecoderProviderOptionsHardwareVendorId(
+          String provider, int hardwareVendorId) =>
+      _calls.configSetDecoderProviderOptionsHardwareVendorId(
+          handle, provider, hardwareVendorId);
 
   /// Wraps `OgaConfigClearDecoderProviderOptionsHardwareDeviceType`.
-  void clearDecoderProviderOptionsHardwareDeviceType(String provider) => _calls.configClearDecoderProviderOptionsHardwareDeviceType(handle, provider);
+  void clearDecoderProviderOptionsHardwareDeviceType(String provider) => _calls
+      .configClearDecoderProviderOptionsHardwareDeviceType(handle, provider);
 
   /// Wraps `OgaConfigClearDecoderProviderOptionsHardwareDeviceId`.
-  void clearDecoderProviderOptionsHardwareDeviceId(String provider) => _calls.configClearDecoderProviderOptionsHardwareDeviceId(handle, provider);
+  void clearDecoderProviderOptionsHardwareDeviceId(String provider) => _calls
+      .configClearDecoderProviderOptionsHardwareDeviceId(handle, provider);
 
   /// Wraps `OgaConfigClearDecoderProviderOptionsHardwareVendorId`.
-  void clearDecoderProviderOptionsHardwareVendorId(String provider) => _calls.configClearDecoderProviderOptionsHardwareVendorId(handle, provider);
+  void clearDecoderProviderOptionsHardwareVendorId(String provider) => _calls
+      .configClearDecoderProviderOptionsHardwareVendorId(handle, provider);
 
   /// Wraps `OgaConfigOverlay`.
   void overlay(String json) => _calls.configOverlay(handle, json);
@@ -62,5 +78,4 @@ final class Config extends GenAiHandle {
   /// Wraps `OgaCreateModelFromConfig`.
   Model createModelFromConfig() =>
       Model._(_calls.createModelFromConfig(handle));
-
 }

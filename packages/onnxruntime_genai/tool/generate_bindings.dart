@@ -9,11 +9,19 @@
 
 import 'dart:io';
 
+import 'package:dart_style/dart_style.dart';
+import 'package:pub_semver/pub_semver.dart';
+
 import 'src/c_api.dart';
 import 'src/emit.dart';
 
 const _header = '../../third_party/onnxruntime-genai/src/ort_genai_c.h';
 const _outputDirectory = 'lib/src/api';
+
+/// Formatted here rather than left to whoever runs the formatter next. What
+/// this writes has to match what a fresh run writes, and CI checks exactly
+/// that, so the output is final when it lands.
+final _formatter = DartFormatter(languageVersion: Version(3, 6, 0));
 
 void main() {
   final functions = readCApi(File(_header));
@@ -27,7 +35,9 @@ void main() {
   }
 
   for (final entry in generated.files.entries) {
-    File('$_outputDirectory/${entry.key}').writeAsStringSync(entry.value);
+    final file = File('$_outputDirectory/${entry.key}');
+    file.parent.createSync(recursive: true);
+    file.writeAsStringSync(_formatter.format(entry.value));
   }
 
   File('$_outputDirectory/unmapped.txt').writeAsStringSync(

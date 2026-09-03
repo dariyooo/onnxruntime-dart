@@ -26,5 +26,4 @@ final class Request extends GenAiHandle {
 
   /// Wraps `OgaRequestIsDone`.
   bool isDone() => _calls.requestIsDone(handle);
-
 }

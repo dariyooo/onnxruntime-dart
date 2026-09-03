@@ -16,8 +16,7 @@ final class Engine extends GenAiHandle {
   void destroy(GenAiPtr handle) => _calls.destroyEngine(handle);
 
   /// Wraps `OgaEngineStep`.
-  Request step() =>
-      Request._(_calls.engineStep(handle));
+  Request step() => Request._(_calls.engineStep(handle));
 
   /// Wraps `OgaEngineHasPendingRequests`.
   bool hasPendingRequests() => _calls.engineHasPendingRequests(handle);
@@ -26,6 +25,6 @@ final class Engine extends GenAiHandle {
   void addRequest(GenAiPtr request) => _calls.engineAddRequest(handle, request);
 
   /// Wraps `OgaEngineRemoveRequest`.
-  void removeRequest(GenAiPtr request) => _calls.engineRemoveRequest(handle, request);
-
+  void removeRequest(GenAiPtr request) =>
+      _calls.engineRemoveRequest(handle, request);
 }

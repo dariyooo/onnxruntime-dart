@@ -16,15 +16,14 @@ final class NamedTensors extends GenAiHandle {
   void destroy(GenAiPtr handle) => _calls.destroyNamedTensors(handle);
 
   /// Wraps `OgaCreateNamedTensors`.
-  factory NamedTensors() =>
-      NamedTensors._(_calls.createNamedTensors());
+  factory NamedTensors() => NamedTensors._(_calls.createNamedTensors());
 
   /// Wraps `OgaNamedTensorsGet`.
-  Tensor get(String name) =>
-      Tensor._(_calls.namedTensorsGet(handle, name));
+  Tensor get(String name) => Tensor._(_calls.namedTensorsGet(handle, name));
 
   /// Wraps `OgaNamedTensorsSet`.
-  void set(String name, GenAiPtr tensor) => _calls.namedTensorsSet(handle, name, tensor);
+  void set(String name, GenAiPtr tensor) =>
+      _calls.namedTensorsSet(handle, name, tensor);
 
   /// Wraps `OgaNamedTensorsDelete`.
   void delete(String name) => _calls.namedTensorsDelete(handle, name);
@@ -33,7 +32,5 @@ final class NamedTensors extends GenAiHandle {
   int count() => _calls.namedTensorsCount(handle);
 
   /// Wraps `OgaNamedTensorsGetNames`.
-  StringArray getNames() =>
-      StringArray._(_calls.namedTensorsGetNames(handle));
-
+  StringArray getNames() => StringArray._(_calls.namedTensorsGetNames(handle));
 }

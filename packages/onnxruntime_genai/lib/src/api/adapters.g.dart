@@ -16,9 +16,10 @@ final class Adapters extends GenAiHandle {
   void destroy(GenAiPtr handle) => _calls.destroyAdapters(handle);
 
   /// Wraps `OgaLoadAdapter`.
-  void loadAdapter(String adapterFilePath, String adapterName) => _calls.loadAdapter(handle, adapterFilePath, adapterName);
+  void loadAdapter(String adapterFilePath, String adapterName) =>
+      _calls.loadAdapter(handle, adapterFilePath, adapterName);
 
   /// Wraps `OgaUnloadAdapter`.
-  void unloadAdapter(String adapterName) => _calls.unloadAdapter(handle, adapterName);
-
+  void unloadAdapter(String adapterName) =>
+      _calls.unloadAdapter(handle, adapterName);
 }

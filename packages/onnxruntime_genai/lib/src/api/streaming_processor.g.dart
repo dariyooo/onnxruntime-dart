@@ -24,9 +24,10 @@ final class StreamingProcessor extends GenAiHandle {
       NamedTensors._(_calls.streamingProcessorFlush(handle));
 
   /// Wraps `OgaStreamingProcessorSetOption`.
-  void setOption(String key, String value) => _calls.streamingProcessorSetOption(handle, key, value);
+  void setOption(String key, String value) =>
+      _calls.streamingProcessorSetOption(handle, key, value);
 
   /// Wraps `OgaStreamingProcessorGetOption`.
-  String getOption(String key) => _calls.streamingProcessorGetOption(handle, key);
-
+  String getOption(String key) =>
+      _calls.streamingProcessorGetOption(handle, key);
 }

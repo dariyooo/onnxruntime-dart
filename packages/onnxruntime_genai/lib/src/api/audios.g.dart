@@ -22,5 +22,4 @@ final class Audios extends GenAiHandle {
   /// Wraps `OgaLoadAudiosFromBuffers`.
   factory Audios.loadAudiosFromBuffers(List<Uint8List> audioData) =>
       Audios._(_calls.loadAudiosFromBuffers(audioData));
-
 }

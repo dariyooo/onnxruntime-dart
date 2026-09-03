@@ -25,6 +25,10 @@ dependencies:
 
 dev_dependencies:
   ffigen: ^21.0.0
+  # The generator formats its own output, so what it writes is final. Without
+  # this a regeneration leaves files the format check rejects, and committing
+  # formatted ones makes them differ from a fresh run.
+  dart_style: ^3.1.0
   test: ^1.25.0
   # So this package's own tests have a library to load. A dev dependency is not
   # transitive, so an application still chooses its own and is never handed one
