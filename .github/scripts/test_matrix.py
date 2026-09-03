@@ -1143,5 +1143,86 @@ class ArtifactArchitecture(unittest.TestCase):
         self.assertNotIn("libc++_shared.so", binary_arch.ANDROID_PROVIDED)
 
 
+class PackagingRunsItsChecks(unittest.TestCase):
+    """That packaging really runs its checks, on every configuration.
+
+    The checks themselves are unit tested above. This exercises them where
+    they are wired in, because that is the part CI would otherwise never see:
+    the build jobs skip packaging on an artifact cache hit, so the step only
+    runs when the runtime source or its flags change.
+    """
+
+    @staticmethod
+    def _header(arch: str) -> bytes:
+        if arch == "wasm32":
+            return b"\x00asm\x01\x00\x00\x00" + b"\x00" * 256
+        machine = {
+            "arm64": 0xB7, "arm64-v8a": 0xB7, "aarch64": 0xB7,
+            "armeabi-v7a": 0x28, "x86": 0x03,
+        }.get(arch, 0x3E)
+        header = bytearray(b"\x7fELF\x02\x01\x01" + b"\x00" * 121)
+        header[0x12] = machine
+        return bytes(header)
+
+    def _tree(self, root: pathlib.Path, config) -> bool:
+        """Lays out what a build of [config] would leave behind."""
+        import package_artifact
+
+        members = package_artifact.ARTIFACT_PATTERNS.get(config.platform, {}).get(
+            config.component
+        )
+        if not members:
+            return False
+        build = root / "build" / config.id / "Release"
+        build.mkdir(parents=True, exist_ok=True)
+        for canonical, patterns in members.items():
+            name = (
+                patterns[0].replace("*", "x") if canonical == "*" else canonical
+            )
+            (build / name).write_bytes(self._header(config.arch))
+        return True
+
+    def test_every_configuration_packages(self):
+        import package_artifact
+
+        root = pathlib.Path(tempfile.mkdtemp())
+        original = package_artifact.REPO_ROOT, package_artifact.DIST
+        package_artifact.REPO_ROOT = root
+        package_artifact.DIST = root / "dist"
+        try:
+            packaged = 0
+            for config in m.CONFIGURATIONS:
+                if not self._tree(root, config):
+                    continue
+                with self.subTest(config=config.id):
+                    package_artifact.package(config)
+                    packaged += 1
+            self.assertGreater(packaged, 0, "nothing was packaged to check")
+        finally:
+            package_artifact.REPO_ROOT, package_artifact.DIST = original
+
+    def test_a_wrong_architecture_is_refused(self):
+        import package_artifact
+
+        config = next(
+            c for c in m.CONFIGURATIONS if c.arch == "arm64-v8a"
+        )
+        root = pathlib.Path(tempfile.mkdtemp())
+        original = package_artifact.REPO_ROOT, package_artifact.DIST
+        package_artifact.REPO_ROOT = root
+        package_artifact.DIST = root / "dist"
+        try:
+            self._tree(root, config)
+            # Same names, x86-64 inside. This is the mistake the check exists
+            # for, and it has to fail the build rather than ship.
+            build = root / "build" / config.id / "Release"
+            for f in build.iterdir():
+                f.write_bytes(self._header("x86_64"))
+            with self.assertRaises(SystemExit):
+                package_artifact.package(config)
+        finally:
+            package_artifact.REPO_ROOT, package_artifact.DIST = original
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
