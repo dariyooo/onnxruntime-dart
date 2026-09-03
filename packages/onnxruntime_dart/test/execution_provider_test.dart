@@ -87,9 +87,8 @@ void main() {
     test('registers and adds its devices', () {
       final before = executionProviderDeviceCount(env.api, env.handle);
 
-      registerExecutionProviderLibrary(
-        env.api,
-        env.handle,
+      registerOnce(
+        env,
         name: 'webgpu',
         path: findWebGpuPlugin()!,
       );
@@ -115,9 +114,8 @@ void main() {
       // Registration and a device count prove the library opened and its
       // factory ran. Neither proves the provider can execute anything, which
       // is the thing an application actually depends on.
-      registerExecutionProviderLibrary(
-        env.api,
-        env.handle,
+      registerOnce(
+        env,
         name: 'webgpu',
         path: findWebGpuPlugin()!,
       );
@@ -173,9 +171,8 @@ void main() {
     });
 
     test('registering the same name twice is refused', () {
-      registerExecutionProviderLibrary(
-        env.api,
-        env.handle,
+      registerOnce(
+        env,
         name: 'webgpu-dup',
         path: findWebGpuPlugin()!,
       );
@@ -198,4 +195,23 @@ void main() {
       );
     });
   }, skip: skipWithoutWebGpuPlugin ?? skipWithoutNativeAsset);
+}
+
+/// Registers [name] on [env] unless something already did.
+///
+/// The environment is process-global and `dart test` runs suites as isolates
+/// in one process, so another suite may have registered this provider before
+/// this one looked. Registering again fails with "already registered", which
+/// says nothing about the plugin and everything about test ordering.
+void registerOnce(
+  OrtEnvironment env, {
+  required String name,
+  required String path,
+}) {
+  try {
+    registerExecutionProviderLibrary(env.api, env.handle,
+        name: name, path: path);
+  } on OrtException catch (error) {
+    if (!error.message.contains('already registered')) rethrow;
+  }
 }
