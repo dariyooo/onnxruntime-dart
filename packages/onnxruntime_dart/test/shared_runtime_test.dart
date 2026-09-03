@@ -57,9 +57,11 @@ List<Driver> driversFor({required bool haveRuntime}) => [
         (model) async => Session.fromBytes(model),
         (session, feeds) async => session.run(feeds),
       ),
+      // Whatever this platform needs to run asynchronously: native wants
+      // threads for the pool it dispatches onto, the web refuses to be asked.
       Driver(
         'driven asynchronously',
-        Session.load,
+        (model) => Session.load(model, options: asyncSessionOptions),
         (session, feeds) => session.runAsync(feeds),
       ),
     ];
