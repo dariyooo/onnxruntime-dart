@@ -57,6 +57,10 @@ SessionOptions _on(Accelerator accelerator) => SessionOptions(
       providers: [
         (name: accelerator.name, configuration: accelerator.configuration),
       ],
+      // An asynchronous run is dispatched onto the intra-op pool on native and
+      // refused below two threads. The default is the machine's core count,
+      // so leaving it unset decides this test by where it runs.
+      intraOpNumThreads: asyncIntraOpThreads,
     );
 
 Future<void> main() async {

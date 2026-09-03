@@ -50,3 +50,7 @@ Future<Uint8List> _bytes(String url) async {
 /// Nothing: the WebAssembly build fixes its thread count when the module is
 /// instantiated, so asking a session for threads is refused outright.
 const asyncSessionOptions = SessionOptions();
+
+/// Null, because the WebAssembly build fixes its thread count when the module
+/// is instantiated and refuses to be asked for more.
+const int? asyncIntraOpThreads = null;
