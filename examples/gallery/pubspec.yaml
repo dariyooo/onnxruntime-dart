@@ -1,0 +1,49 @@
+name: onnxruntime_gallery
+description: >-
+  Runs a spread of upstream ONNX models through onnxruntime_dart, and shows
+  which execution provider actually served each one. Not published.
+publish_to: none
+version: 1.0.0
+
+environment:
+  sdk: ^3.6.0
+
+# Deliberately not a workspace member, for the same reason the device harness
+# is not: Flutter resolves an application on its own, and the point is to reach
+# the packages the way an application does rather than the way a sibling in a
+# workspace does.
+dependencies:
+  flutter: { sdk: flutter }
+  onnxruntime_dart: { path: ../../packages/onnxruntime_dart }
+  onnxruntime_binaries: { path: ../../packages/onnxruntime_binaries }
+  # An API package declares the asset, a binaries package installs it. Both are
+  # needed: the API alone leaves the provider undeclared at build time.
+  onnxruntime_ep_webgpu: { path: ../../packages/onnxruntime_ep_webgpu }
+  onnxruntime_ep_webgpu_binaries:
+    { path: ../../packages/onnxruntime_ep_webgpu_binaries }
+  onnxruntime_genai: { path: ../../packages/onnxruntime_genai }
+  onnxruntime_genai_binaries:
+    { path: ../../packages/onnxruntime_genai_binaries }
+  file_selector: ^1.0.0
+  http: ^1.2.0
+  path: ^1.9.0
+  path_provider: ^2.1.0
+
+dev_dependencies:
+  flutter_test: { sdk: flutter }
+  lints: ^6.0.0
+
+dependency_overrides:
+  # The published constraints name hosted versions that do not exist yet. This
+  # app is deliberately not a workspace member, so the constraints inside the
+  # packages have to be pointed back at this tree by hand.
+  onnxruntime_binaries: { path: ../../packages/onnxruntime_binaries }
+  onnxruntime_dart: { path: ../../packages/onnxruntime_dart }
+  onnxruntime_hook: { path: ../../packages/onnxruntime_hook }
+  onnxruntime_ep_webgpu_binaries:
+    { path: ../../packages/onnxruntime_ep_webgpu_binaries }
+  onnxruntime_genai_binaries:
+    { path: ../../packages/onnxruntime_genai_binaries }
+
+flutter:
+  uses-material-design: true

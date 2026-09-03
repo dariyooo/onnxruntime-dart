@@ -117,9 +117,14 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          # integration/ too: it is Dart we maintain, and leaving it out
-          # is how two files there drifted without anything noticing.
-          files=$(find packages integration -name '*.dart' -not -name '*.g.dart')
+          # integration/ and examples/ too: they are Dart we maintain, and
+          # leaving integration out is how two files there drifted without
+          # anything noticing.
+          # .dart_tool holds build output, including a generated plugin
+          # registrant that is not named .g.dart and is not ours to format.
+          files=$(find packages integration examples \
+            -path '*/.dart_tool' -prune -o \
+            -name '*.dart' -not -name '*.g.dart' -print)
           if [ -z "$files" ]; then
             echo "::error::found no Dart files to format-check"
             exit 1
@@ -162,7 +167,8 @@ jobs:
           for dir in packages/onnxruntime_web \
                      packages/onnxruntime_web_webgpu \
                      packages/onnxruntime_web_webgpu_webnn \
-                     integration/harness; do
+                     integration/harness \
+                     examples/gallery; do
             echo "::group::$dir"
             ( cd "$dir" && flutter pub get && flutter analyze )
             echo "::endgroup::"
