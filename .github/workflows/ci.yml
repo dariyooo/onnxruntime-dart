@@ -34,7 +34,8 @@ on:
       only:
         description: >-
           Run part of it. Comma separated, any of: runtime, full, webgpu, qnn,
-          cuda, extensions, genai, desktop, device, web. Empty runs everything.
+          cuda, extensions, genai, desktop, device, web, example. Empty runs
+          everything.
         type: string
         default: ''
   schedule:
@@ -173,6 +174,89 @@ jobs:
             ( cd "$dir" && flutter pub get && flutter analyze )
             echo "::endgroup::"
           done
+
+  example-app:
+    name: example · gallery
+    needs: [static, mode, build-runtime, build-genai]
+    # Only when this run built the libraries. The gallery depends on
+    # onnxruntime_genai_binaries, whose hook downloads from a release that does
+    # not exist until someone tags, so from_release has nothing to point it at.
+    # Running it anyway would fail on the missing release rather than on
+    # anything about the app.
+    if: >-
+      ${{ needs.mode.outputs.building == 'true'
+      && (inputs.only == '' || contains(inputs.only, 'example')) }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    concurrency:
+      group: example-app-${{ github.ref }}
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@v5
+      - uses: subosito/flutter-action@v2
+        with: { channel: stable }
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: onnxruntime-linux-x64
+          path: .local/artifacts
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: genai
+          path: .local/artifacts
+
+      # Its own pipeline and its own artifact, so the provider is not in the
+      # runtime tarball. The app declares onnxruntime_ep_webgpu_binaries, whose
+      # hook fails rather than falls back when pointed at a directory without
+      # the provider in it.
+      - uses: actions/download-artifact@v4
+        with:
+          name: onnxruntime-linux-x64-webgpu
+          path: .local/artifacts
+
+      - name: Unpack what the app will link against
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .local/gallery/lib
+          tar xzf .local/artifacts/runtime/linux-x64.tar.gz -C .local/gallery/lib
+          tar xzf .local/artifacts/genai/genai-linux-x64.tar.gz \
+            -C .local/gallery/lib
+          tar xzf .local/artifacts/ep-webgpu/linux-x64-webgpu.tar.gz \
+            -C .local/gallery/lib
+          # Both in one directory, which is what the two hooks are pointed at
+          # below. They look for different files, so sharing a directory is
+          # enough and saves staging the same tree twice.
+          ls -la .local/gallery/lib
+
+      # The gallery is not a workspace member, so it carries its own overrides,
+      # the same as the device harness. Written here rather than committed:
+      # local_build pointing at a directory that does not exist is a build
+      # failure, so a committed one would break a fresh checkout.
+      - name: Point the app at them
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat >> examples/gallery/pubspec.yaml <<'YAML'
+
+          hooks:
+            user_defines:
+              onnxruntime_binaries:
+                local_build: ../../.local/gallery/lib
+              onnxruntime_genai_binaries:
+                local_build: ../../.local/gallery/lib
+              onnxruntime_ep_webgpu_binaries:
+                local_build: ../../.local/gallery/lib
+          YAML
+          tail -12 examples/gallery/pubspec.yaml
+
+      - name: Test
+        working-directory: examples/gallery
+        run: |
+          set -euo pipefail
+          flutter pub get
+          flutter test
 
   bindings-are-current:
     name: bindings match the submodule
