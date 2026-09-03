@@ -409,12 +409,13 @@ jobs:
         include:
           # The emulator is x86_64, so that is the library it needs.
           - { name: android-x64, runner: ubuntu-24.04, artifact: android-x86_64, arch: x86_64 }
-          # macOS on Apple silicon, because it is the only host Google ships a
-          # native arm64 emulator for: the SDK's emulator package carries
-          # linux_x64, darwin_x64, darwin_aarch64 and windows_x64, and no
-          # linux aarch64 at all. An x64 host can only translate an arm64 image,
-          # which does not finish booting inside an hour, so this is the one
-          # place the architecture almost every Android phone uses can be run.
+          # macOS on Apple silicon, because the emulator requires the image
+          # and the host to share an architecture. An x64 host does not run an
+          # arm64 image slowly, it refuses: "Avd's CPU Architecture 'arm64' is
+          # not supported by the QEMU2 emulator on x86_64 host." And of the
+          # arm64 hosts, only macOS has an emulator at all: every arm64 host
+          # archive in the SDK repository is darwin, with no linux or windows
+          # aarch64 build of the emulator, the NDK, or the command line tools.
           - { name: android-arm64, runner: macos-15, artifact: android-arm64-v8a, arch: arm64-v8a }
           - { name: ios, runner: macos-15, artifact: ios-sim-arm64 }
     steps:
@@ -488,8 +489,8 @@ jobs:
       # emulator needs the hypervisor and has no software fallback: handed
       # -accel off it still calls hv_vm_create and dies with "HVF error:
       # HV_UNSUPPORTED". kern.hv_support says in one line whether that is the
-      # machine refusing or something we are doing wrong, which is otherwise
-      # an hour of waiting to find out.
+      # machine refusing or something we are doing wrong, and the alternative
+      # is waiting out a boot timeout to learn nothing.
       - name: Can this runner host a hypervisor
         if: matrix.name == 'android-arm64'
         run: |
@@ -502,9 +503,10 @@ jobs:
             echo "::error::'$cpu'. Apple silicon exposes nested virtualisation"
             echo "::error::from M3 on, and this runner is virtualised, so the"
             echo "::error::arm64 emulator cannot start. There is no other host"
-            echo "::error::to move to: Google ships an arm64 emulator for macOS"
-            echo "::error::only, and an x64 host has to translate every"
-            echo "::error::instruction, which never finishes booting Android."
+            echo "::error::to move to: the emulator requires the image and the"
+            echo "::error::host to share an architecture, refusing an arm64 AVD"
+            echo "::error::on x86_64 outright, and macOS is the only arm64 host"
+            echo "::error::Google ships an emulator for at all."
             echo "::error::Real coverage needs arm64 hardware CI does not have."
             exit 1
           fi
@@ -553,9 +555,9 @@ jobs:
           # architecture most phones actually run.
           # No -accel: auto is the default and is what both of these want.
           # Software emulation was tried for the arm64 image and is not an
-          # option, because the emulator calls hv_vm_create whatever it is
-          # handed, and an x64 host translating arm64 never finishes booting.
-          # The hypervisor step above decides whether this can run at all.
+          # option: the emulator calls hv_vm_create whatever it is handed. Nor
+          # is moving to an x64 host, which refuses a mismatched image
+          # outright. The hypervisor step above decides whether this can run.
           emulator-options: >-
             -no-window -gpu swiftshader_indirect -no-snapshot -noaudio
             -no-boot-anim -feature Vulkan
