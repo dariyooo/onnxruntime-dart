@@ -21,6 +21,7 @@ import tarfile
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+import binary_arch  # noqa: E402
 import ort_matrix  # noqa: E402
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
@@ -174,6 +175,11 @@ def _archive(
     archive = out / f"{config.id}.tar.gz"
     with tarfile.open(archive, "w:gz") as tar:
         for name, source in sorted(found.items()):
+            # Before it goes in, because a cross-compilation that produced the
+            # wrong architecture is invisible until something tries to load
+            # it, and for the targets we have no hardware to load-test on that
+            # would be in a user's application.
+            binary_arch.verify(source, config.arch)
             tar.add(source, arcname=name)
 
     digest = sha256(archive)
