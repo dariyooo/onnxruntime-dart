@@ -1099,5 +1099,24 @@ class ArtifactArchitecture(unittest.TestCase):
                 )
 
 
+    def test_an_android_library_may_only_need_what_android_has(self):
+        """The compensating control for a platform nothing can run.
+
+        arm64 Android cannot be executed anywhere in CI, so a dependency that
+        resolves on the build machine and not on a phone would reach a user
+        before it reached us. libc++_shared is the one that gets linked by
+        accident.
+        """
+        with tempfile.TemporaryDirectory() as tmp:
+            path = pathlib.Path(tmp) / "libonnxruntime.so"
+            path.write_bytes(b"not an elf")
+            self.assertEqual(binary_arch.dependencies(path), [])
+            # Nothing readable means nothing to object to.
+            binary_arch.verify_android_dependencies(path)
+
+        self.assertIn("libc.so", binary_arch.ANDROID_PROVIDED)
+        self.assertNotIn("libc++_shared.so", binary_arch.ANDROID_PROVIDED)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
