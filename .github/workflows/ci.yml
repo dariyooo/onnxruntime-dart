@@ -493,12 +493,19 @@ jobs:
       - name: Can this runner host a hypervisor
         if: matrix.name == 'android-arm64'
         run: |
-          echo "  kern.hv_support: $(sysctl -n kern.hv_support 2>&1 || echo '(absent)')"
-          echo "  cpu: $(sysctl -n machdep.cpu.brand_string 2>&1 || echo '(absent)')"
-          if [ "$(sysctl -n kern.hv_support 2>/dev/null)" != "1" ]; then
-            echo "::error::this runner exposes no hypervisor, so an arm64"
-            echo "::error::emulator cannot start here. Google ships no arm64"
-            echo "::error::Linux emulator either, so there is no other host."
+          hv=$(sysctl -n kern.hv_support 2>&1 || true)
+          cpu=$(sysctl -n machdep.cpu.brand_string 2>&1 || true)
+          echo "  kern.hv_support: $hv"
+          echo "  cpu: $cpu"
+          if [ "$hv" != "1" ]; then
+            echo "::error::No hypervisor here: kern.hv_support is '$hv' on"
+            echo "::error::'$cpu'. Apple silicon exposes nested virtualisation"
+            echo "::error::from M3 on, and this runner is virtualised, so the"
+            echo "::error::arm64 emulator cannot start. There is no other host"
+            echo "::error::to move to: Google ships an arm64 emulator for macOS"
+            echo "::error::only, and an x64 host has to translate every"
+            echo "::error::instruction, which never finishes booting Android."
+            echo "::error::Real coverage needs arm64 hardware CI does not have."
             exit 1
           fi
 
