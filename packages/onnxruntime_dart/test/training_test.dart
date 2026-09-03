@@ -44,6 +44,10 @@ void main() {
     });
   }, skip: skipWithoutOrt ?? skipWithoutNativeAsset);
 
+  // Tagged, so a run against the base build does not attempt them at all
+  // rather than attempting them and skipping. Training is compiled in or left
+  // out, so on the base build there is nothing to test, and a skip there says
+  // the same thing as a skip caused by a broken runtime.
   group('the training API', () {
     // Only the full build has these. The base build is what the workspace
     // installs, so these skip rather than fail.
@@ -105,6 +109,7 @@ void main() {
       );
     });
   },
+      tags: ['training'],
       skip: skipWithoutOrt ??
           skipWithoutNativeAsset ??
           (trainingIsAvailableSafely()
