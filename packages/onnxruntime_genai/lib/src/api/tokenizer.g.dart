@@ -15,6 +15,9 @@ final class Tokenizer extends GenAiHandle {
   @override
   void destroy(GenAiPtr handle) => _calls.destroyTokenizer(handle);
 
+  /// Wraps `OgaUpdateTokenizerOptions`.
+  void updateTokenizerOptions(Map<String, String> options) => _calls.updateTokenizerOptions(handle, options);
+
   /// Wraps `OgaTokenizerGetBosTokenId`.
   int getBosTokenId() => _calls.tokenizerGetBosTokenId(handle);
 

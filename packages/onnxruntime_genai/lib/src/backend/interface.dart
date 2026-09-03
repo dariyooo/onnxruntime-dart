@@ -314,6 +314,9 @@ abstract interface class GenAiCalls {
   /// Wraps `OgaDestroyTokenizer`.
   void destroyTokenizer(GenAiPtr handle);
 
+  /// Wraps `OgaUpdateTokenizerOptions`.
+  void updateTokenizerOptions(GenAiPtr handle, Map<String, String> options);
+
   /// Wraps `OgaTokenizerGetBosTokenId`.
   int tokenizerGetBosTokenId(GenAiPtr handle);
 

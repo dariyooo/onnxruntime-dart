@@ -419,6 +419,10 @@ final class UnsupportedGenAiCalls implements GenAiCalls {
       throw const GenAiUnsupported('destroyTokenizer');
 
   @override
+  void updateTokenizerOptions(GenAiPtr handle, Map<String, String> options) =>
+      throw const GenAiUnsupported('updateTokenizerOptions');
+
+  @override
   int tokenizerGetBosTokenId(GenAiPtr handle) =>
       throw const GenAiUnsupported('tokenizerGetBosTokenId');
 
