@@ -148,8 +148,12 @@ every build is in [Platforms](#platforms) and needs nothing.
 | CUDA | — | — | — | x64, arm64 | x64, arm64 | — |
 | QNN | — | — | — | x64, arm64 | x64, arm64 | — |
 
+Two packages: the API, and the plugin it registers. They are separate so that
+an application can move one without the other, or take the API alone and supply
+its own build at run time.
+
 ```sh
-dart pub add onnxruntime_ep_webgpu
+dart pub add onnxruntime_ep_webgpu onnxruntime_ep_webgpu_binaries
 ```
 
 ```dart
@@ -215,8 +219,11 @@ ONNX has no operators for.
 provides them and runs them inside the graph, so you do not reimplement BPE or a
 mel spectrogram in Dart.
 
+Two packages, as with the providers: the API, and the operator library it
+loads.
+
 ```sh
-dart pub add onnxruntime_extensions
+dart pub add onnxruntime_extensions onnxruntime_extensions_binaries
 ```
 
 ```dart
@@ -417,10 +424,11 @@ Downloads are per target, compressed, from the published releases.
 | --- | --- | --- |
 | `onnxruntime_dart` | Bindings and the API. No binaries. | Dart only |
 | `onnxruntime_binaries` | The engine, one variant per build | up to 12 MB |
-| `onnxruntime_ep_webgpu` | WebGPU provider | tens of MB |
-| `onnxruntime_ep_cuda` | CUDA provider | 70 to 333 MB |
-| `onnxruntime_ep_qnn` | QNN provider and the Qualcomm runtime | 55 to 89 MB |
-| `onnxruntime_extensions` | Tokenizers, image and audio operators | about 1 MB |
+| `onnxruntime_ep_webgpu_binaries` | WebGPU provider | tens of MB |
+| `onnxruntime_ep_cuda_binaries` | CUDA provider | 70 to 333 MB |
+| `onnxruntime_ep_qnn_binaries` | QNN provider and the Qualcomm runtime | 55 to 89 MB |
+| `onnxruntime_extensions_binaries` | Tokenizers, image and audio operators | about 1 MB |
+| `onnxruntime_genai_binaries` | Token generation on top of a session | 3 to 24 MB |
 | `onnxruntime_web*` | The WebAssembly builds, as Flutter assets | 4 to 10 MB |
 
 Each is built and released on its own pipeline, so a provider that will not

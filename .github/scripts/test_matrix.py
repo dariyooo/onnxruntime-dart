@@ -1420,5 +1420,37 @@ class GenAiTargets(unittest.TestCase):
                 self.assertIn(target, runtime)
 
 
+class InstallInstructions(unittest.TestCase):
+    """`pub add` lines name the binaries, not only the API.
+
+    The API packages deliberately do not depend on their binaries, so that an
+    application can supply its own. The cost of that is documentation which
+    says to add one package where two are needed, and following it gives an API
+    with nothing behind it.
+    """
+
+    def test_adding_an_api_package_also_adds_its_binaries(self):
+        readme = (
+            REPO_ROOT / "packages" / "onnxruntime_dart" / "README.md"
+        ).read_text(encoding="utf-8")
+
+        for line in readme.splitlines():
+            if not line.startswith("dart pub add "):
+                continue
+            named = line.removeprefix("dart pub add ").split()
+            for package in named:
+                if package.endswith("_binaries"):
+                    continue
+                if not (REPO_ROOT / "packages" / f"{package}_binaries").is_dir():
+                    continue
+                with self.subTest(line=line):
+                    self.assertIn(
+                        f"{package}_binaries",
+                        named,
+                        f"'{line}' adds {package} without its binaries, so "
+                        f"nothing is installed to call",
+                    )
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
