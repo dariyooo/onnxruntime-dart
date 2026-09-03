@@ -18,6 +18,9 @@ final class Tokenizer extends GenAiHandle {
   /// Wraps `OgaTokenizerGetBosTokenId`.
   int getBosTokenId() => _calls.tokenizerGetBosTokenId(handle);
 
+  /// Wraps `OgaTokenizerGetEosTokenIds`.
+  List<int> getEosTokenIds() => _calls.tokenizerGetEosTokenIds(handle);
+
   /// Wraps `OgaTokenizerGetPadTokenId`.
   int getPadTokenId() => _calls.tokenizerGetPadTokenId(handle);
 

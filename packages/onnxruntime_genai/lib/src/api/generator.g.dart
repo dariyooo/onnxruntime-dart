@@ -39,6 +39,9 @@ final class Generator extends GenAiHandle {
   /// Wraps `OgaGenerator_GenerateNextToken`.
   void generateNextToken() => _calls.generatorGenerateNextToken(handle);
 
+  /// Wraps `OgaGenerator_GetNextTokens`.
+  List<int> getNextTokens() => _calls.generatorGetNextTokens(handle);
+
   /// Wraps `OgaGenerator_SetRuntimeOption`.
   void setRuntimeOption(String key, String value) => _calls.generatorSetRuntimeOption(handle, key, value);
 
