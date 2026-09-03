@@ -408,14 +408,14 @@ jobs:
       matrix:
         include:
           # The emulator is x86_64, so that is the library it needs.
-          - { name: android-x64, runner: ubuntu-24.04, artifact: android-x86_64, arch: x86_64, accel: auto }
+          - { name: android-x64, runner: ubuntu-24.04, artifact: android-x86_64, arch: x86_64 }
           # macOS on Apple silicon, because it is the only host Google ships a
           # native arm64 emulator for: the SDK's emulator package carries
           # linux_x64, darwin_x64, darwin_aarch64 and windows_x64, and no
           # linux aarch64 at all. An x64 host can only translate an arm64 image,
           # which does not finish booting inside an hour, so this is the one
           # place the architecture almost every Android phone uses can be run.
-          - { name: android-arm64, runner: macos-15, artifact: android-arm64-v8a, arch: arm64-v8a, accel: auto }
+          - { name: android-arm64, runner: macos-15, artifact: android-arm64-v8a, arch: arm64-v8a }
           - { name: ios, runner: macos-15, artifact: ios-sim-arm64 }
     steps:
       - uses: actions/checkout@v5
@@ -551,16 +551,14 @@ jobs:
           # the GPU through Dawn, which wants Vulkan. Without it the provider
           # loads, finds no adapter, and the accelerator goes untested on the
           # architecture most phones actually run.
-          # Hardware acceleration where there is any. GitHub's Apple silicon
-          # runners are themselves virtual machines and do not pass the
-          # hypervisor through, so an arm64 emulator there dies at once with
-          # "HVF error: HV_UNSUPPORTED" and the job waits out its boot timeout
-          # on a device that never appeared. Software emulation is slow, but
-          # slow is what makes the architecture most phones run testable at
-          # all rather than only built.
+          # No -accel: auto is the default and is what both of these want.
+          # Software emulation was tried for the arm64 image and is not an
+          # option, because the emulator calls hv_vm_create whatever it is
+          # handed, and an x64 host translating arm64 never finishes booting.
+          # The hypervisor step above decides whether this can run at all.
           emulator-options: >-
             -no-window -gpu swiftshader_indirect -no-snapshot -noaudio
-            -no-boot-anim -feature Vulkan -accel ${{ matrix.accel }}
+            -no-boot-anim -feature Vulkan
           working-directory: integration/harness
           script: |
             # What the emulator actually offers, before the tests run. This
