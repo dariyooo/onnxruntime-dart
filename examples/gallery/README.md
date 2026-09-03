@@ -13,12 +13,16 @@ asked to.
 
 | Model | Kind | Size | From |
 | --- | --- | --- | --- |
-| SqueezeNet 1.1 | classifier | 5.0 MB | ONNX Model Zoo |
-| MobileNet v2 | classifier | 14 MB | ONNX Model Zoo |
-| Tiny YOLOv3 | object detector | 35 MB | ONNX Model Zoo |
-| BiDAF | recurrent, LSTM | 43 MB | ONNX Model Zoo |
-| all-MiniLM-L6-v2 | transformer | 90 MB | sentence-transformers |
+| SqueezeNet 1.1 | classifier | 4.8 MB | ONNX Model Zoo |
+| MobileNet v2 | classifier | 13 MB | ONNX Model Zoo |
+| Tiny YOLOv3 | object detector | 34 MB | ONNX Model Zoo |
+| BiDAF | recurrent, LSTM | 42 MB | ONNX Model Zoo |
+| all-MiniLM-L6-v2 | transformer | 86 MB | sentence-transformers |
 | Phi-3 mini 4k instruct | generative | 2.5 GB | Microsoft |
+
+Sizes include everything each one needs: the ImageNet labels beside the
+classifiers, the vocabulary beside MiniLM, and the tokenizer and weights beside
+Phi-3. They are what the app shows before the download starts.
 
 Every one is fetched from the project that published it. Nothing is converted
 here and nothing is hosted here, because a converted model is one whose
