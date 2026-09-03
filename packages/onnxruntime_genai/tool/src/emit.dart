@@ -49,6 +49,21 @@ final class Emitted {
 /// The key functions that belong to no handle are filed under.
 const _globals = '(globals)';
 
+/// Every function name the header declares, for finding a call's counterpart.
+var _declared = <String>{};
+
+/// The call that says how long the buffer [function] returns is.
+///
+/// Upstream hands back borrowed arrays as a pointer from one call and a length
+/// from another, named alike: OgaGenerator_GetSequenceData beside
+/// OgaGenerator_GetSequenceCount, taking the same arguments. Neither is usable
+/// alone, so they are wrapped as the one thing they describe.
+String? _counterpartCount(CFunction function) {
+  if (!function.name.endsWith('Data')) return null;
+  final count = '${function.name.substring(0, function.name.length - 4)}Count';
+  return _declared.contains(count) ? count : null;
+}
+
 /// Whether [parameter] is where a result is written rather than an input.
 ///
 /// Two signals, and the structural one is the reliable half. Most out
@@ -186,6 +201,7 @@ String _why(CFunction function) {
 
 /// The seam, the backend and the classes above it.
 Emitted emit(List<CFunction> functions) {
+  _declared = {for (final function in functions) function.name};
   final skipped = <String>[];
   final byOwner = <String, List<CFunction>>{};
   for (final function in functions) {
@@ -360,6 +376,16 @@ Wrapped? _wrap(CFunction function, String? owner, String? dartName) {
 $setUp      final out = arena<Pointer<$produced>>();
       check(${function.name}(${[...forwarded, 'out'].join(', ')}));
       return handleOf(out.value);''';
+  } else if (_counterpartCount(function) != null &&
+      function.returns.contains('int32_t*')) {
+    final count = _counterpartCount(function)!;
+    returns = 'List<int>';
+    // Copied out rather than viewed. The array belongs to the handle and stays
+    // valid only until it next generates, so a view would go stale silently.
+    body = '''
+      final length = $count(${forwarded.join(', ')});
+      final data = ${function.name}(${forwarded.join(', ')});
+      return List<int>.generate(length, (i) => data[i]);''';
   } else if (!function.canFail) {
     final mapped = map(function.returns);
     if (mapped == null || prologue.isNotEmpty) return null;
