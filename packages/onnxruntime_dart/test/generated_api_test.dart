@@ -8,6 +8,7 @@
 /// direction, ownership and marshalling rules produce code that works.
 library;
 
+import 'dart:convert';
 import 'dart:ffi';
 
 import 'package:ffi/ffi.dart';
@@ -265,6 +266,80 @@ void main() {
       api.bindOutputToDevice(binding, wanted, memory);
 
       expect(api.boundOutputNames(binding, allocator), [wanted]);
+    });
+
+    test('a kept buffer stays the caller\'s, and is read back intact', () {
+      // UseCooIndices does not copy: the tensor points at the indices it was
+      // given for as long as it lives. The wrapper therefore takes a pointer
+      // rather than a list, because an arena scoped to the call would free it
+      // while the tensor still referred to it. malloc here, freed after the
+      // tensor is released, in that order.
+      final memory = api.createCpuMemoryInfo(
+        OrtAllocatorType.OrtDeviceAllocator.value,
+        OrtMemType.OrtMemTypeDefault.value,
+      );
+      addTearDown(() => api.releaseMemoryInfo(memory));
+
+      // Three non-zero values in a 3x3 matrix, at flat positions 0, 4 and 8.
+      final values = malloc<Float>(3);
+      values[0] = 1.5;
+      values[1] = 2.5;
+      values[2] = 3.5;
+      final indices = malloc<Int64>(3);
+      indices[0] = 0;
+      indices[1] = 4;
+      indices[2] = 8;
+
+      final tensor = api.createSparseTensorWithValuesAsOrtValue(
+        memory,
+        values.cast(),
+        [3, 3],
+        2,
+        [3],
+        1,
+        ONNXTensorElementDataType.ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT.value,
+      );
+      api.useCooIndices(tensor, indices, 3);
+
+      final (count, read) = api.getSparseTensorIndices(
+        tensor,
+        OrtSparseIndicesFormat.ORT_SPARSE_COO_INDICES.value,
+      );
+      expect(count, 3);
+      expect(read.cast<Int64>().asTypedList(3), [0, 4, 8]);
+
+      // The tensor goes first. Freeing the indices while it still points at
+      // them is the mistake this ordering exists to avoid.
+      api.releaseValue(tensor);
+      malloc
+        ..free(indices)
+        ..free(values);
+    });
+
+    test('a resized string element hands back somewhere to write', () {
+      // The buffer points into the tensor rather than being the caller's, so
+      // what is written through it is what the tensor then holds. That is the
+      // whole point of the call, and the reason the wrapper returns a pointer
+      // instead of copying anything.
+      final allocator = api.getAllocatorWithDefaultOptions();
+      final tensor = api.createTensorAsOrtValue(
+        allocator,
+        [1],
+        1,
+        ONNXTensorElementDataType.ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING.value,
+      );
+      addTearDown(() => api.releaseValue(tensor));
+      api.fillStringTensor(tensor, ['x'], 1);
+
+      const written = 'rewritten';
+      final buffer =
+          api.resizedStringTensorElementBuffer(tensor, 0, written.length);
+      final bytes = utf8.encode(written);
+      for (var i = 0; i < bytes.length; i++) {
+        buffer.cast<Uint8>()[i] = bytes[i];
+      }
+
+      expect(api.stringTensorElement(tensor, 0), written);
     });
 
     test('memory info round-trips its own fields', () {
