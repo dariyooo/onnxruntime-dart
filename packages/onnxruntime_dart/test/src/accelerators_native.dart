@@ -42,9 +42,8 @@ Future<void> registerPlugin(String provider) async {
 /// Enumerating a device is not the same as being able to use one. QNN
 /// contributes a device wherever its plugin loads, because the plugin carries
 /// the Qualcomm runtime, and then fails with "Could not determine default
-/// backend path" for want of an NPU. WebGPU on Windows ARM enumerates an
-/// adapter and then fails to initialise Dawn. Both look identical to a device
-/// count, and neither can run a model.
+/// backend path" for want of an NPU. A device count cannot tell that apart
+/// from a provider that works.
 ///
 /// So the question asked here is the one the tests actually depend on: does a
 /// session on this provider build? What it costs is one session; what it buys
