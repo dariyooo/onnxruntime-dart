@@ -126,7 +126,19 @@ ANDROID_PROVIDED = {
 
 
 def dependencies(path: pathlib.Path) -> list[str]:
-    """The DT_NEEDED names of a 64-bit little-endian ELF, or an empty list."""
+    """The DT_NEEDED names of a 64-bit little-endian ELF, or an empty list.
+
+    Returns nothing rather than raising for anything it cannot read. A file
+    this cannot parse is not evidence of a bad dependency, and a packaging
+    step that dies on a struct error reports the wrong problem.
+    """
+    try:
+        return _dependencies(path)
+    except (struct.error, ValueError, IndexError):
+        return []
+
+
+def _dependencies(path: pathlib.Path) -> list[str]:
     blob = path.read_bytes()
     if blob[:6] != b"\x7fELF\x02\x01":
         return []
