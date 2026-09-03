@@ -136,6 +136,14 @@ Mapping _mapInput(String type, CParameter parameter) {
     }
   }
 
+  // A callback crosses as the pointer ffigen typed for it. Building one, with
+  // NativeCallable, and keeping it alive for as long as the runtime holds it,
+  // is the caller's job: the runtime stores these and calls them later, so
+  // there is no scope here that could own the lifetime.
+  if (parameter.isFunctionPointer) {
+    return InputMapping(type, (n) => n);
+  }
+
   // Paths are ORTCHAR_T, which is UTF-16 on Windows. An array of them needs
   // that encoding per element, so the two spellings are separated here: a
   // single star is one path, a double star is a list of them. Matching only on

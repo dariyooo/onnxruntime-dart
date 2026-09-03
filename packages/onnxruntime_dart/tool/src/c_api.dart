@@ -33,6 +33,7 @@ final class CParameter {
     this.isOptional = false,
     this.isEnum = false,
     this.isCalleeAllocated = false,
+    this.isFunctionPointer = false,
   });
 
   final String name;
@@ -50,6 +51,11 @@ final class CParameter {
 
   /// Whether [type] names a C enum, which crosses as its underlying integer.
   final bool isEnum;
+
+  /// Whether [type] names a function-pointer typedef, which crosses as the
+  /// `Pointer<NativeFunction<...>>` ffigen declared for it. Building one, and
+  /// keeping it alive as long as the runtime holds it, is the caller's.
+  final bool isFunctionPointer;
 
   /// `_Outptr_` rather than `_Out_`: the call allocates and hands back a
   /// pointer, instead of filling a buffer the caller allocated.
@@ -100,6 +106,7 @@ final class CFunction {
 Map<String, List<CFunction>> parseApis(String header) {
   final structs = _structSpans(header);
   final enums = parseEnums(header);
+  final callbacks = parseFunctionPointers(header);
   final apis = <String, List<CFunction>>{};
 
   void add(int offset, CFunction function) {
@@ -111,7 +118,7 @@ Map<String, List<CFunction>> parseApis(String header) {
     r'ORT_API2_STATUS\(\s*(\w+)\s*,([^;]*)\)\s*;',
     multiLine: true,
   ).allMatches(header)) {
-    final parameters = _parseParameters(match.group(2)!, enums);
+    final parameters = _parseParameters(match.group(2)!, enums, callbacks);
     if (parameters == null) continue;
     add(match.start, CFunction(name: match.group(1)!, parameters: parameters));
   }
@@ -121,7 +128,7 @@ Map<String, List<CFunction>> parseApis(String header) {
     r'(?:\s*NO_EXCEPTION)?(?:\s*ORT_ALL_ARGS_NONNULL)?\s*;',
     multiLine: true,
   ).allMatches(header)) {
-    final parameters = _parseParameters(match.group(2)!, enums);
+    final parameters = _parseParameters(match.group(2)!, enums, callbacks);
     if (parameters == null) continue;
     add(
       match.start,
@@ -214,6 +221,20 @@ List<String> _splitParameters(String text) {
 ///
 /// Read rather than listed: an enum added by a new ORT version would otherwise
 /// silently drop every function that takes one.
+/// Names of the function-pointer typedefs the header declares.
+///
+/// `typedef void(ORT_API_CALL* OrtLoggingFunction)(...)` and the plainer
+/// `typedef void (*RunAsyncCallbackFn)(...)`, which the header uses for the
+/// callbacks it does not route through the calling convention macro. Without
+/// this a callback parameter looks like an unknown struct and the whole
+/// function is skipped.
+Set<String> parseFunctionPointers(String header) => {
+      for (final match in RegExp(
+        r'typedef\s+[\w\s*]+\(\s*(?:ORT_API_CALL\s*)?\*\s*(\w+)\s*\)\s*\(',
+      ).allMatches(header))
+        match.group(1)!,
+    };
+
 Set<String> parseEnums(String header) => {
       // Two spellings, and the header uses both. Most enums are typedef'd,
       // `typedef enum { ... } OrtErrorCode;`, but a few are declared bare:
@@ -231,12 +252,16 @@ Set<String> parseEnums(String header) => {
         match.group(1)!,
     };
 
-List<CParameter>? _parseParameters(String text, Set<String> enums) {
+List<CParameter>? _parseParameters(
+  String text,
+  Set<String> enums,
+  Set<String> callbacks,
+) {
   if (text.contains('...')) return null;
 
   final parameters = <CParameter>[];
   for (final raw in _splitParameters(text)) {
-    final parameter = _parseParameter(raw, enums);
+    final parameter = _parseParameter(raw, enums, callbacks);
     if (parameter == null) return null;
     parameters.add(parameter);
   }
@@ -275,6 +300,7 @@ List<CParameter> _withArrayLengths(List<CParameter> parameters) {
               // with a length back into a plain integer.
               isEnum: parameter.isEnum,
               isCalleeAllocated: parameter.isCalleeAllocated,
+              isFunctionPointer: parameter.isFunctionPointer,
             ),
     );
   }
@@ -309,7 +335,11 @@ String? _lengthOf(String name, Set<String> names) {
 /// `_Frees_ptr_opt_` marks a release parameter, which goes in like any other.
 final _sal = RegExp(r'_(In|Out|Inout|Outptr|Frees_ptr)\w*_(?:\(([^)]*)\))?');
 
-CParameter? _parseParameter(String raw, Set<String> enums) {
+CParameter? _parseParameter(
+  String raw,
+  Set<String> enums,
+  Set<String> callbacks,
+) {
   var text = raw.replaceAll('\n', ' ').trim();
   if (text.isEmpty || text == 'void') return null;
 
@@ -348,6 +378,7 @@ CParameter? _parseParameter(String raw, Set<String> enums) {
     arrayLengthParameter: arrayLength,
     isOptional: optional,
     isCalleeAllocated: calleeAllocated,
+    isFunctionPointer: callbacks.contains(type),
     isEnum: enums.contains(
       type.replaceAll(RegExp(r'^(?:const\s+)?(?:enum\s+)?|\s*\*$'), '').trim(),
     ),
