@@ -942,15 +942,43 @@ jobs:
           Add-Content $env:GITHUB_ENV "DXC_DIR=$($chosen.Directory.FullName)"
           Add-Content $env:GITHUB_PATH $chosen.Directory.FullName
 
-      # NVIDIA publishes no CUDA for Windows on ARM, so its runtime cannot be
-      # installed and the plugin cannot be loaded to be tested. We publish one
-      # for that target anyway, which is worth revisiting: a plugin that needs
-      # a runtime nobody can install is a plugin nobody can use. Dropped here
-      # so the job tests what it can rather than failing on what it cannot.
-      - name: Windows on ARM has no CUDA to load against
+      # Windows on ARM has CUDA only as a developer preview, which the toolkit
+      # action does not know about, so it is fetched by hand. The provider
+      # imports cublas64_13.dll and cublasLt64_13.dll, and those are all we
+      # need: extracted from the installer rather than installed, because we
+      # want two libraries next to a plugin, not a toolchain and a driver.
+      #
+      # CUDA 13 is the only toolkit that exists for ARM at all, which is why
+      # the matrix offers no cuda12 there.
+      - name: The CUDA preview libraries, for Windows on ARM
         if: runner.os == 'Windows' && runner.arch == 'ARM64'
-        shell: bash
-        run: rm -rf .local/artifacts/ep-cuda
+        shell: pwsh
+        run: |
+          $url = 'https://packages.nvidia.com/prerelease/cuda/13.4.0/' +
+                 'local_installers/cuda_13.4.0_windows_arm64.exe'
+          Write-Host "  $url"
+          Invoke-WebRequest $url -OutFile cuda.exe
+
+          # The installer is a 7-Zip self-extractor, so the libraries can be
+          # taken out of it without running it. Running it would want a driver
+          # and a reboot, and a hosted runner has no NVIDIA card to drive.
+          #
+          # `e` with names rather than `x`, because unpacking the whole 3.8 GB
+          # installer onto a runner that has about 14 GB free is how a job
+          # fails on disk space instead of on the thing it was testing.
+          $wanted = 'cublas64_13.dll', 'cublasLt64_13.dll', 'cudart64_13.dll'
+          New-Item -ItemType Directory -Force .local/cuda-lib > $null
+          $into = (Resolve-Path .local/cuda-lib).Path
+          # $wanted rather than @wanted: PowerShell expands both, but 7z reads
+          # a leading @ as "this names a list file" and would look for one.
+          & 7z e cuda.exe "-o$into" -y -r $wanted > $null
+          if ($LASTEXITCODE -ne 0) { throw "7z could not read the installer" }
+          Remove-Item cuda.exe -Force
+
+          $found = Get-ChildItem $into -Include $wanted -Recurse -ErrorAction SilentlyContinue
+          if (-not $found) { throw "none of $($wanted -join ', ') in the installer" }
+          foreach ($f in $found) { Write-Host "  $($f.Name)  $([int]($f.Length/1MB)) MB" }
+          Add-Content $env:GITHUB_ENV "CUDA_LIB_DIR=$into"
 
       - name: Point the suite at our build
         shell: bash
@@ -959,9 +987,6 @@ jobs:
           # The providers this job staged, which is what may be required. CUDA
           # is not among them on Windows ARM, where its runtime cannot exist.
           required="webgpu qnn cuda"
-          if [ "${{ runner.os }}" = Windows ] && [ "${{ runner.arch }}" = ARM64 ]; then
-            required="webgpu qnn"
-          fi
           python3 .github/scripts/locate_library.py "${{ matrix.artifact }}" $required
 
       # Beside the plugin, and also on PATH from the step above. Placing them
@@ -989,15 +1014,19 @@ jobs:
 
           $cuda = Get-ChildItem .local/ort -Recurse `
             -Filter onnxruntime_providers_cuda.dll | Select-Object -First 1
-          if ($cuda -and $env:CUDA_PATH) {
+          # CUDA_LIB_DIR is the ARM64 path, where the libraries were taken
+          # out of the preview installer rather than installed by the toolkit
+          # action. Either way what follows wants one directory to copy from.
+          $cudaFrom = if ($env:CUDA_LIB_DIR) { $env:CUDA_LIB_DIR } else { $env:CUDA_PATH }
+          if ($cuda -and $cudaFrom) {
             # Searched rather than assumed: the silent installer does not
             # always lay the runtime DLLs out under bin, and a glob that
             # matches nothing copies nothing and says nothing.
-            $dlls = Get-ChildItem $env:CUDA_PATH -Recurse -Include `
+            $dlls = Get-ChildItem $cudaFrom -Recurse -Include `
               cudart64_*.dll, cublas64_*.dll, cublasLt64_*.dll -ErrorAction SilentlyContinue
             if (-not $dlls) {
-              Write-Host "::warning::no CUDA runtime DLLs under $env:CUDA_PATH"
-              Get-ChildItem $env:CUDA_PATH -Directory |
+              Write-Host "::warning::no CUDA runtime DLLs under $cudaFrom"
+              Get-ChildItem $cudaFrom -Directory |
                 ForEach-Object { Write-Host "  dir: $($_.Name)" }
             }
             $dlls | ForEach-Object {
