@@ -45,16 +45,27 @@ def main() -> None:
     )
     if not archive.is_file():
         # Not built in this run, so take it from the release the pinned
-        # submodule names.
+        # submodule names. That release only exists once someone has tagged,
+        # and publishing is deliberately a separate decision from building, so
+        # its absence is a reason for these tests to skip rather than a reason
+        # to fail the job that stages them.
         archive = staged / genai_matrix.our_asset(target)
-        subprocess.run(
+        fetched = subprocess.run(
             (
                 "gh", "release", "download", genai_matrix.release_tag(),
                 "--pattern", genai_matrix.our_asset(target),
                 "--dir", str(staged), "--clobber",
             ),
-            check=True,
+            capture_output=True,
+            text=True,
         )
+        if fetched.returncode != 0:
+            print(
+                f"::notice::no {genai_matrix.release_tag()} release to stage "
+                f"from, so the GenAI tests will skip. "
+                f"{fetched.stderr.strip().splitlines()[-1] if fetched.stderr.strip() else ''}"
+            )
+            return
 
     with tarfile.open(archive) as tar:
         tar.extractall(staged)
