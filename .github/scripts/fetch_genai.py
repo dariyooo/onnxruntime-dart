@@ -37,6 +37,10 @@ ARCHITECTURE = {
     "macos-arm64": "arm64",
     "windows-x64": "x86_64",
     "windows-arm64": "arm64",
+    "android-arm64-v8a": "arm64-v8a",
+    "android-x86_64": "x86_64",
+    "ios-device-arm64": "arm64",
+    "ios-sim-arm64": "arm64",
 }
 
 
@@ -53,6 +57,46 @@ def download(target: str, into: pathlib.Path) -> pathlib.Path:
         check=True,
     )
     return into / asset
+
+
+def extract_many(
+    archive: pathlib.Path,
+    target: str,
+    into: pathlib.Path,
+) -> list[pathlib.Path]:
+    """Every library [target] needs, out of an archive that holds many targets.
+
+    Android and iOS each come as one archive covering several of ours, so the
+    slice matters as much as the file name. Android also needs a companion
+    library that ships in the same .aar and nowhere else.
+    """
+    into.mkdir(parents=True, exist_ok=True)
+    out: list[pathlib.Path] = []
+
+    with zipfile.ZipFile(archive) as zf:
+        if target in genai_matrix.ANDROID:
+            abi = genai_matrix.ANDROID[target]
+            wanted = ["libonnxruntime-genai.so", *genai_matrix.ANDROID_COMPANIONS]
+            for name in wanted:
+                inside = f"jni/{abi}/{name}"
+                if inside not in zf.namelist():
+                    raise SystemExit(f"{archive.name} holds no {inside}")
+                written = into / name
+                written.write_bytes(zf.read(inside))
+                out.append(written)
+            return out
+
+        slice_ = genai_matrix.IOS[target]
+        inside = (
+            f"onnxruntime-genai.xcframework/{slice_}/"
+            f"onnxruntime-genai.framework/onnxruntime-genai"
+        )
+        if inside not in zf.namelist():
+            raise SystemExit(f"{archive.name} holds no {inside}")
+        written = into / "onnxruntime-genai"
+        written.write_bytes(zf.read(inside))
+        out.append(written)
+        return out
 
 
 def extract(archive: pathlib.Path, wanted: str, into: pathlib.Path) -> pathlib.Path:
@@ -85,22 +129,24 @@ def extract(archive: pathlib.Path, wanted: str, into: pathlib.Path) -> pathlib.P
         return out
 
 
-def package(target: str, library: pathlib.Path) -> None:
+def package(target: str, libraries: list[pathlib.Path]) -> None:
     DIST.mkdir(parents=True, exist_ok=True)
     archive = DIST / genai_matrix.our_asset(target)
 
     with tarfile.open(archive, "w:gz") as tar:
-        info = tar.gettarinfo(str(library), arcname=library.name)
-        info.mode = 0o755
-        with library.open("rb") as handle:
-            tar.addfile(info, handle)
+        for library in libraries:
+            info = tar.gettarinfo(str(library), arcname=library.name)
+            info.mode = 0o755
+            with library.open("rb") as handle:
+                tar.addfile(info, handle)
 
     digest = hashlib.sha256(archive.read_bytes()).hexdigest()
     (DIST / f"{archive.name}.sha256").write_text(
         f"{digest}  {archive.name}\n", encoding="utf-8"
     )
     size = archive.stat().st_size / 1e6
-    print(f"  {target:16} {library.name} -> {archive.name} ({size:.1f} MB)")
+    names = ", ".join(library.name for library in libraries)
+    print(f"  {target:18} {names} -> {archive.name} ({size:.1f} MB)")
 
 
 def main() -> None:
@@ -112,11 +158,23 @@ def main() -> None:
     with tempfile.TemporaryDirectory() as tmp:
         work = pathlib.Path(tmp)
         for target in targets:
-            wanted = genai_matrix.library_for(target)
             archive = download(target, work / target)
-            library = extract(archive, wanted, work / target / "lib")
-            binary_arch.verify(library, ARCHITECTURE[target])
-            package(target, library)
+            if target in genai_matrix.ANDROID or target in genai_matrix.IOS:
+                libraries = extract_many(target=target, archive=archive,
+                                         into=work / target / "lib")
+            else:
+                libraries = [
+                    extract(archive, genai_matrix.library_for(target),
+                            work / target / "lib")
+                ]
+            for library in libraries:
+                binary_arch.verify(library, ARCHITECTURE[target])
+                if target in genai_matrix.ANDROID:
+                    binary_arch.verify_android_dependencies(
+                        library,
+                        alongside=tuple(l.name for l in libraries),
+                    )
+            package(target, libraries)
 
 
 if __name__ == "__main__":

@@ -26,11 +26,6 @@ COMPONENT = "genai"
 UPSTREAM = "microsoft/onnxruntime-genai"
 
 #: Our target id -> the fragment upstream names its archive with.
-#:
-#: Android and iOS are absent on purpose. Upstream ships those as an `.aar` and
-#: a framework zip, which are a different shape from the plain library archives
-#: and need their own unpacking. They are worth adding, and adding them means
-#: writing that, not extending this table.
 TARGETS: dict[str, str] = {
     "linux-x64": "linux-x64",
     "linux-arm64": "linux-arm64",
@@ -38,6 +33,31 @@ TARGETS: dict[str, str] = {
     "windows-x64": "win-x64",
     "windows-arm64": "win-arm64",
 }
+
+#: Android, which upstream ships as one `.aar` holding every ABI.
+#:
+#: Our target id -> the directory inside `jni/`. Only the 64-bit ABIs, which is
+#: all the archive carries.
+ANDROID: dict[str, str] = {
+    "android-arm64-v8a": "arm64-v8a",
+    "android-x86_64": "x86_64",
+}
+
+#: iOS, which upstream ships as one zip holding an xcframework.
+#:
+#: Our target id -> the slice inside it. The simulator slice is fat, carrying
+#: arm64 and x86_64 together, and the device slice is arm64 alone.
+IOS: dict[str, str] = {
+    "ios-device-arm64": "ios-arm64",
+    "ios-sim-arm64": "ios-arm64_x86_64-simulator",
+}
+
+#: What GenAI needs beside it that Android does not provide.
+#:
+#: `libonnxruntime-genai.so` links `libmat.so`, which ships in the same `.aar`
+#: and nowhere else, so the archive has to carry both. Found by reading the
+#: library rather than by assuming one file was enough.
+ANDROID_COMPANIONS = ("libmat.so",)
 
 #: The library inside each archive, by the platform the target names.
 LIBRARY = {
@@ -71,7 +91,15 @@ def upstream_tag() -> str:
 
 
 def upstream_asset(target: str) -> str:
-    """The archive upstream publishes for [target]."""
+    """The archive upstream publishes for [target].
+
+    Android and iOS each come as one archive covering every target they have,
+    so several of ours map onto the same file.
+    """
+    if target in ANDROID:
+        return f"onnxruntime-genai-android-{version()}.aar"
+    if target in IOS:
+        return f"onnxruntime-genai-ios-{version()}.zip"
     fragment = TARGETS[target]
     suffix = "zip" if target.startswith("windows-") else "tar.gz"
     return f"onnxruntime-genai-{version()}-{fragment}.{suffix}"
@@ -84,6 +112,11 @@ def our_asset(target: str) -> str:
 
 def library_for(target: str) -> str:
     """The library file inside the archive for [target]."""
+    if target in ANDROID:
+        return "libonnxruntime-genai.so"
+    if target in IOS:
+        # A framework binary, which has no extension at all.
+        return "onnxruntime-genai"
     for platform, name in LIBRARY.items():
         if target.startswith(platform):
             return name
@@ -91,7 +124,7 @@ def library_for(target: str) -> str:
 
 
 def targets() -> list[str]:
-    return list(TARGETS)
+    return [*TARGETS, *ANDROID, *IOS]
 
 
 if __name__ == "__main__":
