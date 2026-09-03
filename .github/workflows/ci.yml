@@ -850,104 +850,75 @@ jobs:
       # beyond CI: an application shipping this provider on Windows needs both
       # DLLs beside it.
       #
-      # Two sources, because neither covers both architectures. The GitHub
-      # release is the compiler this provider is known to work against, but
-      # what it ships as bin/arm64 is ARM64EC: the PE header says AMD64, the
-      # load config carries a CHPE pointer, and there is no ARM64X relocation
-      # table, so a native ARM64 process cannot load it and LoadLibrary fails
-      # with error 87. The NuGet package is native on every architecture but a
-      # different generation of the compiler, and Dawn dies on it with exit
-      # 127 on x64 too, so it is the last resort rather than the ARM64 answer.
+      # Two sources for one compiler. The GitHub release is what this
+      # provider is known to work against, but what it ships as bin/arm64 is
+      # ARM64EC: the PE header says AMD64, the load config carries a CHPE
+      # pointer, and there is no ARM64X relocation table, so a native ARM64
+      # process cannot load it and LoadLibrary fails with error 87.
       #
-      # What ARM64 wants is a native build of the same generation, which is
-      # what the Windows SDK ships. Everything found is printed with the
-      # architecture read out of its own header, so the next person does not
-      # have to rediscover which copies exist and what they are.
+      # NuGet ships the same compiler built natively for every architecture,
+      # so ARM64 takes it from there, pinned to the generation the release
+      # names. Pinning is the point: Dawn wants a recent DXC, and every older
+      # one tried here loaded cleanly and then killed the process with exit
+      # 127 with nothing logged. The Windows SDK carries one too, but the
+      # newest on this image is from 2022 and fails exactly that way.
       - name: The DirectX shader compiler, for the WebGPU provider
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          function Get-Machine($path) {
-            try {
-              $bytes = [IO.File]::ReadAllBytes($path)
-              $at = [BitConverter]::ToUInt16($bytes, [BitConverter]::ToInt32($bytes, 0x3c) + 4)
-              switch ($at) { 0xaa64 { 'ARM64' } 0x8664 { 'AMD64' } 0x14c { 'X86' } default { "$at" } }
-            } catch { 'unreadable' }
-          }
-
+          $release = (Invoke-RestMethod `
+            https://api.github.com/repos/microsoft/DirectXShaderCompiler/releases/latest)
           $onArm = $env:RUNNER_ARCH -eq 'ARM64'
-          $want = if ($onArm) { 'ARM64' } else { 'AMD64' }
-          $chosen = $null
 
           if ($onArm) {
-            Write-Host "  copies of dxcompiler.dll already on this machine:"
-            $roots = @(
-              "C:\Program Files (x86)\Windows Kits\10\bin",
-              "C:\Program Files\Windows Kits\10\bin",
-              "C:\Program Files\Microsoft Visual Studio",
-              "C:\Program Files (x86)\Microsoft Visual Studio"
-            ) | Where-Object { Test-Path $_ }
-            # Newest first. Dawn wants a recent compiler, and an SDK carries
-            # every version ever installed, so taking whichever the filesystem
-            # happened to list first is how a 2022 build gets picked over a
-            # 2024 one sitting beside it.
-            # Matched rather than cast: a FileVersion can be missing, or
-            # carry a build tag after the number, and a cast that throws on
-            # one file takes the whole step down under ErrorActionPreference.
-            $all = Get-ChildItem $roots -Recurse -Filter dxcompiler.dll -ErrorAction SilentlyContinue |
-              Sort-Object {
-                if ($_.VersionInfo.FileVersion -match '\d+(\.\d+){1,3}') {
-                  [version]$Matches[0]
-                } else { [version]'0.0' }
-              } -Descending
-            foreach ($found in $all) {
-              $machine = Get-Machine $found.FullName
-              # dxil.dll is the validator and has to sit beside it, or the
-              # compiler loads and then refuses to sign anything it produces.
-              $paired = Test-Path (Join-Path $found.Directory 'dxil.dll')
-              Write-Host "    $machine  $($found.VersionInfo.FileVersion)  dxil beside it: $paired  $($found.FullName)"
-              if (-not $chosen -and $machine -eq $want -and $paired) { $chosen = $found }
-            }
-            if (-not $chosen) { Write-Host "    none usable" }
+            # The same generation as the release, by its tag: v1.9.2607 ->
+            # 1.9.2607.13. Not simply the last version NuGet lists, which is
+            # 101.7.2207.25: it sorts last and was built in 2022, and picking
+            # it is how ARM64 ended up on a compiler older than the SDK's.
+            $generation = $release.tag_name.TrimStart('v')
+            $version = (Invoke-RestMethod `
+              https://api.nuget.org/v3-flatcontainer/microsoft.direct3d.dxc/index.json
+            ).versions |
+              Where-Object { $_.StartsWith("$generation.") -and $_ -notlike '*-*' } |
+              Select-Object -Last 1
+            if (-not $version) { throw "no Microsoft.Direct3D.DXC for $generation" }
+            Write-Host "  Microsoft.Direct3D.DXC $version, matching $($release.tag_name)"
+            Invoke-WebRequest -OutFile dxc.zip ("https://api.nuget.org/v3-flatcontainer" +
+              "/microsoft.direct3d.dxc/$version/microsoft.direct3d.dxc.$version.nupkg")
+          } else {
+            $asset = $release.assets |
+              Where-Object { $_.name -like 'dxc_*.zip' } | Select-Object -First 1
+            Write-Host "  $($asset.browser_download_url)"
+            Invoke-WebRequest $asset.browser_download_url -OutFile dxc.zip
           }
 
-          if (-not $chosen) {
-            if ($onArm) {
-              $version = (Invoke-RestMethod `
-                https://api.nuget.org/v3-flatcontainer/microsoft.direct3d.dxc/index.json
-              ).versions[-1]
-              Write-Host "  falling back to Microsoft.Direct3D.DXC $version"
-              Invoke-WebRequest -OutFile dxc.zip ("https://api.nuget.org/v3-flatcontainer" +
-                "/microsoft.direct3d.dxc/$version/microsoft.direct3d.dxc.$version.nupkg")
-            } else {
-              $asset = (Invoke-RestMethod `
-                https://api.github.com/repos/microsoft/DirectXShaderCompiler/releases/latest
-              ).assets | Where-Object { $_.name -like 'dxc_*.zip' } | Select-Object -First 1
-              Write-Host "  $($asset.browser_download_url)"
-              Invoke-WebRequest $asset.browser_download_url -OutFile dxc.zip
-            }
-            # PowerShell rather than unzip: both archives store backslash
-            # separators, which Git Bash turns into filenames containing
-            # backslashes rather than directories.
-            Expand-Archive dxc.zip -DestinationPath .local/dxc -Force
+          # PowerShell rather than unzip: both archives store backslash
+          # separators, which Git Bash turns into filenames containing
+          # backslashes rather than directories.
+          Expand-Archive dxc.zip -DestinationPath .local/dxc -Force
 
-            $chosen = Get-ChildItem .local/dxc -Recurse -Filter dxcompiler.dll |
-              Where-Object { $_.FullName -like "*\$(if ($onArm) { 'arm64' } else { 'x64' })\*" } |
-              Select-Object -First 1
-            if (-not $chosen) { throw "no dxcompiler.dll for $env:RUNNER_ARCH" }
+          $flavour = if ($onArm) { 'arm64' } else { 'x64' }
+          $dll = Get-ChildItem .local/dxc -Recurse -Filter dxcompiler.dll |
+            Where-Object { $_.FullName -like "*\$flavour\*" } | Select-Object -First 1
+          if (-not $dll) { throw "no dxcompiler.dll for $env:RUNNER_ARCH" }
+          if (-not (Test-Path (Join-Path $dll.Directory 'dxil.dll'))) {
+            throw "no dxil.dll beside $($dll.FullName)"
           }
 
           # Read out of the PE header rather than trusted from the path. This
-          # is the check that would have caught the ARM64EC build immediately
+          # is the check that would have caught the ARM64EC build at once
           # instead of as an unexplained error number inside Dawn.
-          $machine = Get-Machine $chosen.FullName
-          Write-Host "  using $($chosen.Directory), which is $machine"
-          if ($machine -ne $want) { throw "dxcompiler.dll is $machine, need $want" }
+          $bytes = [IO.File]::ReadAllBytes($dll.FullName)
+          $machine = [BitConverter]::ToUInt16($bytes, [BitConverter]::ToInt32($bytes, 0x3c) + 4)
+          $found = switch ($machine) { 0xaa64 { 'ARM64' } 0x8664 { 'AMD64' } default { "$machine" } }
+          $want = if ($onArm) { 'ARM64' } else { 'AMD64' }
+          Write-Host "  using $($dll.Directory), which is $found"
+          if ($found -ne $want) { throw "dxcompiler.dll is $found, need $want" }
 
           # Read by the step that puts these beside the plugin, so that one
           # does not have to guess where they came from.
-          Add-Content $env:GITHUB_ENV "DXC_DIR=$($chosen.Directory.FullName)"
-          Add-Content $env:GITHUB_PATH $chosen.Directory.FullName
+          Add-Content $env:GITHUB_ENV "DXC_DIR=$($dll.Directory.FullName)"
+          Add-Content $env:GITHUB_PATH $dll.Directory.FullName
 
       # NVIDIA publishes no CUDA for Windows on ARM, so its runtime cannot be
       # installed and the plugin cannot be loaded to be tested. We publish one
