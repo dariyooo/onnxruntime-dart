@@ -174,14 +174,22 @@ Notes on the table:
 
 - **WebGPU** reaches Vulkan on Android and Linux, D3D12 or Vulkan on Windows,
   and Metal on Apple. Only the 64-bit Android ABIs, where Vulkan is dependable.
-- **On Windows the WebGPU provider needs a shader compiler beside it.** D3D12
-  compiles shaders through `dxcompiler.dll` and `dxil.dll`, which Windows does
-  not ship, and which the provider loads by name at the first compile rather
-  than at load time, so a missing one looks like a working plugin that fails on
-  its first run. Ship both next to `onnxruntime_providers_webgpu.dll`. On ARM64
-  take them from the `Microsoft.Direct3D.DXC` NuGet package: what the upstream
-  DirectX Shader Compiler release ships as `bin/arm64` is ARM64EC, which a
-  native ARM64 process cannot load, and `LoadLibrary` fails with error 87.
+- **On Windows the WebGPU provider needs a shader compiler beside it.** This
+  provider is built against Dawn's D3D12 backend, which compiles shaders
+  through `dxcompiler.dll` and `dxil.dll`. Windows ships neither, and the
+  provider loads them by name at the first compile rather than at load time, so
+  a missing one looks like a working plugin that fails on its first run. Ship
+  both next to `onnxruntime_providers_webgpu.dll`, from the upstream DirectX
+  Shader Compiler release.
+- **On Windows ARM there is no compiler to ship.** Every current DXC
+  distribution, the GitHub release and the `Microsoft.Direct3D.DXC` NuGet
+  package alike, puts ARM64EC under `bin/arm64` rather than ARM64: the PE
+  header says AMD64, the load config carries a CHPE pointer, and there is no
+  ARM64X relocation table, so a native ARM64 process refuses it and
+  `LoadLibrary` fails with error 87. The Windows SDK does carry a native ARM64
+  build, but the ones seen so far are old enough that Dawn dies on them. So the
+  provider is published for `windows-arm64` and loads there, and running a
+  model on it needs a native ARM64 DXC that upstream does not currently ship.
 - **CUDA** ships against two toolkits and defaults to 12, which asks less of the
   driver. `build: cuda13` selects the other, and on arm64 it is the only one.
 - **QNN** carries the Qualcomm AI Runtime with it. Not Android: there QNN is
