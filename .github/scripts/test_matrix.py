@@ -1109,10 +1109,19 @@ class ArtifactArchitecture(unittest.TestCase):
         """
         with tempfile.TemporaryDirectory() as tmp:
             path = pathlib.Path(tmp) / "libonnxruntime.so"
-            path.write_bytes(b"not an elf")
-            self.assertEqual(binary_arch.dependencies(path), [])
-            # Nothing readable means nothing to object to.
-            binary_arch.verify_android_dependencies(path)
+            # Nothing readable means nothing to object to. A truncated file
+            # in particular must not raise: packaging would then report a
+            # struct error rather than whatever the real problem was.
+            for blob in (
+                b"not an elf",
+                b"",
+                b"\x7fELF\x02\x01\x01" + b"\x00" * 40,
+                b"\x7fELF\x02\x01\x01" + b"\x00" * 200,
+            ):
+                path.write_bytes(blob)
+                self.assertEqual(binary_arch.dependencies(path), [])
+                binary_arch.verify_android_dependencies(path)
+                binary_arch.verify(path, "arm64-v8a")
 
         self.assertIn("libc.so", binary_arch.ANDROID_PROVIDED)
         self.assertNotIn("libc++_shared.so", binary_arch.ANDROID_PROVIDED)
