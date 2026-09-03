@@ -20,7 +20,9 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import ep_matrix  # noqa: E402
+import ort_matrix  # noqa: E402
 import release_identity  # noqa: E402
+import rename_release_assets  # noqa: E402
 
 
 def exists(tag: str) -> bool:
@@ -32,6 +34,37 @@ def exists(tag: str) -> bool:
     )
 
 
+def published(tag: str) -> set[str]:
+    """Every asset name the release carries."""
+    result = subprocess.run(
+        ("gh", "release", "view", tag, "--json", "assets", "-q", ".assets[].name"),
+        capture_output=True,
+        text=True,
+    )
+    return set(result.stdout.split())
+
+
+def runtime_holes(tag: str) -> list[str]:
+    """The runtime archives the matrix builds that the release does not carry.
+
+    A release that exists is not the same as a release that is complete. One
+    configuration failing to publish leaves a hole that nothing notices until
+    a hook asks for that target and gets a 404, which is at install time on
+    somebody else's machine.
+
+    Named through the same rule the publisher uses, so this cannot drift from
+    what is actually uploaded.
+    """
+    have = published(tag)
+    missing = []
+    for config in ort_matrix.CONFIGURATIONS:
+        for local in (config.id, f"{config.id}-full"):
+            wanted = rename_release_assets.renamed(f"{local}.tar.gz", "runtime")
+            if wanted not in have:
+                missing.append(wanted)
+    return missing
+
+
 def main() -> None:
     components = ["runtime", "extensions"]
     components += [f"ep-{provider.name}" for provider in ep_matrix.PROVIDERS]
@@ -40,6 +73,12 @@ def main() -> None:
     for component in components:
         tag = release_identity.release_tag(component)
         if exists(tag):
+            holes = runtime_holes(tag) if component == "runtime" else []
+            if holes:
+                print(f"  {component}: {tag} INCOMPLETE ({len(holes)} missing)")
+                for name in holes:
+                    print(f"::error::{tag} does not carry {name}")
+                raise SystemExit(1)
             print(f"  {component}: {tag}")
         else:
             print(f"  {component}: {tag} MISSING")
