@@ -166,4 +166,29 @@ extension OrtApiSparseApi on OrtApi {
                 Pointer<OrtValue>, Pointer<Pointer<Void>>)>()(ortValue, out0));
         return out0.value;
       });
+
+  /// `GetSparseTensorIndicesTypeShape`
+  Pointer<OrtTensorTypeAndShapeInfo> getSparseTensorIndicesTypeShape(
+          Pointer<OrtValue> ortValue, int indicesFormat) =>
+      withArena((arena) {
+        final out0 = arena<Pointer<OrtTensorTypeAndShapeInfo>>();
+        checkOrtStatus(this.GetSparseTensorIndicesTypeShape.asFunction<
+                Pointer<OrtStatus> Function(Pointer<OrtValue>, int,
+                    Pointer<Pointer<OrtTensorTypeAndShapeInfo>>)>()(
+            ortValue, indicesFormat, out0));
+        return out0.value;
+      });
+
+  /// `GetSparseTensorIndices`
+  (int numIndices, Pointer<Void> indices) getSparseTensorIndices(
+          Pointer<OrtValue> ortValue, int indicesFormat) =>
+      withArena((arena) {
+        final out0 = arena<Size>();
+        final out1 = arena<Pointer<Void>>();
+        checkOrtStatus(this.GetSparseTensorIndices.asFunction<
+                Pointer<OrtStatus> Function(Pointer<OrtValue>, int,
+                    Pointer<Size>, Pointer<Pointer<Void>>)>()(
+            ortValue, indicesFormat, out0, out1));
+        return (out0.value, out1.value);
+      });
 }
