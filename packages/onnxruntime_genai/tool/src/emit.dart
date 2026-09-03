@@ -20,9 +20,16 @@ final class Emitted {
 /// The key functions that belong to no handle are filed under.
 const _globals = '(globals)';
 
-/// The out-parameter convention upstream follows without exception.
+/// Whether [parameter] is where a result is written rather than an input.
+///
+/// Two signals, and the structural one is the reliable half. Most out
+/// parameters are named `out`, but not all of them: OgaLoadAudios calls its
+/// `audios`. A pointer to a pointer is always somewhere to put a handle, and
+/// that holds whatever it is called.
 bool _isOut(CParameter parameter) =>
-    parameter.name == 'out' || parameter.name.startsWith('out_');
+    parameter.type.endsWith('**') ||
+    parameter.name == 'out' ||
+    parameter.name.startsWith('out_');
 
 /// A list parameter and how to get it into the arena.
 final class _ListParameter {
@@ -148,11 +155,13 @@ Emitted emit(List<CFunction> functions) {
     wrappers += emittedHere;
   }
 
+  files['api.dart'] = _libraryFile(files.keys.toList()..sort());
   return Emitted(files: files, skipped: skipped, wrappers: wrappers);
 }
 
 String _why(CFunction function) {
-  if (function.parameters.isEmpty) return 'takes a callback or nothing';
+  if (function.takesCallback) return 'takes a callback, which needs a wrapper';
+  if (function.parameters.isEmpty) return 'takes nothing this can act on';
   for (final parameter in function.parameters) {
     if (map(parameter.type) == null && !parameter.isHandleOut) {
       return 'parameter ${parameter.name} is ${parameter.type}';
@@ -163,6 +172,7 @@ String _why(CFunction function) {
 
 /// One method, or null when something about it is not understood.
 String? _wrap(CFunction function, String owner, String dartName) {
+  if (function.takesCallback) return null;
   final parameters = function.parameters;
   if (parameters.isEmpty) return null;
 
@@ -223,6 +233,10 @@ String? _wrap(CFunction function, String owner, String dartName) {
     }
   }
 
+  final setUp = prologue.isEmpty
+      ? ''
+      : '${prologue.map((l) => '        $l').join('\n')}\n';
+
   if (isFactory) {
     final named = function.name.substring('OgaCreate'.length);
     final constructor = named == dartName
@@ -231,7 +245,7 @@ String? _wrap(CFunction function, String owner, String dartName) {
     return '''
   /// Wraps `${function.name}`.
   $constructor(${signature.join(', ')}) => withArena((arena) {
-        final out = arena<Pointer<$owner>>();
+$setUp        final out = arena<Pointer<$owner>>();
         check(${function.name}(${[...arguments, 'out'].join(', ')}));
         return $dartName._(out.value);
       });
@@ -243,6 +257,7 @@ String? _wrap(CFunction function, String owner, String dartName) {
   if (!function.canFail) {
     final returned = map(function.returns);
     if (returned == null) return null;
+    if (prologue.isNotEmpty) return null;
     final call = '${function.name}(${arguments.join(', ')})';
     if (returned.dart == 'void') {
       return '''
@@ -262,7 +277,7 @@ String? _wrap(CFunction function, String owner, String dartName) {
     return '''
   /// Wraps `${function.name}`.
   void $name(${signature.join(', ')}) => withArena((arena) {
-${prologue.map((l) => '        $l').join('\n')}${prologue.isEmpty ? '' : '\n'}        check(${function.name}(${arguments.join(', ')}));
+$setUp        check(${function.name}(${arguments.join(', ')}));
       });
 ''';
   }
@@ -273,7 +288,7 @@ ${prologue.map((l) => '        $l').join('\n')}${prologue.isEmpty ? '' : '\n'}  
     return '''
   /// Wraps `${function.name}`.
   ${dartNameOf(produced)} $name(${signature.join(', ')}) => withArena((arena) {
-        final out = arena<Pointer<$produced>>();
+$setUp        final out = arena<Pointer<$produced>>();
         check(${function.name}(${[...arguments, 'out'].join(', ')}));
         return ${dartNameOf(produced)}._(out.value);
       });
@@ -286,19 +301,18 @@ ${prologue.map((l) => '        $l').join('\n')}${prologue.isEmpty ? '' : '\n'}  
     return '''
   /// Wraps `${function.name}`.
   String $name(${signature.join(', ')}) => withArena((arena) {
-        final out = arena<Pointer<Char>>();
+$setUp        final out = arena<Pointer<Char>>();
         check(${function.name}(${[...arguments, 'out'].join(', ')}));
-        return takeCString(out.value);
+        return ${function.transfersString ? 'takeCString' : 'borrowedCString'}(out.value);
       });
 ''';
   }
-  const native = {'int': 'Size', 'bool': 'Bool', 'double': 'Double'};
-  final slot = native[scalar.dart];
+  final slot = nativeSlot(out.type.replaceFirst('*', ''));
   if (slot == null) return null;
   return '''
   /// Wraps `${function.name}`.
   ${scalar.dart} $name(${signature.join(', ')}) => withArena((arena) {
-        final out = arena<$slot>();
+$setUp        final out = arena<$slot>();
         check(${function.name}(${[...arguments, 'out'].join(', ')}));
         return out.value;
       });
@@ -307,6 +321,10 @@ ${prologue.map((l) => '        $l').join('\n')}${prologue.isEmpty ? '' : '\n'}  
 
 /// A function that takes no handle, wrapped as a top level function.
 String? _free(CFunction function) {
+  // A callback needs a Dart closure turned into a native one, with a decision
+  // about who owns it and how long it lives. That is a wrapper someone should
+  // write, not one to guess at.
+  if (function.takesCallback) return null;
   final out = function.parameters.isNotEmpty && _isOut(function.parameters.last)
       ? function.parameters.last
       : null;
@@ -353,8 +371,7 @@ void $name(${signature.join(', ')}) => withArena((arena) {
 
   final scalar = map(out.type.replaceFirst('*', ''));
   if (scalar == null) return null;
-  const native = {'int': 'Size', 'bool': 'Bool', 'double': 'Double'};
-  final slot = native[scalar.dart];
+  final slot = nativeSlot(out.type.replaceFirst('*', ''));
   if (slot == null) return null;
   return '''
 /// Wraps `${function.name}`.
@@ -375,14 +392,35 @@ String _globalsFile(String body) => '''
 // The functions that belong to no handle: logging, telemetry, the process wide
 // device selection, and provider registration.
 
-import 'dart:ffi';
+part of 'api.dart';
 
-import 'package:ffi/ffi.dart';
+$body''';
+
+/// The library every generated file is part of.
+///
+/// One library rather than one per type, because the wrappers construct each
+/// other: a tokenizer hands back a stream, a model hands back a tensor. A
+/// private constructor is private to its library, so splitting them into
+/// libraries would mean making those constructors public and asking callers
+/// not to use them.
+String _libraryFile(Iterable<String> parts) => '''
+// AUTO GENERATED FILE, DO NOT EDIT.
+//
+// Generated from third_party/onnxruntime-genai/src/ort_genai_c.h.
+// Regenerate with `dart run tool/generate_bindings.dart` from this package.
+
+/// The generated wrappers over the GenAI C API.
+library;
+
+import 'dart:ffi';
 
 import '../bindings/genai_bindings.g.dart';
 import 'support.dart';
 
-$body''';
+export 'support.dart' show GenAiException, GenAiHandle;
+
+${parts.map((p) => "part '$p';").join('\n')}
+''';
 
 String _file({
   required String owner,
@@ -396,12 +434,7 @@ String _file({
 // Generated from third_party/onnxruntime-genai/src/ort_genai_c.h.
 // Regenerate with `dart run tool/generate_bindings.dart` from this package.
 
-import 'dart:ffi';
-
-import 'package:ffi/ffi.dart';
-
-import '../bindings/genai_bindings.g.dart';
-import 'support.dart';
+part of 'api.dart';
 
 /// Wraps the `$owner` handle.
 final class $dartName extends GenAiHandle<$owner> {

@@ -6,21 +6,13 @@
 // The functions that belong to no handle: logging, telemetry, the process wide
 // device selection, and provider registration.
 
-import 'dart:ffi';
-
-import 'package:ffi/ffi.dart';
-
-import '../bindings/genai_bindings.g.dart';
-import 'support.dart';
+part of 'api.dart';
 
 /// Wraps `OgaShutdown`.
 void shutdown() => OgaShutdown();
 
 /// Wraps `OgaSetTelemetryEnabled`.
 void setTelemetryEnabled(bool enabled) => withArena((arena) => OgaSetTelemetryEnabled(enabled));
-
-/// Wraps `OgaResultGetError`.
-String resultGetError(Result result) => withArena((arena) => OgaResultGetError(result.handle));
 
 /// Wraps `OgaSetLogBool`.
 void setLogBool(String name, bool value) => withArena((arena) {
@@ -31,14 +23,6 @@ void setLogBool(String name, bool value) => withArena((arena) {
 void setLogString(String name, String value) => withArena((arena) {
       check(OgaSetLogString(cString(arena, name), cString(arena, value)));
     });
-
-/// Wraps `OgaSetLogCallback`.
-void setLogCallback() => withArena((arena) {
-      check(OgaSetLogCallback());
-    });
-
-/// Wraps `OgaDestroyResult`.
-void destroyResult(Result result) => withArena((arena) => OgaDestroyResult(result.handle));
 
 /// Wraps `OgaDestroyString`.
 void destroyString(String value) => withArena((arena) => OgaDestroyString(cString(arena, value)));

@@ -3,12 +3,7 @@
 // Generated from third_party/onnxruntime-genai/src/ort_genai_c.h.
 // Regenerate with `dart run tool/generate_bindings.dart` from this package.
 
-import 'dart:ffi';
-
-import 'package:ffi/ffi.dart';
-
-import '../bindings/genai_bindings.g.dart';
-import 'support.dart';
+part of 'api.dart';
 
 /// Wraps the `OgaRequest` handle.
 final class Request extends GenAiHandle<OgaRequest> {
@@ -31,7 +26,7 @@ final class Request extends GenAiHandle<OgaRequest> {
 
   /// Wraps `OgaRequestGetUnseenToken`.
   int getUnseenToken() => withArena((arena) {
-        final out = arena<Size>();
+        final out = arena<Int32>();
         check(OgaRequestGetUnseenToken(handle, out));
         return out.value;
       });

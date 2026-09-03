@@ -89,6 +89,13 @@ Pointer<Char> cString(Arena arena, String text) =>
 String? readCString(Pointer<Char> value) =>
     value == nullptr ? null : value.cast<Utf8>().toDartString();
 
+/// A C string GenAI still owns, copied out and left alone.
+///
+/// The counterpart to [takeCString]. Which one applies is not a guess: the
+/// header says so, and freeing a borrowed string aborts the process.
+String borrowedCString(Pointer<Char> value) =>
+    value.cast<Utf8>().toDartString();
+
 /// A C string GenAI handed over ownership of, copied out and then freed.
 String takeCString(Pointer<Char> value) {
   final text = value.cast<Utf8>().toDartString();
