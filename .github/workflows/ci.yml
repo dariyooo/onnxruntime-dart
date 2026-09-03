@@ -957,7 +957,13 @@ jobs:
           $url = 'https://packages.nvidia.com/prerelease/cuda/13.4.0/' +
                  'local_installers/cuda_13.4.0_windows_arm64.exe'
           Write-Host "  $url"
-          Invoke-WebRequest $url -OutFile cuda.exe
+          # curl.exe, not Invoke-WebRequest: this is 3.8 GB, and the
+          # PowerShell cmdlet is slow enough on files this size to be worth
+          # avoiding. --retry because one dropped connection should not cost
+          # the job the whole download again by hand.
+          & curl.exe -L --fail --retry 3 --retry-delay 5 -o cuda.exe $url
+          if ($LASTEXITCODE -ne 0) { throw "could not download the CUDA preview" }
+          Write-Host "  $([int]((Get-Item cuda.exe).Length/1MB)) MB"
 
           # The installer is a 7-Zip self-extractor, so the libraries can be
           # taken out of it without running it. Running it would want a driver
