@@ -197,7 +197,10 @@ Notes on the table:
   `cuda_cudart` for `linux-sbsa`, `linux-x86_64` and `windows-x86_64` only. The
   toolkit for it lives under `packages.nvidia.com/prerelease/cuda/13.4.0`, and
   the provider wants `cublas64_13.dll` and `cublasLt64_13.dll` from it beside
-  the plugin, as on x64. Preview software, so treat it as such.
+  the plugin, as on x64. Take them from the `arm64` directories rather than the
+  `_cross_x86_64` ones, which carry the same file names for x64 and fail to
+  load with error 193. CI loads the plugin against this, so it is tested, but
+  it is preview software and worth treating as such.
 - **QNN** carries the Qualcomm AI Runtime with it. Not Android: there QNN is
   linked into a whole runtime rather than published as a loadable plugin.
 - **On the web** nothing is loaded: WebGPU and WebNN are compiled into two of
