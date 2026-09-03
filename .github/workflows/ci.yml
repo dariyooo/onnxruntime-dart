@@ -537,12 +537,14 @@ jobs:
             -no-boot-anim -feature Vulkan -accel ${{ matrix.accel }}
           working-directory: integration/harness
           script: |
-            # What the emulator actually offers, before the tests run. The
-            # WebGPU provider reaches the GPU through Dawn, which wants
-            # Vulkan, and -feature Vulkan alone did not produce an adapter.
-            # This says whether the image has a Vulkan driver at all, which
-            # decides whether the accelerator is testable here or genuinely
-            # is not.
+            # What the emulator actually offers, before the tests run. This
+            # has now been answered: the image does carry a driver, at
+            # /vendor/lib64/hw/vulkan.ranchu.so, and vkjson builds a VkInstance
+            # on it, yet ONNX Runtime still reports CPU as the only provider
+            # with a device. So the gap is not a missing driver, it is that
+            # Dawn will not take the emulator's software Vulkan as an adapter.
+            # Kept because it is the evidence for that claim, and the answer
+            # would change if the image ever gained a real one.
             adb shell getprop ro.hardware.vulkan || true
             adb shell getprop ro.kernel.qemu.gles || true
             adb shell 'ls /vendor/lib64/hw/vulkan.* 2>/dev/null' || true
