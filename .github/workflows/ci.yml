@@ -417,10 +417,10 @@ jobs:
           # archive in the SDK repository is darwin, with no linux or windows
           # aarch64 build of the emulator, the NDK, or the command line tools.
           # macos-26 rather than macos-15: both are Apple silicon, but the
-        # M1 behind macos-15 predates nested virtualisation, which
-        # Apple added with M3, and the emulator needs a hypervisor. The
-        # step below reports what this one actually offers.
-        - { name: android-arm64, runner: macos-26, artifact: android-arm64-v8a, arch: arm64-v8a }
+          # M1 behind macos-15 predates nested virtualisation, which
+          # Apple added with M3, and the emulator needs a hypervisor. The
+          # step below reports what this one actually offers.
+          - { name: android-arm64, runner: macos-26, artifact: android-arm64-v8a, arch: arm64-v8a }
           - { name: ios, runner: macos-15, artifact: ios-sim-arm64 }
     steps:
       - uses: actions/checkout@v5
