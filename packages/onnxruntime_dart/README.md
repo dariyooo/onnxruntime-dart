@@ -181,15 +181,15 @@ Notes on the table:
   a missing one looks like a working plugin that fails on its first run. Ship
   both next to `onnxruntime_providers_webgpu.dll`, from the upstream DirectX
   Shader Compiler release.
-- **On Windows ARM there is no compiler to ship.** Every current DXC
-  distribution, the GitHub release and the `Microsoft.Direct3D.DXC` NuGet
-  package alike, puts ARM64EC under `bin/arm64` rather than ARM64: the PE
-  header says AMD64, the load config carries a CHPE pointer, and there is no
-  ARM64X relocation table, so a native ARM64 process refuses it and
-  `LoadLibrary` fails with error 87. The Windows SDK does carry a native ARM64
-  build, but the ones seen so far are old enough that Dawn dies on them. So the
-  provider is published for `windows-arm64` and loads there, and running a
-  model on it needs a native ARM64 DXC that upstream does not currently ship.
+- **On Windows ARM take that compiler from the Windows SDK**, not from the DXC
+  release. Every current DXC distribution, the GitHub release and the
+  `Microsoft.Direct3D.DXC` NuGet package alike, puts ARM64EC under `bin/arm64`
+  rather than ARM64: the PE header says AMD64, the load config carries a CHPE
+  pointer, and there is no ARM64X relocation table, so a native ARM64 process
+  refuses it and `LoadLibrary` fails with error 87. The SDK ships a real ARM64
+  build under `bin/<version>/arm64`. Take a recent one: 10.0.26100.0 carries
+  DXC 1.8 and works, while 10.0.22621.0 carries 1.6, which Dawn loads and then
+  dies on with no message at all.
 - **CUDA** ships against two toolkits and defaults to 12, which asks less of the
   driver. `build: cuda13` selects the other, and on arm64 it is the only one.
 - **QNN** carries the Qualcomm AI Runtime with it. Not Android: there QNN is
