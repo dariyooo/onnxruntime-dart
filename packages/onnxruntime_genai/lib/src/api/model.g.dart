@@ -16,8 +16,7 @@ final class Model extends GenAiHandle {
   void destroy(GenAiPtr handle) => _calls.destroyModel(handle);
 
   /// Wraps `OgaCreateModel`.
-  factory Model(String configPath) =>
-      Model._(_calls.createModel(configPath));
+  factory Model(String configPath) => Model._(_calls.createModel(configPath));
 
   /// Wraps `OgaModelGetType`.
   String getType() => _calls.modelGetType(handle);
@@ -34,23 +33,19 @@ final class Model extends GenAiHandle {
       Generator._(_calls.createGenerator(handle, params));
 
   /// Wraps `OgaCreateTokenizer`.
-  Tokenizer createTokenizer() =>
-      Tokenizer._(_calls.createTokenizer(handle));
+  Tokenizer createTokenizer() => Tokenizer._(_calls.createTokenizer(handle));
 
   /// Wraps `OgaCreateMultiModalProcessor`.
   MultiModalProcessor createMultiModalProcessor() =>
       MultiModalProcessor._(_calls.createMultiModalProcessor(handle));
 
   /// Wraps `OgaCreateAdapters`.
-  Adapters createAdapters() =>
-      Adapters._(_calls.createAdapters(handle));
+  Adapters createAdapters() => Adapters._(_calls.createAdapters(handle));
 
   /// Wraps `OgaCreateEngine`.
-  Engine createEngine() =>
-      Engine._(_calls.createEngine(handle));
+  Engine createEngine() => Engine._(_calls.createEngine(handle));
 
   /// Wraps `OgaCreateStreamingProcessor`.
   StreamingProcessor createStreamingProcessor() =>
       StreamingProcessor._(_calls.createStreamingProcessor(handle));
-
 }

@@ -16,7 +16,8 @@ final class Tokenizer extends GenAiHandle {
   void destroy(GenAiPtr handle) => _calls.destroyTokenizer(handle);
 
   /// Wraps `OgaUpdateTokenizerOptions`.
-  void updateTokenizerOptions(Map<String, String> options) => _calls.updateTokenizerOptions(handle, options);
+  void updateTokenizerOptions(Map<String, String> options) =>
+      _calls.updateTokenizerOptions(handle, options);
 
   /// Wraps `OgaTokenizerGetBosTokenId`.
   int getBosTokenId() => _calls.tokenizerGetBosTokenId(handle);
@@ -40,7 +41,8 @@ final class Tokenizer extends GenAiHandle {
   int getEorTokenId() => _calls.tokenizerGetEorTokenId(handle);
 
   /// Wraps `OgaTokenizerEncode`.
-  void encode(String str, GenAiPtr sequences) => _calls.tokenizerEncode(handle, str, sequences);
+  void encode(String str, GenAiPtr sequences) =>
+      _calls.tokenizerEncode(handle, str, sequences);
 
   /// Wraps `OgaTokenizerEncodeBatch`.
   Tensor encodeBatch(List<String> strings) =>
@@ -57,10 +59,12 @@ final class Tokenizer extends GenAiHandle {
   String decode(List<int> tokens) => _calls.tokenizerDecode(handle, tokens);
 
   /// Wraps `OgaTokenizerApplyChatTemplate`.
-  String applyChatTemplate(String templateStr, String messages, String tools, bool addGenerationPrompt) => _calls.tokenizerApplyChatTemplate(handle, templateStr, messages, tools, addGenerationPrompt);
+  String applyChatTemplate(String templateStr, String messages, String tools,
+          bool addGenerationPrompt) =>
+      _calls.tokenizerApplyChatTemplate(
+          handle, templateStr, messages, tools, addGenerationPrompt);
 
   /// Wraps `OgaCreateTokenizerStream`.
   TokenizerStream createTokenizerStream() =>
       TokenizerStream._(_calls.createTokenizerStream(handle));
-
 }

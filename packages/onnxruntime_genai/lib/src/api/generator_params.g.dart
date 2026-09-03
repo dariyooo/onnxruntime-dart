@@ -16,22 +16,25 @@ final class GeneratorParams extends GenAiHandle {
   void destroy(GenAiPtr handle) => _calls.destroyGeneratorParams(handle);
 
   /// Wraps `OgaGeneratorParamsSetSearchNumber`.
-  void setSearchNumber(String name, double value) => _calls.generatorParamsSetSearchNumber(handle, name, value);
+  void setSearchNumber(String name, double value) =>
+      _calls.generatorParamsSetSearchNumber(handle, name, value);
 
   /// Wraps `OgaGeneratorParamsSetSearchBool`.
-  void setSearchBool(String name, bool value) => _calls.generatorParamsSetSearchBool(handle, name, value);
+  void setSearchBool(String name, bool value) =>
+      _calls.generatorParamsSetSearchBool(handle, name, value);
 
   /// Wraps `OgaGeneratorParamsSetGuidance`.
-  void setGuidance(String type, String data, bool enableFfTokens) => _calls.generatorParamsSetGuidance(handle, type, data, enableFfTokens);
+  void setGuidance(String type, String data, bool enableFfTokens) =>
+      _calls.generatorParamsSetGuidance(handle, type, data, enableFfTokens);
 
   /// Wraps `OgaGeneratorParamsGetSearchNumber`.
-  double getSearchNumber(String name) => _calls.generatorParamsGetSearchNumber(handle, name);
+  double getSearchNumber(String name) =>
+      _calls.generatorParamsGetSearchNumber(handle, name);
 
   /// Wraps `OgaGeneratorParamsGetSearchBool`.
-  bool getSearchBool(String name) => _calls.generatorParamsGetSearchBool(handle, name);
+  bool getSearchBool(String name) =>
+      _calls.generatorParamsGetSearchBool(handle, name);
 
   /// Wraps `OgaCreateRequest`.
-  Request createRequest() =>
-      Request._(_calls.createRequest(handle));
-
+  Request createRequest() => Request._(_calls.createRequest(handle));
 }

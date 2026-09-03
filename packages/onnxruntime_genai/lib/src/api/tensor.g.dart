@@ -22,6 +22,6 @@ final class Tensor extends GenAiHandle {
   int getShapeRank() => _calls.tensorGetShapeRank(handle);
 
   /// Wraps `OgaTensorGetShape`.
-  void getShape(List<int> shapeDims) => _calls.tensorGetShape(handle, shapeDims);
-
+  void getShape(List<int> shapeDims) =>
+      _calls.tensorGetShape(handle, shapeDims);
 }

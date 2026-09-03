@@ -22,5 +22,4 @@ final class RuntimeSettings extends GenAiHandle {
   /// Wraps `OgaCreateModelWithRuntimeSettings`.
   Model createModelWithRuntimeSettings(String configPath) =>
       Model._(_calls.createModelWithRuntimeSettings(handle, configPath));
-
 }
