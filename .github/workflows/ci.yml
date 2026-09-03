@@ -744,22 +744,18 @@ jobs:
           vulkaninfo --summary 2>/dev/null | head -20 || true
 
       # The CUDA plugin dlopens libcudart, so without it the library cannot
-      # even be loaded and the load test proves nothing. The runtime ships as
-      # a wheel, which is a few tens of megabytes rather than the whole
-      # toolkit. Inference still needs a GPU this runner does not have; that is
-      # what the accelerator tests are for, and they exclude it.
+      # be loaded at all and the load test proves nothing. Only the cudart
+      # sub-package, which is a few tens of megabytes rather than the whole
+      # toolkit: nothing here compiles CUDA, it only needs the runtime present
+      # so the plugin resolves. Inference needs a GPU this runner does not
+      # have, and the accelerator tests exclude it for that reason.
       - name: The CUDA runtime, so its plugin can be loaded
-        if: runner.os == 'Linux'
-        shell: bash
-        run: |
-          python3 -m pip install --quiet nvidia-cuda-runtime-cu13
-          lib=$(python3 -c "
-          import pathlib, nvidia.cuda_runtime as m
-          print(pathlib.Path(m.__file__).parent / 'lib')
-          ")
-          echo "  $lib"
-          ls "$lib" | head -5
-          echo "LD_LIBRARY_PATH=$lib:${LD_LIBRARY_PATH:-}" >> "$GITHUB_ENV"
+        if: runner.os == 'Linux' && runner.arch == 'X64'
+        uses: Jimver/cuda-toolkit@v0.2.24
+        with:
+          cuda: '13.0.0'
+          method: network
+          sub-packages: '["cudart"]'
 
       - name: Point the suite at our build
         shell: bash
