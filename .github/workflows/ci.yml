@@ -508,7 +508,14 @@ jobs:
           target: google_apis
           emulator-boot-timeout: 900
           disable-animations: true
-          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          # Vulkan, not just GLES. swiftshader_indirect gives the emulator a
+          # software GL renderer, and ONNX Runtime's WebGPU provider reaches
+          # the GPU through Dawn, which wants Vulkan. Without it the provider
+          # loads, finds no adapter, and the accelerator goes untested on the
+          # architecture most phones actually run.
+          emulator-options: >-
+            -no-window -gpu swiftshader_indirect -no-snapshot -noaudio
+            -no-boot-anim -feature Vulkan
           working-directory: integration/harness
           script: flutter test integration_test --reporter expanded
 
