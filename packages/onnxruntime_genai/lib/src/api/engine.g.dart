@@ -3,12 +3,7 @@
 // Generated from third_party/onnxruntime-genai/src/ort_genai_c.h.
 // Regenerate with `dart run tool/generate_bindings.dart` from this package.
 
-import 'dart:ffi';
-
-import 'package:ffi/ffi.dart';
-
-import '../bindings/genai_bindings.g.dart';
-import 'support.dart';
+part of 'api.dart';
 
 /// Wraps the `OgaEngine` handle.
 final class Engine extends GenAiHandle<OgaEngine> {
@@ -18,8 +13,10 @@ final class Engine extends GenAiHandle<OgaEngine> {
   void destroy(Pointer<OgaEngine> handle) => OgaDestroyEngine(handle);
 
   /// Wraps `OgaEngineStep`.
-  void step(Request request) => withArena((arena) {
-        check(OgaEngineStep(handle, request.handle));
+  Request step() => withArena((arena) {
+        final out = arena<Pointer<OgaRequest>>();
+        check(OgaEngineStep(handle, out));
+        return Request._(out.value);
       });
 
   /// Wraps `OgaEngineHasPendingRequests`.

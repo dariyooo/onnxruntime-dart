@@ -3,12 +3,7 @@
 // Generated from third_party/onnxruntime-genai/src/ort_genai_c.h.
 // Regenerate with `dart run tool/generate_bindings.dart` from this package.
 
-import 'dart:ffi';
-
-import 'package:ffi/ffi.dart';
-
-import '../bindings/genai_bindings.g.dart';
-import 'support.dart';
+part of 'api.dart';
 
 /// Wraps the `OgaStringArray` handle.
 final class StringArray extends GenAiHandle<OgaStringArray> {
@@ -18,13 +13,17 @@ final class StringArray extends GenAiHandle<OgaStringArray> {
   void destroy(Pointer<OgaStringArray> handle) => OgaDestroyStringArray(handle);
 
   /// Wraps `OgaLoadImages`.
-  void loadImages(Images images) => withArena((arena) {
-        check(OgaLoadImages(handle, images.handle));
+  Images loadImages() => withArena((arena) {
+        final out = arena<Pointer<OgaImages>>();
+        check(OgaLoadImages(handle, out));
+        return Images._(out.value);
       });
 
   /// Wraps `OgaLoadAudios`.
-  void loadAudios(Audios audios) => withArena((arena) {
-        check(OgaLoadAudios(handle, audios.handle));
+  Audios loadAudios() => withArena((arena) {
+        final out = arena<Pointer<OgaAudios>>();
+        check(OgaLoadAudios(handle, out));
+        return Audios._(out.value);
       });
 
   /// Wraps `OgaCreateStringArray`.
@@ -50,7 +49,7 @@ final class StringArray extends GenAiHandle<OgaStringArray> {
   String getString(int index) => withArena((arena) {
         final out = arena<Pointer<Char>>();
         check(OgaStringArrayGetString(handle, index, out));
-        return takeCString(out.value);
+        return borrowedCString(out.value);
       });
 
 }

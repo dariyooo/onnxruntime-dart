@@ -31,11 +31,34 @@ final class CFunction {
     required this.name,
     required this.returns,
     required this.parameters,
+    this.takesCallback = false,
+    this.documentation = '',
   });
 
   final String name;
   final String returns;
   final List<CParameter> parameters;
+
+  /// The doc comment above the declaration, which is where upstream says who
+  /// owns what it hands back.
+  final String documentation;
+
+  /// Whether a string this produces belongs to the caller.
+  ///
+  /// GenAI transfers a string only where it says so. `OgaTokenizerDecode` is
+  /// documented "must be freed with OgaDestroyString"; `OgaStringArrayGetString`
+  /// says nothing, and its string belongs to the array. Freeing a borrowed one
+  /// aborts the process, so this is read rather than assumed.
+  bool get transfersString =>
+      documentation.contains('OgaDestroyString') ||
+      documentation.contains('must be freed');
+
+  /// Whether the signature holds a function pointer this does not read.
+  ///
+  /// Kept apart from an empty parameter list, which is what a niladic function
+  /// has. Emitting from one as though it were the other produces a call with
+  /// no arguments that does not compile.
+  final bool takesCallback;
 
   /// Whether failure arrives as a result object rather than in the return.
   bool get canFail => returns == 'OgaResult*';
@@ -65,21 +88,31 @@ List<CFunction> readCApi(File header) {
       .replaceAll(RegExp(r'\s*\n\s*'), ' ')
       .replaceAll(RegExp(r'\s+'), ' ');
 
+  // The doc comment is part of the match so that ownership travels with the
+  // declaration it belongs to.
   final declaration = RegExp(
-    r'OGA_EXPORT\s+([A-Za-z_0-9 ]+?\**)\s*OGA_API_CALL\s+(\w+)\s*\(([^;]*?)\)\s*;',
+    r'(/\*\*.*?\*/)?\s*OGA_EXPORT\s+([A-Za-z_0-9 ]+?\**)\s*OGA_API_CALL\s+'
+    r'(\w+)\s*\(([^;]*?)\)\s*;',
   );
 
   final functions = <CFunction>[];
   for (final match in declaration.allMatches(text)) {
-    final returns = match.group(1)!.replaceAll(' *', '*').trim();
-    final name = match.group(2)!;
-    final rawParameters = match.group(3)!.trim();
+    final documentation = match.group(1) ?? '';
+    final returns = match.group(2)!.replaceAll(' *', '*').trim();
+    final name = match.group(3)!;
+    final rawParameters = match.group(4)!.trim();
 
     // A function pointer parameter has parentheses in it. Those are the log
     // and streaming callbacks, which need a hand-written wrapper rather than
     // a generated one, so they are reported instead of guessed at.
     if (rawParameters.contains('(')) {
-      functions.add(CFunction(name: name, returns: returns, parameters: []));
+      functions.add(CFunction(
+        name: name,
+        returns: returns,
+        parameters: [],
+        takesCallback: true,
+        documentation: documentation,
+      ));
       continue;
     }
 
@@ -100,9 +133,12 @@ List<CFunction> readCApi(File header) {
         );
       }
     }
-    functions.add(
-      CFunction(name: name, returns: returns, parameters: parameters),
-    );
+    functions.add(CFunction(
+      name: name,
+      returns: returns,
+      parameters: parameters,
+      documentation: documentation,
+    ));
   }
   return functions;
 }

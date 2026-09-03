@@ -39,8 +39,8 @@ workspace:
 # worked on before any binaries are released. This is our own CI build, not a
 # published Microsoft one, so the operator coverage tests mean what they claim.
 #
-# Only the base package is pointed anywhere, so the probe in runtime.dart finds
-# exactly one runtime and the tests run against a known library.
+# The packages that ship a binary are pointed at a local build, so the probes
+# find exactly one of each and the tests run against known libraries.
 #
 # The path below is a placeholder. In CI, locate_library.py rewrites this line
 # to whatever the job unpacked, which is how the tests get a native asset at
@@ -51,3 +51,5 @@ hooks:
   user_defines:
     onnxruntime_binaries:
       local_build: .local/ort/current/lib
+    onnxruntime_genai_binaries:
+      local_build: .local/genai/current/lib

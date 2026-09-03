@@ -1,5 +1,8 @@
-30 of 150 functions are not wrapped.
+32 of 150 functions are not wrapped.
 
+OgaResultGetError: parameter result is const OgaResult*
+OgaSetLogCallback: takes a callback, which needs a wrapper
+OgaDestroyResult: parameter result is OgaResult*
 OgaSetCurrentGpuDeviceId: parameter device_id is int
 OgaGetCurrentGpuDeviceId: parameter device_id is int*
 OgaSequencesGetSequenceData: returns const int32_t*
@@ -29,4 +32,3 @@ OgaTensorGetType: returns OgaResult*
 OgaTensorGetData: returns OgaResult*
 OgaRequestSetOpaqueData: parameter opaque_data is void*
 OgaRequestGetOpaqueData: returns OgaResult*
-OgaStreamingProcessorGetOption: returns OgaResult*

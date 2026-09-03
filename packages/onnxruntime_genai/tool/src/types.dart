@@ -49,6 +49,11 @@ Mapped? map(String type) {
   }
   if (_scalars.containsKey(bare)) return _scalars[bare];
 
+  // OgaResult is how the C API reports failure, not something a caller holds.
+  // support.dart reads it and releases it inside check(), so wrapping it would
+  // offer an error object nobody should ever be handed.
+  if (bare.startsWith('OgaResult')) return null;
+
   // An opaque handle. One star is the handle itself; two is an out-parameter
   // the caller owns afterwards, which the emitter handles rather than this.
   if (bare.startsWith('Oga') && bare.endsWith('*')) {
@@ -73,4 +78,25 @@ String dartNameOf(String handle) =>
 bool isHandle(String type) {
   final bare = type.replaceAll('const ', '').replaceAll('*', '').trim();
   return bare.startsWith('Oga') && bare != 'OgaResult';
+}
+
+
+/// The dart:ffi type an out-parameter of C type [type] is read through.
+///
+/// Taken from the C type rather than from the Dart one it maps to. Every
+/// integer here is `int` in Dart, and allocating a size_t to receive an
+/// int32_t writes the wrong number of bytes.
+String? nativeSlot(String type) {
+  final bare = type.replaceAll('const ', '').replaceAll(' ', '');
+  return switch (bare) {
+    'size_t' => 'Size',
+    'int32_t' => 'Int32',
+    'int64_t' => 'Int64',
+    'uint32_t' => 'Uint32',
+    'int' => 'Int',
+    'bool' => 'Bool',
+    'float' => 'Float',
+    'double' => 'Double',
+    _ => null,
+  };
 }

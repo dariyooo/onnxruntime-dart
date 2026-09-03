@@ -24,6 +24,13 @@ dependencies:
 dev_dependencies:
   ffigen: ^21.0.0
   test: ^1.25.0
+  # So this package's own tests have a library to load. A dev dependency is not
+  # transitive, so an application still chooses its own and is never handed one
+  # by depending on the bindings.
+  onnxruntime_genai_binaries: any
+  # GenAI looks up OrtGetApiBase in an already loaded runtime, so the tests
+  # need one of those too.
+  onnxruntime_binaries: any
 
 # onnxruntime_genai_binaries is deliberately not a dependency. The asset this
 # package is declared against is installed by that package, and naming it
