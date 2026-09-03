@@ -6,40 +6,27 @@
 part of 'api.dart';
 
 /// Wraps the `OgaStreamingProcessor` handle.
-final class StreamingProcessor extends GenAiHandle<OgaStreamingProcessor> {
+///
+/// Above the backend boundary, so it names no pointer type and forwards
+/// everything to whichever backend was selected for this platform.
+final class StreamingProcessor extends GenAiHandle {
   StreamingProcessor._(super.handle);
 
   @override
-  void destroy(Pointer<OgaStreamingProcessor> handle) => OgaDestroyStreamingProcessor(handle);
+  void destroy(GenAiPtr handle) => _calls.destroyStreamingProcessor(handle);
 
   /// Wraps `OgaStreamingProcessorProcess`.
-  NamedTensors process(List<double> audioData) => withArena((arena) {
-        final audioDataNative = arena<Float>(audioData.length);
-        for (var i = 0; i < audioData.length; i++) {
-          audioDataNative[i] = audioData[i];
-        }
-        final out = arena<Pointer<OgaNamedTensors>>();
-        check(OgaStreamingProcessorProcess(handle, audioDataNative, audioData.length, out));
-        return NamedTensors._(out.value);
-      });
+  NamedTensors process(List<double> audioData) =>
+      NamedTensors._(_calls.streamingProcessorProcess(handle, audioData));
 
   /// Wraps `OgaStreamingProcessorFlush`.
-  NamedTensors flush() => withArena((arena) {
-        final out = arena<Pointer<OgaNamedTensors>>();
-        check(OgaStreamingProcessorFlush(handle, out));
-        return NamedTensors._(out.value);
-      });
+  NamedTensors flush() =>
+      NamedTensors._(_calls.streamingProcessorFlush(handle));
 
   /// Wraps `OgaStreamingProcessorSetOption`.
-  void setOption(String key, String value) => withArena((arena) {
-        check(OgaStreamingProcessorSetOption(handle, cString(arena, key), cString(arena, value)));
-      });
+  void setOption(String key, String value) => _calls.streamingProcessorSetOption(handle, key, value);
 
   /// Wraps `OgaStreamingProcessorGetOption`.
-  String getOption(String key) => withArena((arena) {
-        final out = arena<Pointer<Char>>();
-        check(OgaStreamingProcessorGetOption(handle, cString(arena, key), out));
-        return takeCString(out.value);
-      });
+  String getOption(String key) => _calls.streamingProcessorGetOption(handle, key);
 
 }

@@ -6,80 +6,51 @@
 part of 'api.dart';
 
 /// Wraps the `OgaModel` handle.
-final class Model extends GenAiHandle<OgaModel> {
+///
+/// Above the backend boundary, so it names no pointer type and forwards
+/// everything to whichever backend was selected for this platform.
+final class Model extends GenAiHandle {
   Model._(super.handle);
 
   @override
-  void destroy(Pointer<OgaModel> handle) => OgaDestroyModel(handle);
+  void destroy(GenAiPtr handle) => _calls.destroyModel(handle);
 
   /// Wraps `OgaCreateModel`.
-  factory Model(String configPath) => withArena((arena) {
-        final out = arena<Pointer<OgaModel>>();
-        check(OgaCreateModel(cString(arena, configPath), out));
-        return Model._(out.value);
-      });
+  factory Model(String configPath) =>
+      Model._(_calls.createModel(configPath));
 
   /// Wraps `OgaModelGetType`.
-  String getType() => withArena((arena) {
-        final out = arena<Pointer<Char>>();
-        check(OgaModelGetType(handle, out));
-        return takeCString(out.value);
-      });
+  String getType() => _calls.modelGetType(handle);
 
   /// Wraps `OgaModelGetDeviceType`.
-  String getDeviceType() => withArena((arena) {
-        final out = arena<Pointer<Char>>();
-        check(OgaModelGetDeviceType(handle, out));
-        return takeCString(out.value);
-      });
+  String getDeviceType() => _calls.modelGetDeviceType(handle);
 
   /// Wraps `OgaCreateGeneratorParams`.
-  GeneratorParams createGeneratorParams() => withArena((arena) {
-        final out = arena<Pointer<OgaGeneratorParams>>();
-        check(OgaCreateGeneratorParams(handle, out));
-        return GeneratorParams._(out.value);
-      });
+  GeneratorParams createGeneratorParams() =>
+      GeneratorParams._(_calls.createGeneratorParams(handle));
 
   /// Wraps `OgaCreateGenerator`.
-  Generator createGenerator(GeneratorParams params) => withArena((arena) {
-        final out = arena<Pointer<OgaGenerator>>();
-        check(OgaCreateGenerator(handle, params.handle, out));
-        return Generator._(out.value);
-      });
+  Generator createGenerator(GenAiPtr params) =>
+      Generator._(_calls.createGenerator(handle, params));
 
   /// Wraps `OgaCreateTokenizer`.
-  Tokenizer createTokenizer() => withArena((arena) {
-        final out = arena<Pointer<OgaTokenizer>>();
-        check(OgaCreateTokenizer(handle, out));
-        return Tokenizer._(out.value);
-      });
+  Tokenizer createTokenizer() =>
+      Tokenizer._(_calls.createTokenizer(handle));
 
   /// Wraps `OgaCreateMultiModalProcessor`.
-  MultiModalProcessor createMultiModalProcessor() => withArena((arena) {
-        final out = arena<Pointer<OgaMultiModalProcessor>>();
-        check(OgaCreateMultiModalProcessor(handle, out));
-        return MultiModalProcessor._(out.value);
-      });
+  MultiModalProcessor createMultiModalProcessor() =>
+      MultiModalProcessor._(_calls.createMultiModalProcessor(handle));
 
   /// Wraps `OgaCreateAdapters`.
-  Adapters createAdapters() => withArena((arena) {
-        final out = arena<Pointer<OgaAdapters>>();
-        check(OgaCreateAdapters(handle, out));
-        return Adapters._(out.value);
-      });
+  Adapters createAdapters() =>
+      Adapters._(_calls.createAdapters(handle));
 
   /// Wraps `OgaCreateEngine`.
-  Engine createEngine() => withArena((arena) {
-        final out = arena<Pointer<OgaEngine>>();
-        check(OgaCreateEngine(handle, out));
-        return Engine._(out.value);
-      });
+  Engine createEngine() =>
+      Engine._(_calls.createEngine(handle));
 
   /// Wraps `OgaCreateStreamingProcessor`.
-  StreamingProcessor createStreamingProcessor() => withArena((arena) {
-        final out = arena<Pointer<OgaStreamingProcessor>>();
-        check(OgaCreateStreamingProcessor(handle, out));
-        return StreamingProcessor._(out.value);
-      });
+  StreamingProcessor createStreamingProcessor() =>
+      StreamingProcessor._(_calls.createStreamingProcessor(handle));
 
 }

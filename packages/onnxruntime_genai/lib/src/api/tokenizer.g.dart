@@ -6,107 +6,55 @@
 part of 'api.dart';
 
 /// Wraps the `OgaTokenizer` handle.
-final class Tokenizer extends GenAiHandle<OgaTokenizer> {
+///
+/// Above the backend boundary, so it names no pointer type and forwards
+/// everything to whichever backend was selected for this platform.
+final class Tokenizer extends GenAiHandle {
   Tokenizer._(super.handle);
 
   @override
-  void destroy(Pointer<OgaTokenizer> handle) => OgaDestroyTokenizer(handle);
+  void destroy(GenAiPtr handle) => _calls.destroyTokenizer(handle);
 
   /// Wraps `OgaTokenizerGetBosTokenId`.
-  int getBosTokenId() => withArena((arena) {
-        final out = arena<Int32>();
-        check(OgaTokenizerGetBosTokenId(handle, out));
-        return out.value;
-      });
+  int getBosTokenId() => _calls.tokenizerGetBosTokenId(handle);
 
   /// Wraps `OgaTokenizerGetPadTokenId`.
-  int getPadTokenId() => withArena((arena) {
-        final out = arena<Int32>();
-        check(OgaTokenizerGetPadTokenId(handle, out));
-        return out.value;
-      });
+  int getPadTokenId() => _calls.tokenizerGetPadTokenId(handle);
 
   /// Wraps `OgaTokenizerGetBotTokenId`.
-  int getBotTokenId() => withArena((arena) {
-        final out = arena<Int32>();
-        check(OgaTokenizerGetBotTokenId(handle, out));
-        return out.value;
-      });
+  int getBotTokenId() => _calls.tokenizerGetBotTokenId(handle);
 
   /// Wraps `OgaTokenizerGetEotTokenId`.
-  int getEotTokenId() => withArena((arena) {
-        final out = arena<Int32>();
-        check(OgaTokenizerGetEotTokenId(handle, out));
-        return out.value;
-      });
+  int getEotTokenId() => _calls.tokenizerGetEotTokenId(handle);
 
   /// Wraps `OgaTokenizerGetBorTokenId`.
-  int getBorTokenId() => withArena((arena) {
-        final out = arena<Int32>();
-        check(OgaTokenizerGetBorTokenId(handle, out));
-        return out.value;
-      });
+  int getBorTokenId() => _calls.tokenizerGetBorTokenId(handle);
 
   /// Wraps `OgaTokenizerGetEorTokenId`.
-  int getEorTokenId() => withArena((arena) {
-        final out = arena<Int32>();
-        check(OgaTokenizerGetEorTokenId(handle, out));
-        return out.value;
-      });
+  int getEorTokenId() => _calls.tokenizerGetEorTokenId(handle);
 
   /// Wraps `OgaTokenizerEncode`.
-  void encode(String str, Sequences sequences) => withArena((arena) {
-        check(OgaTokenizerEncode(handle, cString(arena, str), sequences.handle));
-      });
+  void encode(String str, GenAiPtr sequences) => _calls.tokenizerEncode(handle, str, sequences);
 
   /// Wraps `OgaTokenizerEncodeBatch`.
-  Tensor encodeBatch(List<String> strings) => withArena((arena) {
-        final stringsNative = arena<Pointer<Char>>(strings.length);
-        for (var i = 0; i < strings.length; i++) {
-          stringsNative[i] = cString(arena, strings[i]);
-        }
-        final out = arena<Pointer<OgaTensor>>();
-        check(OgaTokenizerEncodeBatch(handle, stringsNative, strings.length, out));
-        return Tensor._(out.value);
-      });
+  Tensor encodeBatch(List<String> strings) =>
+      Tensor._(_calls.tokenizerEncodeBatch(handle, strings));
 
   /// Wraps `OgaTokenizerDecodeBatch`.
-  StringArray decodeBatch(Tensor tensor) => withArena((arena) {
-        final out = arena<Pointer<OgaStringArray>>();
-        check(OgaTokenizerDecodeBatch(handle, tensor.handle, out));
-        return StringArray._(out.value);
-      });
+  StringArray decodeBatch(GenAiPtr tensor) =>
+      StringArray._(_calls.tokenizerDecodeBatch(handle, tensor));
 
   /// Wraps `OgaTokenizerToTokenId`.
-  int toTokenId(String str) => withArena((arena) {
-        final out = arena<Int32>();
-        check(OgaTokenizerToTokenId(handle, cString(arena, str), out));
-        return out.value;
-      });
+  int toTokenId(String str) => _calls.tokenizerToTokenId(handle, str);
 
   /// Wraps `OgaTokenizerDecode`.
-  String decode(List<int> tokens) => withArena((arena) {
-        final tokensNative = arena<Int32>(tokens.length);
-        for (var i = 0; i < tokens.length; i++) {
-          tokensNative[i] = tokens[i];
-        }
-        final out = arena<Pointer<Char>>();
-        check(OgaTokenizerDecode(handle, tokensNative, tokens.length, out));
-        return takeCString(out.value);
-      });
+  String decode(List<int> tokens) => _calls.tokenizerDecode(handle, tokens);
 
   /// Wraps `OgaTokenizerApplyChatTemplate`.
-  String applyChatTemplate(String templateStr, String messages, String tools, bool addGenerationPrompt) => withArena((arena) {
-        final out = arena<Pointer<Char>>();
-        check(OgaTokenizerApplyChatTemplate(handle, cString(arena, templateStr), cString(arena, messages), cString(arena, tools), addGenerationPrompt, out));
-        return takeCString(out.value);
-      });
+  String applyChatTemplate(String templateStr, String messages, String tools, bool addGenerationPrompt) => _calls.tokenizerApplyChatTemplate(handle, templateStr, messages, tools, addGenerationPrompt);
 
   /// Wraps `OgaCreateTokenizerStream`.
-  TokenizerStream createTokenizerStream() => withArena((arena) {
-        final out = arena<Pointer<OgaTokenizerStream>>();
-        check(OgaCreateTokenizerStream(handle, out));
-        return TokenizerStream._(out.value);
-      });
+  TokenizerStream createTokenizerStream() =>
+      TokenizerStream._(_calls.createTokenizerStream(handle));
 
 }

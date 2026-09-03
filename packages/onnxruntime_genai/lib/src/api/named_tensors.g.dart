@@ -6,48 +6,34 @@
 part of 'api.dart';
 
 /// Wraps the `OgaNamedTensors` handle.
-final class NamedTensors extends GenAiHandle<OgaNamedTensors> {
+///
+/// Above the backend boundary, so it names no pointer type and forwards
+/// everything to whichever backend was selected for this platform.
+final class NamedTensors extends GenAiHandle {
   NamedTensors._(super.handle);
 
   @override
-  void destroy(Pointer<OgaNamedTensors> handle) => OgaDestroyNamedTensors(handle);
+  void destroy(GenAiPtr handle) => _calls.destroyNamedTensors(handle);
 
   /// Wraps `OgaCreateNamedTensors`.
-  factory NamedTensors() => withArena((arena) {
-        final out = arena<Pointer<OgaNamedTensors>>();
-        check(OgaCreateNamedTensors(out));
-        return NamedTensors._(out.value);
-      });
+  factory NamedTensors() =>
+      NamedTensors._(_calls.createNamedTensors());
 
   /// Wraps `OgaNamedTensorsGet`.
-  Tensor get(String name) => withArena((arena) {
-        final out = arena<Pointer<OgaTensor>>();
-        check(OgaNamedTensorsGet(handle, cString(arena, name), out));
-        return Tensor._(out.value);
-      });
+  Tensor get(String name) =>
+      Tensor._(_calls.namedTensorsGet(handle, name));
 
   /// Wraps `OgaNamedTensorsSet`.
-  void set(String name, Tensor tensor) => withArena((arena) {
-        check(OgaNamedTensorsSet(handle, cString(arena, name), tensor.handle));
-      });
+  void set(String name, GenAiPtr tensor) => _calls.namedTensorsSet(handle, name, tensor);
 
   /// Wraps `OgaNamedTensorsDelete`.
-  void delete(String name) => withArena((arena) {
-        check(OgaNamedTensorsDelete(handle, cString(arena, name)));
-      });
+  void delete(String name) => _calls.namedTensorsDelete(handle, name);
 
   /// Wraps `OgaNamedTensorsCount`.
-  int count() => withArena((arena) {
-        final out = arena<Size>();
-        check(OgaNamedTensorsCount(handle, out));
-        return out.value;
-      });
+  int count() => _calls.namedTensorsCount(handle);
 
   /// Wraps `OgaNamedTensorsGetNames`.
-  StringArray getNames() => withArena((arena) {
-        final out = arena<Pointer<OgaStringArray>>();
-        check(OgaNamedTensorsGetNames(handle, out));
-        return StringArray._(out.value);
-      });
+  StringArray getNames() =>
+      StringArray._(_calls.namedTensorsGetNames(handle));
 
 }

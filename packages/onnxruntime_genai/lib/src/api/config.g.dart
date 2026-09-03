@@ -6,86 +6,58 @@
 part of 'api.dart';
 
 /// Wraps the `OgaConfig` handle.
-final class Config extends GenAiHandle<OgaConfig> {
+///
+/// Above the backend boundary, so it names no pointer type and forwards
+/// everything to whichever backend was selected for this platform.
+final class Config extends GenAiHandle {
   Config._(super.handle);
 
   @override
-  void destroy(Pointer<OgaConfig> handle) => OgaDestroyConfig(handle);
+  void destroy(GenAiPtr handle) => _calls.destroyConfig(handle);
 
   /// Wraps `OgaCreateConfig`.
-  factory Config(String configPath) => withArena((arena) {
-        final out = arena<Pointer<OgaConfig>>();
-        check(OgaCreateConfig(cString(arena, configPath), out));
-        return Config._(out.value);
-      });
+  factory Config(String configPath) =>
+      Config._(_calls.createConfig(configPath));
 
   /// Wraps `OgaCreateConfigFromPackageEp`.
-  factory Config.fromPackageEp(String configPath, String ep) => withArena((arena) {
-        final out = arena<Pointer<OgaConfig>>();
-        check(OgaCreateConfigFromPackageEp(cString(arena, configPath), cString(arena, ep), out));
-        return Config._(out.value);
-      });
+  factory Config.fromPackageEp(String configPath, String ep) =>
+      Config._(_calls.createConfigFromPackageEp(configPath, ep));
 
   /// Wraps `OgaConfigClearProviders`.
-  void clearProviders() => withArena((arena) {
-        check(OgaConfigClearProviders(handle));
-      });
+  void clearProviders() => _calls.configClearProviders(handle);
 
   /// Wraps `OgaConfigAppendProvider`.
-  void appendProvider(String provider) => withArena((arena) {
-        check(OgaConfigAppendProvider(handle, cString(arena, provider)));
-      });
+  void appendProvider(String provider) => _calls.configAppendProvider(handle, provider);
 
   /// Wraps `OgaConfigSetProviderOption`.
-  void setProviderOption(String provider, String key, String value) => withArena((arena) {
-        check(OgaConfigSetProviderOption(handle, cString(arena, provider), cString(arena, key), cString(arena, value)));
-      });
+  void setProviderOption(String provider, String key, String value) => _calls.configSetProviderOption(handle, provider, key, value);
 
   /// Wraps `OgaConfigRemoveModelData`.
-  void removeModelData(String modelFilename) => withArena((arena) {
-        check(OgaConfigRemoveModelData(handle, cString(arena, modelFilename)));
-      });
+  void removeModelData(String modelFilename) => _calls.configRemoveModelData(handle, modelFilename);
 
   /// Wraps `OgaConfigSetDecoderProviderOptionsHardwareDeviceType`.
-  void setDecoderProviderOptionsHardwareDeviceType(String provider, String hardwareDeviceType) => withArena((arena) {
-        check(OgaConfigSetDecoderProviderOptionsHardwareDeviceType(handle, cString(arena, provider), cString(arena, hardwareDeviceType)));
-      });
+  void setDecoderProviderOptionsHardwareDeviceType(String provider, String hardwareDeviceType) => _calls.configSetDecoderProviderOptionsHardwareDeviceType(handle, provider, hardwareDeviceType);
 
   /// Wraps `OgaConfigSetDecoderProviderOptionsHardwareDeviceId`.
-  void setDecoderProviderOptionsHardwareDeviceId(String provider, int hardwareDeviceId) => withArena((arena) {
-        check(OgaConfigSetDecoderProviderOptionsHardwareDeviceId(handle, cString(arena, provider), hardwareDeviceId));
-      });
+  void setDecoderProviderOptionsHardwareDeviceId(String provider, int hardwareDeviceId) => _calls.configSetDecoderProviderOptionsHardwareDeviceId(handle, provider, hardwareDeviceId);
 
   /// Wraps `OgaConfigSetDecoderProviderOptionsHardwareVendorId`.
-  void setDecoderProviderOptionsHardwareVendorId(String provider, int hardwareVendorId) => withArena((arena) {
-        check(OgaConfigSetDecoderProviderOptionsHardwareVendorId(handle, cString(arena, provider), hardwareVendorId));
-      });
+  void setDecoderProviderOptionsHardwareVendorId(String provider, int hardwareVendorId) => _calls.configSetDecoderProviderOptionsHardwareVendorId(handle, provider, hardwareVendorId);
 
   /// Wraps `OgaConfigClearDecoderProviderOptionsHardwareDeviceType`.
-  void clearDecoderProviderOptionsHardwareDeviceType(String provider) => withArena((arena) {
-        check(OgaConfigClearDecoderProviderOptionsHardwareDeviceType(handle, cString(arena, provider)));
-      });
+  void clearDecoderProviderOptionsHardwareDeviceType(String provider) => _calls.configClearDecoderProviderOptionsHardwareDeviceType(handle, provider);
 
   /// Wraps `OgaConfigClearDecoderProviderOptionsHardwareDeviceId`.
-  void clearDecoderProviderOptionsHardwareDeviceId(String provider) => withArena((arena) {
-        check(OgaConfigClearDecoderProviderOptionsHardwareDeviceId(handle, cString(arena, provider)));
-      });
+  void clearDecoderProviderOptionsHardwareDeviceId(String provider) => _calls.configClearDecoderProviderOptionsHardwareDeviceId(handle, provider);
 
   /// Wraps `OgaConfigClearDecoderProviderOptionsHardwareVendorId`.
-  void clearDecoderProviderOptionsHardwareVendorId(String provider) => withArena((arena) {
-        check(OgaConfigClearDecoderProviderOptionsHardwareVendorId(handle, cString(arena, provider)));
-      });
+  void clearDecoderProviderOptionsHardwareVendorId(String provider) => _calls.configClearDecoderProviderOptionsHardwareVendorId(handle, provider);
 
   /// Wraps `OgaConfigOverlay`.
-  void overlay(String json) => withArena((arena) {
-        check(OgaConfigOverlay(handle, cString(arena, json)));
-      });
+  void overlay(String json) => _calls.configOverlay(handle, json);
 
   /// Wraps `OgaCreateModelFromConfig`.
-  Model createModelFromConfig() => withArena((arena) {
-        final out = arena<Pointer<OgaModel>>();
-        check(OgaCreateModelFromConfig(handle, out));
-        return Model._(out.value);
-      });
+  Model createModelFromConfig() =>
+      Model._(_calls.createModelFromConfig(handle));
 
 }

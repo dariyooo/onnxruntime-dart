@@ -6,96 +6,64 @@
 part of 'api.dart';
 
 /// Wraps the `OgaGenerator` handle.
-final class Generator extends GenAiHandle<OgaGenerator> {
+///
+/// Above the backend boundary, so it names no pointer type and forwards
+/// everything to whichever backend was selected for this platform.
+final class Generator extends GenAiHandle {
   Generator._(super.handle);
 
   @override
-  void destroy(Pointer<OgaGenerator> handle) => OgaDestroyGenerator(handle);
+  void destroy(GenAiPtr handle) => _calls.destroyGenerator(handle);
 
   /// Wraps `OgaGenerator_IsDone`.
-  bool isDone() =>
-      OgaGenerator_IsDone(handle);
+  bool isDone() => _calls.generatorIsDone(handle);
 
   /// Wraps `OgaGenerator_IsSessionTerminated`.
-  bool isSessionTerminated() =>
-      OgaGenerator_IsSessionTerminated(handle);
+  bool isSessionTerminated() => _calls.generatorIsSessionTerminated(handle);
 
   /// Wraps `OgaGenerator_SetModelInput`.
-  void setModelInput(String name, Tensor tensor) => withArena((arena) {
-        check(OgaGenerator_SetModelInput(handle, cString(arena, name), tensor.handle));
-      });
+  void setModelInput(String name, GenAiPtr tensor) => _calls.generatorSetModelInput(handle, name, tensor);
 
   /// Wraps `OgaGenerator_SetInputs`.
-  void setInputs(NamedTensors namedTensors) => withArena((arena) {
-        check(OgaGenerator_SetInputs(handle, namedTensors.handle));
-      });
+  void setInputs(GenAiPtr namedTensors) => _calls.generatorSetInputs(handle, namedTensors);
 
   /// Wraps `OgaGenerator_AppendTokenSequences`.
-  void appendTokenSequences(Sequences pSequences) => withArena((arena) {
-        check(OgaGenerator_AppendTokenSequences(handle, pSequences.handle));
-      });
+  void appendTokenSequences(GenAiPtr pSequences) => _calls.generatorAppendTokenSequences(handle, pSequences);
 
   /// Wraps `OgaGenerator_AppendTokens`.
-  void appendTokens(List<int> inputIds) => withArena((arena) {
-        final inputIdsNative = arena<Int32>(inputIds.length);
-        for (var i = 0; i < inputIds.length; i++) {
-          inputIdsNative[i] = inputIds[i];
-        }
-        check(OgaGenerator_AppendTokens(handle, inputIdsNative, inputIds.length));
-      });
+  void appendTokens(List<int> inputIds) => _calls.generatorAppendTokens(handle, inputIds);
 
   /// Wraps `OgaGenerator_TokenCount`.
-  int tokenCount() =>
-      OgaGenerator_TokenCount(handle);
+  int tokenCount() => _calls.generatorTokenCount(handle);
 
   /// Wraps `OgaGenerator_GenerateNextToken`.
-  void generateNextToken() => withArena((arena) {
-        check(OgaGenerator_GenerateNextToken(handle));
-      });
+  void generateNextToken() => _calls.generatorGenerateNextToken(handle);
 
   /// Wraps `OgaGenerator_SetRuntimeOption`.
-  void setRuntimeOption(String key, String value) => withArena((arena) {
-        check(OgaGenerator_SetRuntimeOption(handle, cString(arena, key), cString(arena, value)));
-      });
+  void setRuntimeOption(String key, String value) => _calls.generatorSetRuntimeOption(handle, key, value);
 
   /// Wraps `OgaGenerator_RewindTo`.
-  void rewindTo(int newLength) => withArena((arena) {
-        check(OgaGenerator_RewindTo(handle, newLength));
-      });
+  void rewindTo(int newLength) => _calls.generatorRewindTo(handle, newLength);
 
   /// Wraps `OgaGenerator_GetInput`.
-  Tensor getInput(String name) => withArena((arena) {
-        final out = arena<Pointer<OgaTensor>>();
-        check(OgaGenerator_GetInput(handle, cString(arena, name), out));
-        return Tensor._(out.value);
-      });
+  Tensor getInput(String name) =>
+      Tensor._(_calls.generatorGetInput(handle, name));
 
   /// Wraps `OgaGenerator_GetOutput`.
-  Tensor getOutput(String name) => withArena((arena) {
-        final out = arena<Pointer<OgaTensor>>();
-        check(OgaGenerator_GetOutput(handle, cString(arena, name), out));
-        return Tensor._(out.value);
-      });
+  Tensor getOutput(String name) =>
+      Tensor._(_calls.generatorGetOutput(handle, name));
 
   /// Wraps `OgaGenerator_GetLogits`.
-  Tensor getLogits() => withArena((arena) {
-        final out = arena<Pointer<OgaTensor>>();
-        check(OgaGenerator_GetLogits(handle, out));
-        return Tensor._(out.value);
-      });
+  Tensor getLogits() =>
+      Tensor._(_calls.generatorGetLogits(handle));
 
   /// Wraps `OgaGenerator_SetLogits`.
-  void setLogits(Tensor tensor) => withArena((arena) {
-        check(OgaGenerator_SetLogits(handle, tensor.handle));
-      });
+  void setLogits(GenAiPtr tensor) => _calls.generatorSetLogits(handle, tensor);
 
   /// Wraps `OgaGenerator_GetSequenceCount`.
-  int getSequenceCount(int index) =>
-      withArena((arena) => OgaGenerator_GetSequenceCount(handle, index));
+  int getSequenceCount(int index) => _calls.generatorGetSequenceCount(handle, index);
 
   /// Wraps `OgaSetActiveAdapter`.
-  void setActiveAdapter(Adapters adapters, String adapterName) => withArena((arena) {
-        check(OgaSetActiveAdapter(handle, adapters.handle, cString(arena, adapterName)));
-      });
+  void setActiveAdapter(GenAiPtr adapters, String adapterName) => _calls.setActiveAdapter(handle, adapters, adapterName);
 
 }

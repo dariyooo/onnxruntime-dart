@@ -6,36 +6,25 @@
 part of 'api.dart';
 
 /// Wraps the `OgaRequest` handle.
-final class Request extends GenAiHandle<OgaRequest> {
+///
+/// Above the backend boundary, so it names no pointer type and forwards
+/// everything to whichever backend was selected for this platform.
+final class Request extends GenAiHandle {
   Request._(super.handle);
 
   @override
-  void destroy(Pointer<OgaRequest> handle) => OgaDestroyRequest(handle);
+  void destroy(GenAiPtr handle) => _calls.destroyRequest(handle);
 
   /// Wraps `OgaRequestAddTokens`.
-  void addTokens(Sequences tokens) => withArena((arena) {
-        check(OgaRequestAddTokens(handle, tokens.handle));
-      });
+  void addTokens(GenAiPtr tokens) => _calls.requestAddTokens(handle, tokens);
 
   /// Wraps `OgaRequestHasUnseenTokens`.
-  bool hasUnseenTokens() => withArena((arena) {
-        final out = arena<Bool>();
-        check(OgaRequestHasUnseenTokens(handle, out));
-        return out.value;
-      });
+  bool hasUnseenTokens() => _calls.requestHasUnseenTokens(handle);
 
   /// Wraps `OgaRequestGetUnseenToken`.
-  int getUnseenToken() => withArena((arena) {
-        final out = arena<Int32>();
-        check(OgaRequestGetUnseenToken(handle, out));
-        return out.value;
-      });
+  int getUnseenToken() => _calls.requestGetUnseenToken(handle);
 
   /// Wraps `OgaRequestIsDone`.
-  bool isDone() => withArena((arena) {
-        final out = arena<Bool>();
-        check(OgaRequestIsDone(handle, out));
-        return out.value;
-      });
+  bool isDone() => _calls.requestIsDone(handle);
 
 }

@@ -6,39 +6,29 @@
 part of 'api.dart';
 
 /// Wraps the `OgaSequences` handle.
-final class Sequences extends GenAiHandle<OgaSequences> {
+///
+/// Above the backend boundary, so it names no pointer type and forwards
+/// everything to whichever backend was selected for this platform.
+final class Sequences extends GenAiHandle {
   Sequences._(super.handle);
 
   @override
-  void destroy(Pointer<OgaSequences> handle) => OgaDestroySequences(handle);
+  void destroy(GenAiPtr handle) => _calls.destroySequences(handle);
 
   /// Wraps `OgaCreateSequences`.
-  factory Sequences() => withArena((arena) {
-        final out = arena<Pointer<OgaSequences>>();
-        check(OgaCreateSequences(out));
-        return Sequences._(out.value);
-      });
+  factory Sequences() =>
+      Sequences._(_calls.createSequences());
 
   /// Wraps `OgaSequencesCount`.
-  int count() =>
-      OgaSequencesCount(handle);
+  int count() => _calls.sequencesCount(handle);
 
   /// Wraps `OgaAppendTokenSequence`.
-  void appendTokenSequence(List<int> tokenPtr) => withArena((arena) {
-        final tokenPtrNative = arena<Int32>(tokenPtr.length);
-        for (var i = 0; i < tokenPtr.length; i++) {
-          tokenPtrNative[i] = tokenPtr[i];
-        }
-        check(OgaAppendTokenSequence(tokenPtrNative, tokenPtr.length, handle));
-      });
+  void appendTokenSequence(List<int> tokenPtr) => _calls.appendTokenSequence(handle, tokenPtr);
 
   /// Wraps `OgaAppendTokenToSequence`.
-  void appendTokenToSequence(int token, int sequenceIndex) => withArena((arena) {
-        check(OgaAppendTokenToSequence(token, handle, sequenceIndex));
-      });
+  void appendTokenToSequence(int token, int sequenceIndex) => _calls.appendTokenToSequence(handle, token, sequenceIndex);
 
   /// Wraps `OgaSequencesGetSequenceCount`.
-  int getSequenceCount(int sequenceIndex) =>
-      withArena((arena) => OgaSequencesGetSequenceCount(handle, sequenceIndex));
+  int getSequenceCount(int sequenceIndex) => _calls.sequencesGetSequenceCount(handle, sequenceIndex);
 
 }

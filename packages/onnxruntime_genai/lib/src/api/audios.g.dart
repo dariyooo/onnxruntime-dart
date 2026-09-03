@@ -6,10 +6,13 @@
 part of 'api.dart';
 
 /// Wraps the `OgaAudios` handle.
-final class Audios extends GenAiHandle<OgaAudios> {
+///
+/// Above the backend boundary, so it names no pointer type and forwards
+/// everything to whichever backend was selected for this platform.
+final class Audios extends GenAiHandle {
   Audios._(super.handle);
 
   @override
-  void destroy(Pointer<OgaAudios> handle) => OgaDestroyAudios(handle);
+  void destroy(GenAiPtr handle) => _calls.destroyAudios(handle);
 
 }

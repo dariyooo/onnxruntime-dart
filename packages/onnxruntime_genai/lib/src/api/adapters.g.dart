@@ -6,20 +6,19 @@
 part of 'api.dart';
 
 /// Wraps the `OgaAdapters` handle.
-final class Adapters extends GenAiHandle<OgaAdapters> {
+///
+/// Above the backend boundary, so it names no pointer type and forwards
+/// everything to whichever backend was selected for this platform.
+final class Adapters extends GenAiHandle {
   Adapters._(super.handle);
 
   @override
-  void destroy(Pointer<OgaAdapters> handle) => OgaDestroyAdapters(handle);
+  void destroy(GenAiPtr handle) => _calls.destroyAdapters(handle);
 
   /// Wraps `OgaLoadAdapter`.
-  void loadAdapter(String adapterFilePath, String adapterName) => withArena((arena) {
-        check(OgaLoadAdapter(handle, cString(arena, adapterFilePath), cString(arena, adapterName)));
-      });
+  void loadAdapter(String adapterFilePath, String adapterName) => _calls.loadAdapter(handle, adapterFilePath, adapterName);
 
   /// Wraps `OgaUnloadAdapter`.
-  void unloadAdapter(String adapterName) => withArena((arena) {
-        check(OgaUnloadAdapter(handle, cString(arena, adapterName)));
-      });
+  void unloadAdapter(String adapterName) => _calls.unloadAdapter(handle, adapterName);
 
 }

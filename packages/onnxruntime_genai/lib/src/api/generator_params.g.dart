@@ -6,46 +6,32 @@
 part of 'api.dart';
 
 /// Wraps the `OgaGeneratorParams` handle.
-final class GeneratorParams extends GenAiHandle<OgaGeneratorParams> {
+///
+/// Above the backend boundary, so it names no pointer type and forwards
+/// everything to whichever backend was selected for this platform.
+final class GeneratorParams extends GenAiHandle {
   GeneratorParams._(super.handle);
 
   @override
-  void destroy(Pointer<OgaGeneratorParams> handle) => OgaDestroyGeneratorParams(handle);
+  void destroy(GenAiPtr handle) => _calls.destroyGeneratorParams(handle);
 
   /// Wraps `OgaGeneratorParamsSetSearchNumber`.
-  void setSearchNumber(String name, double value) => withArena((arena) {
-        check(OgaGeneratorParamsSetSearchNumber(handle, cString(arena, name), value));
-      });
+  void setSearchNumber(String name, double value) => _calls.generatorParamsSetSearchNumber(handle, name, value);
 
   /// Wraps `OgaGeneratorParamsSetSearchBool`.
-  void setSearchBool(String name, bool value) => withArena((arena) {
-        check(OgaGeneratorParamsSetSearchBool(handle, cString(arena, name), value));
-      });
+  void setSearchBool(String name, bool value) => _calls.generatorParamsSetSearchBool(handle, name, value);
 
   /// Wraps `OgaGeneratorParamsSetGuidance`.
-  void setGuidance(String type, String data, bool enableFfTokens) => withArena((arena) {
-        check(OgaGeneratorParamsSetGuidance(handle, cString(arena, type), cString(arena, data), enableFfTokens));
-      });
+  void setGuidance(String type, String data, bool enableFfTokens) => _calls.generatorParamsSetGuidance(handle, type, data, enableFfTokens);
 
   /// Wraps `OgaGeneratorParamsGetSearchNumber`.
-  double getSearchNumber(String name) => withArena((arena) {
-        final out = arena<Double>();
-        check(OgaGeneratorParamsGetSearchNumber(handle, cString(arena, name), out));
-        return out.value;
-      });
+  double getSearchNumber(String name) => _calls.generatorParamsGetSearchNumber(handle, name);
 
   /// Wraps `OgaGeneratorParamsGetSearchBool`.
-  bool getSearchBool(String name) => withArena((arena) {
-        final out = arena<Bool>();
-        check(OgaGeneratorParamsGetSearchBool(handle, cString(arena, name), out));
-        return out.value;
-      });
+  bool getSearchBool(String name) => _calls.generatorParamsGetSearchBool(handle, name);
 
   /// Wraps `OgaCreateRequest`.
-  Request createRequest() => withArena((arena) {
-        final out = arena<Pointer<OgaRequest>>();
-        check(OgaCreateRequest(handle, out));
-        return Request._(out.value);
-      });
+  Request createRequest() =>
+      Request._(_calls.createRequest(handle));
 
 }

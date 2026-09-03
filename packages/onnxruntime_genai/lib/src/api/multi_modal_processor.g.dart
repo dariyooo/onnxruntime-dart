@@ -6,70 +6,44 @@
 part of 'api.dart';
 
 /// Wraps the `OgaMultiModalProcessor` handle.
-final class MultiModalProcessor extends GenAiHandle<OgaMultiModalProcessor> {
+///
+/// Above the backend boundary, so it names no pointer type and forwards
+/// everything to whichever backend was selected for this platform.
+final class MultiModalProcessor extends GenAiHandle {
   MultiModalProcessor._(super.handle);
 
   @override
-  void destroy(Pointer<OgaMultiModalProcessor> handle) => OgaDestroyMultiModalProcessor(handle);
+  void destroy(GenAiPtr handle) => _calls.destroyMultiModalProcessor(handle);
 
   /// Wraps `OgaProcessorProcessImages`.
-  NamedTensors processorProcessImages(String prompt, Images images) => withArena((arena) {
-        final out = arena<Pointer<OgaNamedTensors>>();
-        check(OgaProcessorProcessImages(handle, cString(arena, prompt), images.handle, out));
-        return NamedTensors._(out.value);
-      });
+  NamedTensors processorProcessImages(String prompt, GenAiPtr images) =>
+      NamedTensors._(_calls.processorProcessImages(handle, prompt, images));
 
   /// Wraps `OgaProcessorProcessImagesAndPrompts`.
-  NamedTensors processorProcessImagesAndPrompts(StringArray prompts, Images images) => withArena((arena) {
-        final out = arena<Pointer<OgaNamedTensors>>();
-        check(OgaProcessorProcessImagesAndPrompts(handle, prompts.handle, images.handle, out));
-        return NamedTensors._(out.value);
-      });
+  NamedTensors processorProcessImagesAndPrompts(GenAiPtr prompts, GenAiPtr images) =>
+      NamedTensors._(_calls.processorProcessImagesAndPrompts(handle, prompts, images));
 
   /// Wraps `OgaProcessorProcessAudios`.
-  NamedTensors processorProcessAudios(String prompt, Audios audios) => withArena((arena) {
-        final out = arena<Pointer<OgaNamedTensors>>();
-        check(OgaProcessorProcessAudios(handle, cString(arena, prompt), audios.handle, out));
-        return NamedTensors._(out.value);
-      });
+  NamedTensors processorProcessAudios(String prompt, GenAiPtr audios) =>
+      NamedTensors._(_calls.processorProcessAudios(handle, prompt, audios));
 
   /// Wraps `OgaProcessorProcessAudiosAndPrompts`.
-  NamedTensors processorProcessAudiosAndPrompts(StringArray prompts, Audios audios) => withArena((arena) {
-        final out = arena<Pointer<OgaNamedTensors>>();
-        check(OgaProcessorProcessAudiosAndPrompts(handle, prompts.handle, audios.handle, out));
-        return NamedTensors._(out.value);
-      });
+  NamedTensors processorProcessAudiosAndPrompts(GenAiPtr prompts, GenAiPtr audios) =>
+      NamedTensors._(_calls.processorProcessAudiosAndPrompts(handle, prompts, audios));
 
   /// Wraps `OgaProcessorProcessImagesAndAudios`.
-  NamedTensors processorProcessImagesAndAudios(String prompt, Images images, Audios audios) => withArena((arena) {
-        final out = arena<Pointer<OgaNamedTensors>>();
-        check(OgaProcessorProcessImagesAndAudios(handle, cString(arena, prompt), images.handle, audios.handle, out));
-        return NamedTensors._(out.value);
-      });
+  NamedTensors processorProcessImagesAndAudios(String prompt, GenAiPtr images, GenAiPtr audios) =>
+      NamedTensors._(_calls.processorProcessImagesAndAudios(handle, prompt, images, audios));
 
   /// Wraps `OgaProcessorProcessImagesAndAudiosAndPrompts`.
-  NamedTensors processorProcessImagesAndAudiosAndPrompts(StringArray prompts, Images images, Audios audios) => withArena((arena) {
-        final out = arena<Pointer<OgaNamedTensors>>();
-        check(OgaProcessorProcessImagesAndAudiosAndPrompts(handle, prompts.handle, images.handle, audios.handle, out));
-        return NamedTensors._(out.value);
-      });
+  NamedTensors processorProcessImagesAndAudiosAndPrompts(GenAiPtr prompts, GenAiPtr images, GenAiPtr audios) =>
+      NamedTensors._(_calls.processorProcessImagesAndAudiosAndPrompts(handle, prompts, images, audios));
 
   /// Wraps `OgaProcessorDecode`.
-  String processorDecode(List<int> tokens) => withArena((arena) {
-        final tokensNative = arena<Int32>(tokens.length);
-        for (var i = 0; i < tokens.length; i++) {
-          tokensNative[i] = tokens[i];
-        }
-        final out = arena<Pointer<Char>>();
-        check(OgaProcessorDecode(handle, tokensNative, tokens.length, out));
-        return borrowedCString(out.value);
-      });
+  String processorDecode(List<int> tokens) => _calls.processorDecode(handle, tokens);
 
   /// Wraps `OgaCreateTokenizerStreamFromProcessor`.
-  TokenizerStream createTokenizerStreamFromProcessor() => withArena((arena) {
-        final out = arena<Pointer<OgaTokenizerStream>>();
-        check(OgaCreateTokenizerStreamFromProcessor(handle, out));
-        return TokenizerStream._(out.value);
-      });
+  TokenizerStream createTokenizerStreamFromProcessor() =>
+      TokenizerStream._(_calls.createTokenizerStreamFromProcessor(handle));
 
 }

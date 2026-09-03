@@ -6,17 +6,16 @@
 part of 'api.dart';
 
 /// Wraps the `OgaTokenizerStream` handle.
-final class TokenizerStream extends GenAiHandle<OgaTokenizerStream> {
+///
+/// Above the backend boundary, so it names no pointer type and forwards
+/// everything to whichever backend was selected for this platform.
+final class TokenizerStream extends GenAiHandle {
   TokenizerStream._(super.handle);
 
   @override
-  void destroy(Pointer<OgaTokenizerStream> handle) => OgaDestroyTokenizerStream(handle);
+  void destroy(GenAiPtr handle) => _calls.destroyTokenizerStream(handle);
 
   /// Wraps `OgaTokenizerStreamDecode`.
-  String decode(int token) => withArena((arena) {
-        final out = arena<Pointer<Char>>();
-        check(OgaTokenizerStreamDecode(handle, token, out));
-        return borrowedCString(out.value);
-      });
+  String decode(int token) => _calls.tokenizerStreamDecode(handle, token);
 
 }

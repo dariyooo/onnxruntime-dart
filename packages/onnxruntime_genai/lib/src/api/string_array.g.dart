@@ -6,50 +6,34 @@
 part of 'api.dart';
 
 /// Wraps the `OgaStringArray` handle.
-final class StringArray extends GenAiHandle<OgaStringArray> {
+///
+/// Above the backend boundary, so it names no pointer type and forwards
+/// everything to whichever backend was selected for this platform.
+final class StringArray extends GenAiHandle {
   StringArray._(super.handle);
 
   @override
-  void destroy(Pointer<OgaStringArray> handle) => OgaDestroyStringArray(handle);
+  void destroy(GenAiPtr handle) => _calls.destroyStringArray(handle);
 
   /// Wraps `OgaLoadImages`.
-  Images loadImages() => withArena((arena) {
-        final out = arena<Pointer<OgaImages>>();
-        check(OgaLoadImages(handle, out));
-        return Images._(out.value);
-      });
+  Images loadImages() =>
+      Images._(_calls.loadImages(handle));
 
   /// Wraps `OgaLoadAudios`.
-  Audios loadAudios() => withArena((arena) {
-        final out = arena<Pointer<OgaAudios>>();
-        check(OgaLoadAudios(handle, out));
-        return Audios._(out.value);
-      });
+  Audios loadAudios() =>
+      Audios._(_calls.loadAudios(handle));
 
   /// Wraps `OgaCreateStringArray`.
-  factory StringArray() => withArena((arena) {
-        final out = arena<Pointer<OgaStringArray>>();
-        check(OgaCreateStringArray(out));
-        return StringArray._(out.value);
-      });
+  factory StringArray() =>
+      StringArray._(_calls.createStringArray());
 
   /// Wraps `OgaStringArrayAddString`.
-  void addString(String str) => withArena((arena) {
-        check(OgaStringArrayAddString(handle, cString(arena, str)));
-      });
+  void addString(String str) => _calls.stringArrayAddString(handle, str);
 
   /// Wraps `OgaStringArrayGetCount`.
-  int getCount() => withArena((arena) {
-        final out = arena<Size>();
-        check(OgaStringArrayGetCount(handle, out));
-        return out.value;
-      });
+  int getCount() => _calls.stringArrayGetCount(handle);
 
   /// Wraps `OgaStringArrayGetString`.
-  String getString(int index) => withArena((arena) {
-        final out = arena<Pointer<Char>>();
-        check(OgaStringArrayGetString(handle, index, out));
-        return borrowedCString(out.value);
-      });
+  String getString(int index) => _calls.stringArrayGetString(handle, index);
 
 }

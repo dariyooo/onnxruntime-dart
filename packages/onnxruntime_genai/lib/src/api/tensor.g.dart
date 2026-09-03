@@ -6,26 +6,19 @@
 part of 'api.dart';
 
 /// Wraps the `OgaTensor` handle.
-final class Tensor extends GenAiHandle<OgaTensor> {
+///
+/// Above the backend boundary, so it names no pointer type and forwards
+/// everything to whichever backend was selected for this platform.
+final class Tensor extends GenAiHandle {
   Tensor._(super.handle);
 
   @override
-  void destroy(Pointer<OgaTensor> handle) => OgaDestroyTensor(handle);
+  void destroy(GenAiPtr handle) => _calls.destroyTensor(handle);
 
   /// Wraps `OgaTensorGetShapeRank`.
-  int getShapeRank() => withArena((arena) {
-        final out = arena<Size>();
-        check(OgaTensorGetShapeRank(handle, out));
-        return out.value;
-      });
+  int getShapeRank() => _calls.tensorGetShapeRank(handle);
 
   /// Wraps `OgaTensorGetShape`.
-  void getShape(List<int> shapeDims) => withArena((arena) {
-        final shapeDimsNative = arena<Int64>(shapeDims.length);
-        for (var i = 0; i < shapeDims.length; i++) {
-          shapeDimsNative[i] = shapeDims[i];
-        }
-        check(OgaTensorGetShape(handle, shapeDimsNative, shapeDims.length));
-      });
+  void getShape(List<int> shapeDims) => _calls.tensorGetShape(handle, shapeDims);
 
 }
