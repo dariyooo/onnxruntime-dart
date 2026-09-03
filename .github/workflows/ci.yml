@@ -821,28 +821,41 @@ jobs:
       # beyond CI: an application shipping this provider on Windows needs both
       # DLLs beside it.
       #
-      # PowerShell rather than bash: the release zip stores backslash
-      # separators, which Git Bash's unzip turns into filenames containing
-      # backslashes rather than directories.
+      # From NuGet rather than from the GitHub release, because the release
+      # has no ARM64 build. What it ships as bin/arm64 is ARM64EC: the PE
+      # header says AMD64, the load config carries a CHPE pointer, and there
+      # is no ARM64X relocation table, so a native ARM64 process cannot load
+      # it and LoadLibrary fails with error 87. Microsoft.Direct3D.DXC ships
+      # all three as native code, so one source covers every architecture.
       - name: The DirectX shader compiler, for the WebGPU provider
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          $release = Invoke-RestMethod `
-            https://api.github.com/repos/microsoft/DirectXShaderCompiler/releases/latest
-          $asset = $release.assets |
-            Where-Object { $_.name -like 'dxc_*.zip' } |
-            Select-Object -First 1
-          Write-Host "  $($asset.browser_download_url)"
+          $version = (Invoke-RestMethod `
+            https://api.nuget.org/v3-flatcontainer/microsoft.direct3d.dxc/index.json
+          ).versions[-1]
+          Write-Host "  Microsoft.Direct3D.DXC $version"
 
-          Invoke-WebRequest $asset.browser_download_url -OutFile dxc.zip
+          Invoke-WebRequest -OutFile dxc.zip ("https://api.nuget.org/v3-flatcontainer" +
+            "/microsoft.direct3d.dxc/$version/microsoft.direct3d.dxc.$version.nupkg")
           Expand-Archive dxc.zip -DestinationPath .local/dxc -Force
 
+          $onArm = $env:RUNNER_ARCH -eq 'ARM64'
           $dll = Get-ChildItem .local/dxc -Recurse -Filter dxcompiler.dll |
-            Where-Object { $_.FullName -match 'x64' } |
+            Where-Object { $_.FullName -like "*\$(if ($onArm) { 'arm64' } else { 'x64' })\*" } |
             Select-Object -First 1
-          if (-not $dll) { throw "no x64 dxcompiler.dll in $($asset.name)" }
-          Write-Host "  $($dll.Directory)"
+          if (-not $dll) { throw "no dxcompiler.dll for $env:RUNNER_ARCH" }
+
+          # Read out of the PE header rather than trusted from the path. This
+          # is the check that would have caught the ARM64EC build immediately
+          # instead of as an unexplained error number inside Dawn.
+          $bytes = [IO.File]::ReadAllBytes($dll.FullName)
+          $machine = [BitConverter]::ToUInt16($bytes, [BitConverter]::ToInt32($bytes, 0x3c) + 4)
+          $found = switch ($machine) { 0xaa64 { 'ARM64' } 0x8664 { 'AMD64' } default { "$machine" } }
+          $want = if ($onArm) { 'ARM64' } else { 'AMD64' }
+          Write-Host "  $($dll.Directory) is $found"
+          if ($found -ne $want) { throw "dxcompiler.dll is $found, need $want" }
+
           Add-Content $env:GITHUB_PATH $dll.Directory.FullName
 
       # NVIDIA publishes no CUDA for Windows on ARM, so its runtime cannot be
@@ -879,7 +892,7 @@ jobs:
           $webgpu = Get-ChildItem .local/ort -Recurse `
             -Filter onnxruntime_providers_webgpu.dll | Select-Object -First 1
           if ($webgpu) {
-            # The runner's architecture, not a hard-coded one: the release
+            # The runner's architecture, not a hard-coded one: the package
             # carries bin/x64 and bin/arm64, and copying the wrong one fails
             # the load with the same error 87 as copying nothing.
             $arch = if ($env:RUNNER_ARCH -eq 'ARM64') { 'arm64' } else { 'x64' }
