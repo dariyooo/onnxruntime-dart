@@ -25,6 +25,7 @@ import ort_matrix as m
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 import package_artifact
 import release_identity
+import binary_arch
 import rename_release_assets
 
 
@@ -1036,6 +1037,50 @@ class ReleaseAssetNames(unittest.TestCase):
                 f"{line.strip()} names a release asset outright; ask "
                 f"rename_release_assets.py --name for it instead",
             )
+
+
+class ArtifactArchitecture(unittest.TestCase):
+    """That packaging checks what it ships without refusing what it should.
+
+    The check exists because a path is not evidence of an architecture, which
+    is how an ARM64EC shader compiler came to be shipped as ARM64. It runs on
+    every file that goes into a release archive, so it has to be right about
+    the targets that have no machine code as well as the ones that do.
+    """
+
+    def test_a_wasm_artifact_passes_for_every_target(self):
+        # Nothing in a web build claims an architecture, so asking the table
+        # what wasm32 means before reading the file would refuse to package
+        # the web builds at all.
+        with tempfile.TemporaryDirectory() as tmp:
+            wasm = pathlib.Path(tmp) / "onnxruntime.wasm"
+            wasm.write_bytes(b"\x00asm\x01\x00\x00\x00" + b"\x00" * 256)
+            for arch in sorted({config.arch for config in m.CONFIGURATIONS}):
+                with self.subTest(arch=arch):
+                    binary_arch.verify(wasm, arch)
+
+    def test_machine_code_for_an_unknown_target_is_refused(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            elf = pathlib.Path(tmp) / "libonnxruntime.so"
+            # An ELF header claiming aarch64, which is all the check reads.
+            header = bytearray(b"\x7fELF\x02\x01\x01" + b"\x00" * 121)
+            header[0x12] = 0xB7
+            elf.write_bytes(bytes(header))
+            binary_arch.verify(elf, "arm64")
+            with self.assertRaises(SystemExit):
+                binary_arch.verify(elf, "x86_64")
+
+    def test_every_native_target_has_a_known_architecture(self):
+        for config in m.CONFIGURATIONS:
+            if config.arch == "wasm32":
+                continue
+            with self.subTest(config=config.id):
+                self.assertIn(
+                    config.arch,
+                    binary_arch.TARGETS,
+                    f"{config.id} builds for {config.arch}, which packaging "
+                    f"cannot check",
+                )
 
 
 if __name__ == "__main__":

@@ -81,13 +81,20 @@ def architectures(path: pathlib.Path) -> set[str]:
 
 def verify(path: pathlib.Path, arch: str) -> None:
     """Raises if [path] is a binary built for something other than [arch]."""
-    want = TARGETS.get(arch)
-    if want is None:
-        raise SystemExit(f"no architecture known for the target {arch!r}")
-
+    # The file first, because most targets have an architecture and wasm does
+    # not. Asking the table first would refuse to package a web build for
+    # having an architecture no machine code in it claims.
     found = architectures(path)
     if not found:
         return  # Not an object file we read, so nothing to contradict.
+
+    want = TARGETS.get(arch)
+    if want is None:
+        raise SystemExit(
+            f"{path.name} is machine code for {', '.join(sorted(found))}, but "
+            f"nothing here knows what architecture the target {arch!r} means. "
+            f"Add it to TARGETS."
+        )
     if want not in found:
         raise SystemExit(
             f"{path.name} is built for {', '.join(sorted(found))}, but this "
