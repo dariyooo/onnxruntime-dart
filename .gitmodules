@@ -6,3 +6,7 @@
 	path = third_party/onnxruntime-extensions
 	url = https://github.com/microsoft/onnxruntime-extensions.git
 	shallow = true
+[submodule "third_party/onnxruntime-genai"]
+	path = third_party/onnxruntime-genai
+	url = https://github.com/microsoft/onnxruntime-genai.git
+	branch = main

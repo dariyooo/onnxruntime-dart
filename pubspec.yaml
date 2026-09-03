@@ -13,6 +13,7 @@ workspace:
   - packages/onnxruntime_hook
   - packages/onnxruntime_binaries
   - packages/onnxruntime_extensions
+  - packages/onnxruntime_genai
   - packages/onnxruntime_ep_webgpu
   - packages/onnxruntime_ep_cuda
   - packages/onnxruntime_ep_qnn

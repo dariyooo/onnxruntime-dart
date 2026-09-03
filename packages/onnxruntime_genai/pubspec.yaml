@@ -1,0 +1,29 @@
+name: onnxruntime_genai
+description: >-
+  Generative AI on top of onnxruntime_dart: token generation, KV caching and sampling, driven by ONNX Runtime GenAI.
+# From VERSION_INFO in the pinned tree, which is what upstream tags its releases
+# as and what the archives are named for. This package carries those binaries,
+# so it is versioned as them rather than on a number of its own.
+version: 0.15.2
+repository: https://github.com/dariyooo/onnxruntime-dart
+issue_tracker: https://github.com/dariyooo/onnxruntime-dart/issues
+
+environment:
+  sdk: ^3.6.0
+
+resolution: workspace
+
+dependencies:
+  code_assets: '>=1.0.0 <2.0.0'
+  ffi: ^2.1.0
+  hooks: '>=1.0.0 <3.0.0'
+  # GenAI resolves OrtGetApiBase out of an already loaded ONNX Runtime rather
+  # than linking it, so the runtime has to be present and found. Depending on
+  # the base package is what puts it there, and gives loadedLibraryPath for
+  # working out where this library itself landed.
+  onnxruntime_dart: '>=0.1.0 <1.0.0'
+  onnxruntime_hook: ^1.29.0
+
+dev_dependencies:
+  ffigen: ^21.0.0
+  test: ^1.25.0
