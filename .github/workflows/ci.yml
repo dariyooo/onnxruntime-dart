@@ -1041,8 +1041,12 @@ jobs:
           # on it at once: "curl: (18) end of response with 3810773240 bytes
           # missing", before a single byte arrives. The cmdlet fetches the
           # whole 3.8 GB without complaint, so it is the one that works.
+          # Retried, because this is 3.8 GB from a host that sometimes drops
+          # the connection partway. One dropped download should not cost the
+          # job, and a whole platform's providers, a rerun by hand.
           $ProgressPreference = 'SilentlyContinue'
-          Invoke-WebRequest $url -OutFile cuda.exe
+          Invoke-WebRequest $url -OutFile cuda.exe `
+            -MaximumRetryCount 4 -RetryIntervalSec 15
           Write-Host "  $([int]((Get-Item cuda.exe).Length/1MB)) MB"
 
           # The installer is a 7-Zip self-extractor, so the libraries can be
