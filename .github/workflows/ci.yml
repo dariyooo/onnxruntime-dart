@@ -861,9 +861,10 @@ jobs:
       # Microsoft.Direct3D.DXC package alike, byte for byte.
       #
       # What is left is the Windows SDK, which does ship a native ARM64 build.
-      # Newest first, because Dawn wants a recent compiler: the 2022 one on
-      # this image loads cleanly and then kills the process with exit 127 and
-      # nothing logged.
+      # Newest first, because Dawn wants a recent compiler and the SDK keeps
+      # every version ever installed: 10.0.26100.0 carries DXC 1.8.2502 and
+      # works, while 10.0.22621.0 carries 1.6.2112, which loads cleanly and
+      # then kills the process with exit 127 and nothing logged.
       - name: The DirectX shader compiler, for the WebGPU provider
         if: runner.os == 'Windows'
         shell: pwsh
