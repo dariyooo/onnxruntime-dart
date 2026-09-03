@@ -44,3 +44,9 @@ Future<Uint8List> _bytes(String url) async {
   }
   return (await response.arrayBuffer().toDart).toDart.asUint8List();
 }
+
+/// Options a session needs to be run asynchronously here.
+///
+/// Nothing: the WebAssembly build fixes its thread count when the module is
+/// instantiated, so asking a session for threads is refused outright.
+const asyncSessionOptions = SessionOptions();
