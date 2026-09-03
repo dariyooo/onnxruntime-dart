@@ -30,11 +30,19 @@ def main() -> None:
         raise SystemExit("usage: locate_genai.py <target-id>")
 
     target = sys.argv[1]
-    if target not in genai_matrix.TARGETS:
+
+    # Exported either way, because the job has to know whether to run the GenAI
+    # tests at all. On a target with no build the hook refuses outright, which
+    # is right for an application and wrong for a test run that should simply
+    # not happen.
+    supported = target in genai_matrix.targets()
+    locate_library.export("GENAI_SUPPORTED", str(supported).lower())
+
+    if not supported:
         # Not a failure. Upstream publishes no macOS x64 or WebAssembly build,
         # and a job on one of those should say so and carry on rather than
         # fail for a library that was never going to exist.
-        print(f"::notice::no GenAI build for {target}; its tests will skip")
+        print(f"::notice::no GenAI build for {target}; its tests do not run")
         return
 
     staged = REPO_ROOT / ".local" / "genai" / target

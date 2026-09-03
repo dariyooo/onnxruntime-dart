@@ -1230,5 +1230,9 @@ jobs:
       # with a named reason on a target upstream publishes no library for,
       # which is macOS x64 and nothing else.
       - name: Test GenAI
+        # Only where upstream has a build. Elsewhere the hook refuses, which is
+        # the right answer for an application and the wrong one for a job that
+        # should just not run these.
+        if: env.GENAI_SUPPORTED == 'true'
         working-directory: packages/onnxruntime_genai
         run: dart test --reporter expanded
