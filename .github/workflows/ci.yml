@@ -758,11 +758,12 @@ jobs:
       # have, and the accelerator tests exclude it for that reason.
       - name: The CUDA runtime, so its plugin can be loaded
         if: runner.arch == 'X64' && runner.os != 'macOS'
-        uses: Jimver/cuda-toolkit@v0.2.24
+        uses: Jimver/cuda-toolkit@v0.2.36
         with:
-          # The earliest 13.x the action actually carries; 13.0.0 is not one
-          # of them. Any 13.x provides the libcudart.so.13 the plugin wants.
-          cuda: '13.1.0'
+          # A 13.x, because the plugin dlopens libcudart.so.13. Which ones
+          # exist depends on the action version, not on NVIDIA: v0.2.24
+          # stopped at 12.9, so the pin above matters as much as this.
+          cuda: '13.0.2'
           method: network
           # cublas as well as cudart: the plugin links both, and a missing
           # cublas64 fails the load just as surely as a missing cudart.
