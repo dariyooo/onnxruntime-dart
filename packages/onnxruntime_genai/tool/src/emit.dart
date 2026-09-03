@@ -117,6 +117,17 @@ final class _ListParameter {
 }
 
 /// The list [parameters] starting at [index] describe, if they describe one.
+/// Whether [parameters] from [index] are a pointer array, a size array and a
+/// count: one list of buffers written as three arguments.
+bool _isBufferList(List<CParameter> parameters, int index) {
+  if (index + 2 >= parameters.length) return false;
+  String bare(int i) =>
+      parameters[i].type.replaceAll('const', '').replaceAll(' ', '');
+  return bare(index) == 'void**' &&
+      bare(index + 1) == 'size_t*' &&
+      bare(index + 2) == 'size_t';
+}
+
 _ListParameter? _asList(List<CParameter> parameters, int index) {
   if (index + 1 >= parameters.length) return null;
   final pointer =
@@ -340,6 +351,29 @@ Wrapped? _wrap(CFunction function, String? owner, String? dartName) {
     if (parameter == out || parameter == arrayOut) continue;
     if (owner != null && !isFactory && i == selfIndex) {
       forwarded.add('pointer<$owner>(handle)');
+      continue;
+    }
+
+    if (_isBufferList(parameters, i)) {
+      final name = _dartParameterName(parameter.name);
+      declared.add('List<Uint8List> $name');
+      passed.add(name);
+      prologue.add(
+        'final ${name}Data = arena<Pointer<Void>>($name.length);\n'
+        '      final ${name}Sizes = arena<Size>($name.length);\n'
+        '      for (var i = 0; i < $name.length; i++) {\n'
+        '        final bytes = arena<Uint8>($name[i].length);\n'
+        '        for (var b = 0; b < $name[i].length; b++) {\n'
+        '          bytes[b] = $name[i][b];\n'
+        '        }\n'
+        '        ${name}Data[i] = bytes.cast();\n'
+        '        ${name}Sizes[i] = $name[i].length;\n'
+        '      }',
+      );
+      forwarded.add('${name}Data');
+      forwarded.add('${name}Sizes');
+      forwarded.add('$name.length');
+      i += 2;
       continue;
     }
 

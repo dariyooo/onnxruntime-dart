@@ -126,6 +126,10 @@ final class UnsupportedGenAiCalls implements GenAiCalls {
       throw const GenAiUnsupported('loadImage');
 
   @override
+  GenAiPtr loadImagesFromBuffers(List<Uint8List> imageData) =>
+      throw const GenAiUnsupported('loadImagesFromBuffers');
+
+  @override
   void destroyStringArray(GenAiPtr handle) =>
       throw const GenAiUnsupported('destroyStringArray');
 
@@ -164,6 +168,10 @@ final class UnsupportedGenAiCalls implements GenAiCalls {
   @override
   GenAiPtr loadAudio(String audioPath) =>
       throw const GenAiUnsupported('loadAudio');
+
+  @override
+  GenAiPtr loadAudiosFromBuffers(List<Uint8List> audioData) =>
+      throw const GenAiUnsupported('loadAudiosFromBuffers');
 
   @override
   void destroyRuntimeSettings(GenAiPtr handle) =>
@@ -520,6 +528,10 @@ final class UnsupportedGenAiCalls implements GenAiCalls {
   @override
   void destroyTensor(GenAiPtr handle) =>
       throw const GenAiUnsupported('destroyTensor');
+
+  @override
+  int tensorGetType(GenAiPtr handle) =>
+      throw const GenAiUnsupported('tensorGetType');
 
   @override
   int tensorGetShapeRank(GenAiPtr handle) =>
