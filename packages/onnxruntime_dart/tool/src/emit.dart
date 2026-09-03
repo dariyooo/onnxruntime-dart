@@ -132,10 +132,20 @@ String? emit(CFunction function, Signature signature) {
         : element;
   }
 
-  final returnType = switch (outputs.length) {
+  // An out-parameter that only carries the length of a callee-allocated array
+  // is allocated like any other but not returned: the list says the same thing,
+  // and returning both invites them to disagree.
+  final counts = {
+    for (final parameter in function.parameters)
+      if (parameter.isCalleeAllocated && parameter.arrayLengthParameter != null)
+        parameter.arrayLengthParameter!,
+  };
+  final returned = outputs.where((o) => !counts.contains(o.$1.name)).toList();
+
+  final returnType = switch (returned.length) {
     0 => 'void',
-    1 => typeOf(outputs.single.$1, outputs.single.$2),
-    _ => '(${outputs.map((o) => '${typeOf(o.$1, o.$2)} '
+    1 => typeOf(returned.single.$1, returned.single.$2),
+    _ => '(${returned.map((o) => '${typeOf(o.$1, o.$2)} '
         '${_dartParam(o.$1.name)}').join(', ')})',
   };
 
@@ -153,7 +163,10 @@ String? emit(CFunction function, Signature signature) {
   for (final (index, (parameter, _)) in outputs.indexed) {
     final cell = _pointee(signature[function.parameters.indexOf(parameter)]);
     final length = parameter.arrayLengthParameter;
-    final count = length == null ? '' : _dartParam(length);
+    // A callee-allocated array needs one pointer cell whatever its length: the
+    // call fills that cell with an array it allocated itself.
+    final count =
+        length == null || parameter.isCalleeAllocated ? '' : _dartParam(length);
     allocations.writeln('        final ${_out(index)} = arena<$cell>($count);');
   }
 
@@ -197,11 +210,23 @@ String? emit(CFunction function, Signature signature) {
       .map((p) => _dartParam(p.name))
       .firstOrNull;
 
+  final outputSlot = {
+    for (final (index, (parameter, _)) in outputs.indexed)
+      parameter.name: index,
+  };
+
   String read(CParameter parameter, OutputMapping mapping, int index) {
     final length = parameter.arrayLengthParameter;
-    final text = length == null
+    // The length of a callee-allocated array is itself an out-parameter, so it
+    // is read from its own cell rather than named as a Dart argument.
+    final count = length == null
+        ? null
+        : parameter.isCalleeAllocated
+            ? '${_out(outputSlot[length]!)}.value'
+            : _dartParam(length);
+    final text = count == null
         ? mapping.read(_out(index))
-        : mapping.readAll(_out(index), _dartParam(length));
+        : (mapping.readArray ?? mapping.readAll)(_out(index), count);
     if (!mapping.needsAllocator) return text;
     if (allocator == null) {
       throw StateError(
@@ -211,15 +236,18 @@ String? emit(CFunction function, Signature signature) {
     return text.replaceAll('ALLOCATOR', allocator);
   }
 
-  switch (outputs.length) {
+  switch (returned.length) {
     case 0:
       break;
     case 1:
-      final (parameter, mapping) = outputs.single;
-      buffer.writeln('        return ${read(parameter, mapping, 0)};');
+      final (parameter, mapping) = returned.single;
+      buffer.writeln(
+        '        return ${read(parameter, mapping, outputSlot[parameter.name]!)};',
+      );
     default:
-      final reads =
-          outputs.indexed.map((e) => read(e.$2.$1, e.$2.$2, e.$1)).join(', ');
+      final reads = returned
+          .map((o) => read(o.$1, o.$2, outputSlot[o.$1.name]!))
+          .join(', ');
       buffer.writeln('        return ($reads);');
   }
 

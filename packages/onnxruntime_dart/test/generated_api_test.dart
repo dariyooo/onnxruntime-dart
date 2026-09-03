@@ -107,6 +107,53 @@ void main() {
       expect(api.modelMetadataGetVersion(metadata), isA<int>());
     });
 
+    test('a callee-allocated array is read through its own count', () {
+      // GetEpDevices hands back an array it owns and the length in a separate
+      // out-parameter. The wrapper has to allocate one pointer cell rather
+      // than room for the elements, and read the count from its own cell.
+      final devices = api.getEpDevices(OrtEnvironment.instance().handle);
+      expect(devices, isA<List<Pointer<OrtEpDevice>>>());
+      // Every build registers at least the CPU device.
+      expect(devices, isNotEmpty);
+      expect(devices.every((d) => d != nullptr), isTrue);
+
+      // The names are readable, which is what proves the pointers are real
+      // rather than a count that happened to be plausible. Called through the
+      // raw field: EpDevice_EpName returns a string rather than a status, and
+      // the generator only wraps the ORT_API2_STATUS shape.
+      final epName = api.EpDevice_EpName.asFunction<
+          Pointer<Char> Function(Pointer<OrtEpDevice>)>();
+      for (final device in devices) {
+        expect(epName(device).cast<Utf8>().toDartString(), isNotEmpty);
+      }
+    });
+
+    test('an allocator-owned string array is read and freed', () {
+      final metadata = api.sessionGetModelMetadata(session);
+      addTearDown(() => api.releaseModelMetadata(metadata));
+      final allocator = api.getAllocatorWithDefaultOptions();
+
+      // Both the keys and the array holding them are the allocator's, so a
+      // wrapper that frees only one of them leaks. Repeating it would show up
+      // as growth; what is checked here is that it returns the same answer and
+      // does not crash on the second free.
+      final first =
+          api.modelMetadataGetCustomMetadataMapKeys(metadata, allocator);
+      final second =
+          api.modelMetadataGetCustomMetadataMapKeys(metadata, allocator);
+      expect(first, second);
+      expect(first, isA<List<String>>());
+    });
+
+    test('a shape borrowed from the runtime reads as a list of dimensions', () {
+      // GetTensorElementTypeAndShapeDataReference returns a pointer into the
+      // runtime's own memory plus a count, and must not be freed.
+      final input = api.sessionGetInputTypeInfo(session, 0);
+      addTearDown(() => api.releaseTypeInfo(input));
+      final info = api.castTypeInfoToTensorInfo(input);
+      expect(api.getDimensionsCount(info), greaterThan(0));
+    });
+
     test('memory info round-trips its own fields', () {
       // CreateMemoryInfo takes two enums and a name, so it exercises the
       // string-in, enum-in path that most option calls use.

@@ -608,6 +608,23 @@ extension OrtApiKernelApi on OrtApi {
         return out0.value;
       });
 
+  /// `KernelInfoGetAttributeArray_string`
+  List<String> kernelInfoGetAttributeArray_string(Pointer<OrtKernelInfo> info,
+          String name, Pointer<OrtAllocator> allocator) =>
+      withArena((arena) {
+        final out0 = arena<Pointer<Pointer<Char>>>();
+        final out1 = arena<Size>();
+        checkOrtStatus(this.KernelInfoGetAttributeArray_string.asFunction<
+                Pointer<OrtStatus> Function(
+                    Pointer<OrtKernelInfo>,
+                    Pointer<Char>,
+                    Pointer<OrtAllocator>,
+                    Pointer<Pointer<Pointer<Char>>>,
+                    Pointer<Size>)>()(info,
+            name.toNativeUtf8(allocator: arena).cast(), allocator, out0, out1));
+        return takeAllocatedStrings(out0.value, out1.value, allocator);
+      });
+
   /// `KernelContext_GetSyncStream`
   Pointer<OrtSyncStream> kernelContext_GetSyncStream(
           Pointer<OrtKernelContext> context) =>

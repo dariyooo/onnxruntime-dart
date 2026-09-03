@@ -105,6 +105,29 @@ Pointer<Size> nativeSizes(List<int> values, Arena arena) {
   return array;
 }
 
+/// Reads an array of strings [allocator] owns, freeing the strings and the
+/// array that held them.
+///
+/// `ModelMetadataGetCustomMetadataMapKeys` and
+/// `KernelInfoGetAttributeArray_string` hand back both, so freeing only the
+/// array leaks every key and freeing only the keys leaks the array.
+List<String> takeAllocatedStrings(
+  Pointer<Pointer<Char>> array,
+  int count,
+  Pointer<OrtAllocator> allocator,
+) {
+  final free = ortApiForStatus.AllocatorFree.asFunction<
+      Pointer<OrtStatus> Function(Pointer<OrtAllocator>, Pointer<Void>)>();
+  final values = [
+    for (var i = 0; i < count; i++) array[i].cast<Utf8>().toDartString(),
+  ];
+  for (var i = 0; i < count; i++) {
+    free(allocator, array[i].cast());
+  }
+  free(allocator, array.cast());
+  return values;
+}
+
 /// Reads a string [allocator] owns, and frees it with the same allocator.
 ///
 /// `SessionGetInputName` and its kin hand back memory the caller must return,

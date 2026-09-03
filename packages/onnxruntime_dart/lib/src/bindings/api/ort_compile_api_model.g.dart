@@ -52,24 +52,23 @@ extension OrtCompileApiModelApi on OrtCompileApi {
       });
 
   /// `ModelCompilationOptions_SetOutputModelBuffer`
-  (Pointer<Void> outputModelBufferPtr, int outputModelBufferSizePtr)
-      modelCompilationOptions_SetOutputModelBuffer(
-              Pointer<OrtModelCompilationOptions> modelCompileOptions,
-              Pointer<OrtAllocator> allocator) =>
-          withArena((arena) {
-            final out0 = arena<Pointer<Void>>();
-            final out1 = arena<Size>();
-            checkOrtStatus(this
-                    .ModelCompilationOptions_SetOutputModelBuffer
-                    .asFunction<
-                        Pointer<OrtStatus> Function(
-                            Pointer<OrtModelCompilationOptions>,
-                            Pointer<OrtAllocator>,
-                            Pointer<Pointer<Void>>,
-                            Pointer<Size>)>()(
-                modelCompileOptions, allocator, out0, out1));
-            return (out0.value, out1.value);
-          });
+  List<Pointer<Void>> modelCompilationOptions_SetOutputModelBuffer(
+          Pointer<OrtModelCompilationOptions> modelCompileOptions,
+          Pointer<OrtAllocator> allocator) =>
+      withArena((arena) {
+        final out0 = arena<Pointer<Void>>();
+        final out1 = arena<Size>();
+        checkOrtStatus(this
+                .ModelCompilationOptions_SetOutputModelBuffer
+                .asFunction<
+                    Pointer<OrtStatus> Function(
+                        Pointer<OrtModelCompilationOptions>,
+                        Pointer<OrtAllocator>,
+                        Pointer<Pointer<Void>>,
+                        Pointer<Size>)>()(
+            modelCompileOptions, allocator, out0, out1));
+        return List.generate(out1.value, (i) => (out0 + i).value);
+      });
 
   /// `ModelCompilationOptions_SetEpContextEmbedMode`
   void modelCompilationOptions_SetEpContextEmbedMode(

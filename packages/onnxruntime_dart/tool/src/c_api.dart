@@ -32,6 +32,7 @@ final class CParameter {
     this.arrayLengthParameter,
     this.isOptional = false,
     this.isEnum = false,
+    this.isCalleeAllocated = false,
   });
 
   final String name;
@@ -49,6 +50,14 @@ final class CParameter {
 
   /// Whether [type] names a C enum, which crosses as its underlying integer.
   final bool isEnum;
+
+  /// `_Outptr_` rather than `_Out_`: the call allocates and hands back a
+  /// pointer, instead of filling a buffer the caller allocated.
+  ///
+  /// The difference decides how much to allocate. A caller-allocated array
+  /// needs room for every element up front, a callee-allocated one needs a
+  /// single pointer cell and is read by walking what comes back.
+  final bool isCalleeAllocated;
 
   bool get isPointer => type.endsWith('*');
 
@@ -246,10 +255,11 @@ const _lengthSuffixes = ['_length', '_len', '_count'];
 List<CParameter> _withArrayLengths(List<CParameter> parameters) {
   final names = {for (final p in parameters) p.name};
   final result = <CParameter>[];
-  for (final parameter in parameters) {
+  for (final (index, parameter) in parameters.indexed) {
     final length = parameter.direction == Direction.output &&
             parameter.arrayLengthParameter == null
-        ? _lengthOf(parameter.name, names)
+        ? _lengthOf(parameter.name, names) ??
+            _countAfter(parameter, parameters, index)
         : null;
     result.add(
       length == null
@@ -260,10 +270,33 @@ List<CParameter> _withArrayLengths(List<CParameter> parameters) {
               direction: parameter.direction,
               arrayLengthParameter: length,
               isOptional: parameter.isOptional,
+              // Rebuilding drops whatever is not restated. `isEnum` was
+              // being lost here, which turned an enum out-parameter paired
+              // with a length back into a plain integer.
+              isEnum: parameter.isEnum,
+              isCalleeAllocated: parameter.isCalleeAllocated,
             ),
     );
   }
   return result;
+}
+
+/// The count parameter sitting immediately after a callee-allocated array.
+///
+/// `GetEpDevices(env, _Outptr_ ... ** ep_devices, _Out_ size_t* num_ep_devices)`
+/// names its count `num_ep_devices`, which no suffix rule finds. Position is
+/// what identifies it: the header writes the array and its length adjacently,
+/// in that order, everywhere this shape appears.
+String? _countAfter(
+  CParameter parameter,
+  List<CParameter> parameters,
+  int index,
+) {
+  if (!parameter.isCalleeAllocated) return null;
+  if (index + 1 >= parameters.length) return null;
+  final next = parameters[index + 1];
+  if (next.direction != Direction.output) return null;
+  return const {'size_t*', 'int64_t*'}.contains(next.type) ? next.name : null;
 }
 
 String? _lengthOf(String name, Set<String> names) {
@@ -283,11 +316,13 @@ CParameter? _parseParameter(String raw, Set<String> enums) {
   var direction = Direction.input;
   String? arrayLength;
   var optional = false;
+  var calleeAllocated = false;
 
   for (final match in _sal.allMatches(text)) {
     final annotation = match.group(0)!;
     if (annotation.startsWith('_Outptr') || annotation.startsWith('_Out')) {
       direction = Direction.output;
+      if (annotation.startsWith('_Outptr')) calleeAllocated = true;
     } else if (annotation.startsWith('_Inout')) {
       direction = Direction.inout;
     }
@@ -312,6 +347,7 @@ CParameter? _parseParameter(String raw, Set<String> enums) {
     direction: direction,
     arrayLengthParameter: arrayLength,
     isOptional: optional,
+    isCalleeAllocated: calleeAllocated,
     isEnum: enums.contains(
       type.replaceAll(RegExp(r'^(?:const\s+)?(?:enum\s+)?|\s*\*$'), '').trim(),
     ),
