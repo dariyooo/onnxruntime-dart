@@ -54,4 +54,14 @@ extension OrtApiCoreApi on OrtApi {
             out0));
         return out0.value;
       });
+
+  /// `SetUserLoggingFunction`
+  void setUserLoggingFunction(
+          Pointer<OrtSessionOptions> options,
+          OrtLoggingFunction userLoggingFunction,
+          Pointer<Void> userLoggingParam) =>
+      checkOrtStatus(this.SetUserLoggingFunction.asFunction<
+              Pointer<OrtStatus> Function(Pointer<OrtSessionOptions>,
+                  OrtLoggingFunction, Pointer<Void>)>()(
+          options, userLoggingFunction, userLoggingParam));
 }

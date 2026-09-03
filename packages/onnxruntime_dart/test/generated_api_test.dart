@@ -154,6 +154,51 @@ void main() {
       expect(api.getDimensionsCount(info), greaterThan(0));
     });
 
+    test('a callback parameter reaches Dart when the runtime calls it', () {
+      // The runtime stores the pointer and calls it later, so the wrapper
+      // takes it rather than building one: only the caller knows how long it
+      // has to stay alive. isolateLocal is right here because session creation
+      // logs on the thread that asked for it, which is this one.
+      final messages = <String>[];
+      final callback = NativeCallable<
+          Void Function(Pointer<Void>, UnsignedInt, Pointer<Char>,
+              Pointer<Char>, Pointer<Char>, Pointer<Char>)>.isolateLocal(
+        (Pointer<Void> param,
+            int severity,
+            Pointer<Char> category,
+            Pointer<Char> logid,
+            Pointer<Char> location,
+            Pointer<Char> message) {
+          messages.add(message.cast<Utf8>().toDartString());
+        },
+      );
+      addTearDown(callback.close);
+
+      final options = api.createSessionOptions();
+      addTearDown(() => api.releaseSessionOptions(options));
+      api.setUserLoggingFunction(options, callback.nativeFunction, nullptr);
+      api.setSessionLogSeverityLevel(options, 0);
+
+      final model = readSubmoduleFile(
+        'onnxruntime/test/testdata/ort_minimal_e2e_test_data/'
+        'test_voice_commands/model.onnx',
+      );
+      final buffer = arena<Uint8>(model.length);
+      buffer.asTypedList(model.length).setAll(0, model);
+      final logged = api.createSessionFromArray(
+        OrtEnvironment.instance().handle,
+        buffer.cast(),
+        model.length,
+        options,
+      );
+      api.releaseSession(logged);
+
+      // Verbose logging during session creation is chatty on every build, so
+      // an empty list means the callback never ran rather than that the
+      // runtime had nothing to say.
+      expect(messages, isNotEmpty);
+    });
+
     test('memory info round-trips its own fields', () {
       // CreateMemoryInfo takes two enums and a name, so it exercises the
       // string-in, enum-in path that most option calls use.

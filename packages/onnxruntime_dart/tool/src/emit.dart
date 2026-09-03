@@ -155,7 +155,12 @@ String? emit(CFunction function, Signature signature) {
 
   // `asFunction` is typed with the Dart signature, so scalars cross as `int`
   // and `double` even though the field they come from is typed in FFI terms.
-  final callSignature = signature.map(_callType).join(', ');
+  // A callback keeps the typedef ffigen gave it, which is already a pointer
+  // and so is the same on both sides.
+  final callSignature = [
+    for (final (index, ffi) in signature.indexed)
+      function.parameters[index].isFunctionPointer ? ffi : _callType(ffi),
+  ].join(', ');
 
   // An out-parameter is `Pointer<X>`, so `X` is what the arena allocates. An
   // out-array allocates as many as its length parameter says.

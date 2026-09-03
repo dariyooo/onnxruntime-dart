@@ -122,6 +122,19 @@ extension OrtCompileApiModelApi on OrtCompileApi {
               Pointer<OrtStatus> Function(Pointer<OrtModelCompilationOptions>,
                   int)>()(modelCompileOptions, graphOptimizationLevel));
 
+  /// `ModelCompilationOptions_SetOutputModelWriteFunc`
+  void modelCompilationOptions_SetOutputModelWriteFunc(
+          Pointer<OrtModelCompilationOptions> modelCompileOptions,
+          OrtWriteBufferFunc writeFunc,
+          Pointer<Void> state) =>
+      checkOrtStatus(this
+          .ModelCompilationOptions_SetOutputModelWriteFunc
+          .asFunction<
+              Pointer<OrtStatus> Function(
+                  Pointer<OrtModelCompilationOptions>,
+                  OrtWriteBufferFunc,
+                  Pointer<Void>)>()(modelCompileOptions, writeFunc, state));
+
   /// `ModelCompilationOptions_SetInputModel`
   void modelCompilationOptions_SetInputModel(
           Pointer<OrtModelCompilationOptions> modelCompileOptions,
