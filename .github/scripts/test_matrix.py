@@ -1086,6 +1086,22 @@ class ArtifactArchitecture(unittest.TestCase):
             with self.assertRaises(SystemExit):
                 binary_arch.verify(elf, "x86_64")
 
+    def test_every_extensions_target_has_a_known_architecture(self):
+        # Extensions package themselves, in build_extensions.py, rather than
+        # through package_artifact.py. That is how they came to ship for
+        # thirteen targets with neither check on them, so their architectures
+        # have to stay readable here too.
+        import extensions_matrix
+
+        for build in extensions_matrix.BUILDS:
+            with self.subTest(build=build.id):
+                self.assertIn(
+                    build.arch,
+                    binary_arch.TARGETS,
+                    f"{build.id} builds for {build.arch}, which packaging "
+                    f"cannot check",
+                )
+
     def test_every_native_target_has_a_known_architecture(self):
         for config in m.CONFIGURATIONS:
             if config.arch == "wasm32":
