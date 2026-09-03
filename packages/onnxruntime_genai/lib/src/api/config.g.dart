@@ -32,6 +32,9 @@ final class Config extends GenAiHandle {
   /// Wraps `OgaConfigSetProviderOption`.
   void setProviderOption(String provider, String key, String value) => _calls.configSetProviderOption(handle, provider, key, value);
 
+  /// Wraps `OgaConfigAddModelData`.
+  void addModelData(String modelFilename, Uint8List modelData) => _calls.configAddModelData(handle, modelFilename, modelData);
+
   /// Wraps `OgaConfigRemoveModelData`.
   void removeModelData(String modelFilename) => _calls.configRemoveModelData(handle, modelFilename);
 

@@ -11,6 +11,7 @@
 library;
 
 import 'dart:ffi';
+import 'dart:typed_data';
 
 import '../bindings/genai_bindings.g.dart';
 import 'ffi_support.dart';
@@ -275,6 +276,21 @@ final class FfiGenAiCalls implements GenAiCalls {
             cString(arena, provider),
             cString(arena, key),
             cString(arena, value)));
+      });
+
+  @override
+  void configAddModelData(
+          GenAiPtr handle, String modelFilename, Uint8List modelData) =>
+      withArena((arena) {
+        final modelDataNative = arena<Uint8>(modelData.length);
+        for (var i = 0; i < modelData.length; i++) {
+          modelDataNative[i] = modelData[i];
+        }
+        check(OgaConfigAddModelData(
+            pointer<OgaConfig>(handle),
+            cString(arena, modelFilename),
+            modelDataNative.cast(),
+            modelData.length));
       });
 
   @override

@@ -77,10 +77,19 @@ CParameter? _outOf(CFunction function) {
 
 /// A list parameter and how to get it into the arena.
 final class _ListParameter {
-  const _ListParameter({required this.dart, required this.element});
+  const _ListParameter({
+    required this.dart,
+    required this.element,
+    this.cast = false,
+  });
 
   final String dart;
   final String element;
+
+  /// Whether the callee wants an untyped pointer. A buffer is allocated as
+  /// bytes and handed over as `void*`, which is a cast rather than a different
+  /// allocation.
+  final bool cast;
 
   String setUp(String name) {
     final value =
@@ -102,6 +111,11 @@ _ListParameter? _asList(List<CParameter> parameters, int index) {
     'int32_t*' => const _ListParameter(dart: 'List<int>', element: 'Int32'),
     'int64_t*' => const _ListParameter(dart: 'List<int>', element: 'Int64'),
     'float*' => const _ListParameter(dart: 'List<double>', element: 'Float'),
+    // A raw buffer, which is how a model is handed over without a file. That
+    // matters beyond tidiness: it is the only way to load one where there is
+    // no filesystem to put it on.
+    'void*' =>
+      const _ListParameter(dart: 'Uint8List', element: 'Uint8', cast: true),
     // An array of C strings. Each one is copied into the arena and freed with
     // it, so the callee sees them for exactly the length of the call.
     'char*const*' ||
@@ -306,7 +320,7 @@ Wrapped? _wrap(CFunction function, String? owner, String? dartName) {
       declared.add('${list.dart} $name');
       passed.add(name);
       prologue.add(list.setUp(name));
-      forwarded.add('${name}Native');
+      forwarded.add(list.cast ? '${name}Native.cast()' : '${name}Native');
       forwarded.add('$name.length');
       i++;
       continue;
@@ -439,6 +453,9 @@ part of 'api.dart';
 
 $body''';
 
+String _typedData(String body) =>
+    body.contains('Uint8List') ? "import 'dart:typed_data';\n\n" : '';
+
 String _interfaceFile(String body) => '''
 // AUTO GENERATED FILE, DO NOT EDIT.
 //
@@ -453,7 +470,7 @@ String _interfaceFile(String body) => '''
 /// Dart value.
 library;
 
-import 'types.dart';
+${_typedData(body)}import 'types.dart';
 
 /// The calls a backend has to be able to make.
 ///
@@ -478,7 +495,7 @@ String _ffiFile(String body) => '''
 library;
 
 import 'dart:ffi';
-
+${_typedData(body)}
 import '../bindings/genai_bindings.g.dart';
 import 'ffi_support.dart';
 import 'interface.dart';
@@ -509,7 +526,7 @@ String _unsupportedFile(String body) => '''
 /// conditional export in calls.dart.
 library;
 
-import 'interface.dart';
+${_typedData(body)}import 'interface.dart';
 import 'types.dart';
 
 /// The backend for this platform.
@@ -556,6 +573,8 @@ String _libraryFile(Iterable<String> parts) => '''
 /// One library rather than one per type, because they construct each other and
 /// a private constructor is private to its library.
 library;
+
+import 'dart:typed_data';
 
 import '../backend/calls.dart';
 import '../backend/interface.dart';
