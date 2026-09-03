@@ -649,9 +649,13 @@ jobs:
         working-directory: packages/onnxruntime_dart
         run: |
           set -euo pipefail
+          # Captured with its status rather than under set -e alone: a
+          # failing assignment exits before the echo, so the run that most
+          # needs its output is the one that prints none.
           out=$(dart test test/training_test.dart \
-            --reporter expanded)
+            --reporter expanded 2>&1) && status=0 || status=$?
           echo "$out"
+          [ "$status" -eq 0 ] || exit "$status"
           # Any skip, not just the training one. These also skip when the
           # runtime resolved to nothing, and a job that reports success
           # because it tested nothing is the failure mode worth catching.
@@ -992,8 +996,12 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          out=$(dart test test/bindings_test.dart --reporter expanded)
+          # See the training step: capture the status too, or a failure exits
+          # before its own output is printed.
+          out=$(dart test test/bindings_test.dart \
+            --reporter expanded 2>&1) && status=0 || status=$?
           echo "$out"
+          [ "$status" -eq 0 ] || exit "$status"
           # A herestring, not a pipe: `echo | grep -q` returns 141 under
           # pipefail when grep matches early, so the guard would fire only
           # when the string was absent.
