@@ -1341,5 +1341,46 @@ class WorkspaceReadme(unittest.TestCase):
                 )
 
 
+class ReusableWorkflowPermissions(unittest.TestCase):
+    """A caller grants what the workflow it calls asks for.
+
+    A reusable workflow cannot hold more permission than the job calling it was
+    given. Asking for more is not a job that fails, it is a run that never
+    starts, which reports as `startup_failure` with nothing else to read.
+    """
+
+    def test_a_caller_grants_what_the_called_workflow_needs(self):
+        import yaml
+
+        workflows = REPO_ROOT / ".github" / "workflows"
+        ci = yaml.safe_load((workflows / "ci.yml").read_text(encoding="utf-8"))
+
+        for name, job in ci["jobs"].items():
+            uses = str(job.get("uses", ""))
+            if not uses.startswith("./.github/workflows/"):
+                continue
+            called = yaml.safe_load(
+                (REPO_ROOT / uses.removeprefix("./")).read_text(encoding="utf-8")
+            )
+            wanted = {
+                permission
+                for inner in (called.get("jobs") or {}).values()
+                for permission, level in (inner.get("permissions") or {}).items()
+                if level == "write"
+            }
+            granted = {
+                permission
+                for permission, level in (job.get("permissions") or {}).items()
+                if level == "write"
+            }
+            with self.subTest(job=name):
+                self.assertTrue(
+                    wanted <= granted,
+                    f"{name} calls {uses} which needs "
+                    f"{sorted(wanted)} write, but the caller grants "
+                    f"{sorted(granted)}. The run will not start.",
+                )
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
