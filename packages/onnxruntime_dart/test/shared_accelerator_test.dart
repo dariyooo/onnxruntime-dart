@@ -53,13 +53,22 @@ Future<List<double>> _run(SessionOptions options) async {
   }
 }
 
-SessionOptions _on(Accelerator accelerator) => SessionOptions(
-      providers: [
-        (name: accelerator.name, configuration: accelerator.configuration),
-      ],
-      // An asynchronous run is dispatched onto the intra-op pool on native and
-      // refused below two threads. The default is the machine's core count,
-      // so leaving it unset decides this test by where it runs.
+/// Options for a session this file will drive asynchronously.
+///
+/// The thread count is set here rather than by each caller. Every run below
+/// goes through `runAsync`, which native dispatches onto the intra-op pool and
+/// refuses below two threads, and the default is the machine's core count — so
+/// an options object built without it decides the test by where it ran. Owning
+/// it in one place is why the CPU baseline cannot be the one that forgets.
+SessionOptions _options([Accelerator? accelerator]) => SessionOptions(
+      providers: accelerator == null
+          ? const []
+          : [
+              (
+                name: accelerator.name,
+                configuration: accelerator.configuration,
+              ),
+            ],
       intraOpNumThreads: asyncIntraOpThreads,
     );
 
@@ -75,13 +84,13 @@ Future<void> main() async {
       });
 
       test('a session can be created and run', () async {
-        final answer = await _run(_on(accelerator));
+        final answer = await _run(_options(accelerator));
         expect(answer, hasLength(10));
       });
 
       test('it gives the same answer as the CPU', () async {
-        final onCpu = await _run(const SessionOptions());
-        final accelerated = await _run(_on(accelerator));
+        final onCpu = await _run(_options());
+        final accelerated = await _run(_options(accelerator));
 
         expect(accelerated, onCpu);
         expect(accelerated, _expected);
@@ -92,7 +101,7 @@ Future<void> main() async {
         // that tears down its device too eagerly falls over, and loading
         // models on demand does exactly this.
         for (var i = 0; i < 2; i++) {
-          expect(await _run(_on(accelerator)), _expected);
+          expect(await _run(_options(accelerator)), _expected);
         }
       });
     }, skip: accelerator.skip);
