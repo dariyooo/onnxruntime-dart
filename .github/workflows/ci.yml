@@ -1021,8 +1021,22 @@ jobs:
       #
       # CUDA 13 is the only toolkit that exists for ARM at all, which is why
       # the matrix offers no cuda12 there.
-      - name: The CUDA preview libraries, for Windows on ARM
+      # Cached, because the download is the unreliable part. NVIDIA's preview
+      # host ends a 3.8 GB response partway through often enough to matter, and
+      # what the job actually needs out of it is about 490 MB. Keyed on the
+      # version, so a bump fetches again and nothing else does.
+      - name: Reuse the CUDA preview libraries if they were fetched before
         if: runner.os == 'Windows' && runner.arch == 'ARM64'
+        id: cuda-preview
+        uses: actions/cache@v4
+        with:
+          path: .local/cuda-lib
+          key: cuda-preview-13.4.0-windows-arm64
+
+      - name: The CUDA preview libraries, for Windows on ARM
+        if: >-
+          runner.os == 'Windows' && runner.arch == 'ARM64'
+          && steps.cuda-preview.outputs.cache-hit != 'true'
         shell: pwsh
         run: |
           function Get-Machine($path) {
@@ -1115,6 +1129,19 @@ jobs:
           # Only once it is known to have yielded what was wanted.
           Remove-Item cuda.exe -Force
           Remove-Item $unpack -Recurse -Force
+          Add-Content $env:GITHUB_ENV "CUDA_LIB_DIR=$into"
+
+      - name: Point at the CUDA libraries, however they got here
+        if: runner.os == 'Windows' && runner.arch == 'ARM64'
+        shell: pwsh
+        run: |
+          # Set here rather than in the step above, which does not run on a
+          # cache hit. A restored directory is as good as a downloaded one and
+          # the rest of the job should not be able to tell them apart.
+          $into = (Resolve-Path .local/cuda-lib).Path
+          $found = Get-ChildItem $into -Filter *.dll
+          if (-not $found) { throw "no CUDA libraries in $into" }
+          foreach ($f in $found) { Write-Host "  $($f.Name)" }
           Add-Content $env:GITHUB_ENV "CUDA_LIB_DIR=$into"
 
       # GenAI is mirrored rather than built, and published for fewer targets
