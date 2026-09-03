@@ -101,8 +101,11 @@ extension ManualApi on OrtApi {
 
   /// `GetSessionConfigEntry`
   ///
-  /// The value of a config entry, or null when it is not set. Not generated:
-  /// the call is made twice, once for the size and once for the contents.
+  /// The value of a config entry, or null when it is not set.
+  ///
+  /// `getSessionConfigEntry` is generated and does the same two-call read, but
+  /// an entry that was never set is an error there. This asks first and
+  /// answers null, which is what a caller reading an optional setting wants.
   String? sessionConfigEntry(Pointer<OrtSessionOptions> options, String key) =>
       withArena((arena) {
         if (hasSessionConfigEntry(options, key) == 0) return null;

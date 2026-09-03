@@ -13,7 +13,8 @@ import '../../ffi/runtime.dart';
 import '../../ffi/status.dart';
 import '../ort_bindings.g.dart';
 
-export '../../ffi/ort_path.dart' show allocateOrtPath;
+export '../../ffi/ort_path.dart'
+    show allocateOrtPath, nativeOrtPaths, readOrtPath;
 
 /// The `OrtApi` used to read and release an `OrtStatus`.
 ///
@@ -68,6 +69,27 @@ Pointer<Pointer<T>> nativePointers<T extends NativeType>(
 /// Writes int64 values, which is how the C API takes shapes on every platform.
 Pointer<Int64> nativeInt64s(List<int> values, Arena arena) {
   final array = arena<Int64>(values.isEmpty ? 1 : values.length);
+  for (var i = 0; i < values.length; i++) {
+    array[i] = values[i];
+  }
+  return array;
+}
+
+/// Writes int32 values, which the sparse tensor indices take.
+Pointer<Int32> nativeInt32s(List<int> values, Arena arena) {
+  final array = arena<Int32>(values.isEmpty ? 1 : values.length);
+  for (var i = 0; i < values.length; i++) {
+    array[i] = values[i];
+  }
+  return array;
+}
+
+/// Writes plain `int` values, which the model editor takes for opset versions.
+///
+/// `int` is 32 bits on every platform this builds for, so [Int] and [Int32]
+/// agree, but the header says `int` and the binding follows the header.
+Pointer<Int> nativeInts(List<int> values, Arena arena) {
+  final array = arena<Int>(values.isEmpty ? 1 : values.length);
   for (var i = 0; i < values.length; i++) {
     array[i] = values[i];
   }

@@ -122,9 +122,15 @@ Mapping _mapInput(String type, CParameter parameter) {
     }
   }
 
-  // Paths are ORTCHAR_T, which is UTF-16 on Windows.
+  // Paths are ORTCHAR_T, which is UTF-16 on Windows. An array of them needs
+  // that encoding per element, so the two spellings are separated here: a
+  // single star is one path, a double star is a list of them. Matching only on
+  // the name would hand `AddExternalInitializersFromFiles` a single pointer
+  // where it wants an array.
   if (type.contains('ORTCHAR_T')) {
-    return InputMapping('String', (n) => 'allocateOrtPath($n, arena)');
+    return type.replaceAll(RegExp(r'[^*]'), '').length > 1
+        ? InputMapping('List<String>', (n) => 'nativeOrtPaths($n, arena)')
+        : InputMapping('String', (n) => 'allocateOrtPath($n, arena)');
   }
   if (type == 'const char*') {
     return InputMapping(
@@ -132,7 +138,13 @@ Mapping _mapInput(String type, CParameter parameter) {
       (n) => '$n.toNativeUtf8(allocator: arena).cast()',
     );
   }
-  if (type == 'const char* const*') {
+  // An array of C strings, in any of the spellings the header uses:
+  // `const char* const*`, `char* const*`, `const char**`. A const anywhere is
+  // what marks it as one. Bare `char**` is left alone because it is an out
+  // parameter as often as an array, and ReleaseAvailableProviders takes one to
+  // free rather than to read.
+  if (RegExp(r'^(?:const\s+)?char\s*\*\s*const\s*\*$').hasMatch(type) ||
+      type == 'const char**') {
     return InputMapping('List<String>', (n) => 'nativeStrings($n, arena)');
   }
   // An enum crosses as its underlying integer: the function pointer takes the
@@ -151,6 +163,12 @@ Mapping _mapInput(String type, CParameter parameter) {
   // Integer arrays, always paired with a length parameter the caller passes.
   if (type == 'const int64_t*' || type == 'int64_t*') {
     return InputMapping('List<int>', (n) => 'nativeInt64s($n, arena)');
+  }
+  if (type == 'const int32_t*') {
+    return InputMapping('List<int>', (n) => 'nativeInt32s($n, arena)');
+  }
+  if (type == 'const int*') {
+    return InputMapping('List<int>', (n) => 'nativeInts($n, arena)');
   }
   if (type == 'const size_t*' || type == 'size_t*') {
     return InputMapping('List<int>', (n) => 'nativeSizes($n, arena)');
@@ -185,6 +203,11 @@ Mapping _mapOutput(String type, CParameter parameter) {
   // A trailing `const` qualifies the pointer, not what it points at, so it
   // makes no difference to how the value is read.
   final normalised = type.replaceFirst(RegExp(r'\s*const$'), '');
+  // Runtime-owned like `const char**`, but read with the platform's path
+  // encoding rather than as UTF-8.
+  if (normalised == 'const ORTCHAR_T**' || normalised == 'ORTCHAR_T**') {
+    return OutputMapping('String', (p) => 'readOrtPath($p.value)');
+  }
   if (normalised == 'const char**') {
     return OutputMapping(
       'String',
