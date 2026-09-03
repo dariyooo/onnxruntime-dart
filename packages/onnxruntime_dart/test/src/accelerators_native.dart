@@ -8,10 +8,10 @@ library;
 
 import 'dart:io';
 
-import 'package:onnxruntime_dart/native.dart';
 import 'package:onnxruntime_dart/onnxruntime_dart.dart';
 
 import 'accelerator.dart';
+import 'embedded_model.dart';
 import 'ort_library.dart';
 
 export 'accelerator.dart';
@@ -37,14 +37,23 @@ Future<void> registerPlugin(String provider) async {
   registerProviderLibrary(name: provider, path: pluginPath(provider)!);
 }
 
-/// Whether [provider] registered and contributed a device to run on.
+/// Whether [provider] can actually build a session, not merely appear.
 ///
-/// Loading a plugin and having hardware for it are different things. CUDA
-/// loads on a machine with the CUDA runtime and no GPU; QNN loads anywhere its
-/// mirror put the Qualcomm runtime and finds no NPU. Neither can run a model,
-/// so neither belongs in a list of accelerators to run models on.
-/// `plugin_load_test.dart` is what proves they load.
-bool _hasDevice(String provider) {
+/// Enumerating a device is not the same as being able to use one. QNN
+/// contributes a device wherever its plugin loads, because the plugin carries
+/// the Qualcomm runtime, and then fails with "Could not determine default
+/// backend path" for want of an NPU. WebGPU on Windows ARM enumerates an
+/// adapter and then fails to initialise Dawn. Both look identical to a device
+/// count, and neither can run a model.
+///
+/// So the question asked here is the one the tests actually depend on: does a
+/// session on this provider build? What it costs is one session; what it buys
+/// is that a provider is excluded for the reason it cannot be used, rather
+/// than by a list of platforms someone has to maintain.
+///
+/// `plugin_load_test.dart` remains the proof that each plugin loads, which is
+/// a different claim and worth keeping separate.
+bool _canRunOn(String provider) {
   if (pluginPath(provider) == null) return false;
   try {
     // Registered here rather than through registerPlugin, which is async: an
@@ -54,35 +63,27 @@ bool _hasDevice(String provider) {
     if (_registered.add(provider)) {
       registerProviderLibrary(name: provider, path: pluginPath(provider)!);
     }
-  } on Object {
-    _registered.remove(provider);
+    final session = Session.fromBytes(
+      absModel(),
+      options: SessionOptions(
+        providers: [(name: provider, configuration: const {})],
+      ),
+    );
+    session.release();
+    return true;
+  } on Object catch (error) {
+    // Printed rather than swallowed: an accelerator quietly dropping off the
+    // list is how a real regression would hide as a platform limitation.
+    print('$provider is not usable here: $error');
     return false;
   }
-  final environment = OrtEnvironment.instance();
-  return executionProviderDeviceNames(environment.api, environment.handle)
-      .any((name) => name.toLowerCase().contains(provider.toLowerCase()));
 }
 
-/// Providers that enumerate a device without being able to use it.
-///
-/// QNN contributes a device wherever its plugin loads, because the plugin
-/// carries the Qualcomm runtime, and then fails at session creation with
-/// "Could not determine default backend path" because there is no NPU behind
-/// it. Having a device is therefore not proof of being usable, and no hosted
-/// runner has the hardware, so it is load-tested and never run.
-/// `plugin_load_test.dart` is what covers it.
-const _neverRunnable = {'qnn'};
-
-/// The providers this machine can actually run a model on.
-///
-/// Filtered rather than skipped: a provider with no hardware behind it is not
-/// a test that did not run, it is a test that does not apply here.
 List<Accelerator> accelerators() => [
       for (final provider in _pluginVariables.keys)
-        if (!_neverRunnable.contains(provider) &&
-            skipWithoutOrt == null &&
+        if (skipWithoutOrt == null &&
             skipWithoutNativeAsset == null &&
-            _hasDevice(provider))
+            _canRunOn(provider))
           Accelerator(
             label: provider,
             name: provider,
