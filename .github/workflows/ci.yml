@@ -757,12 +757,38 @@ jobs:
       # so the plugin resolves. Inference needs a GPU this runner does not
       # have, and the accelerator tests exclude it for that reason.
       - name: The CUDA runtime, so its plugin can be loaded
-        if: runner.os == 'Linux' && runner.arch == 'X64'
+        if: runner.arch == 'X64' && runner.os != 'macOS'
         uses: Jimver/cuda-toolkit@v0.2.24
         with:
           cuda: '13.0.0'
           method: network
-          sub-packages: '["cudart"]'
+          # cublas as well as cudart: the plugin links both, and a missing
+          # cublas64 fails the load just as surely as a missing cudart.
+          sub-packages: '["cudart", "libcublas"]'
+
+      # Dawn reaches the GPU through D3D12 on Windows and compiles shaders with
+      # the DirectX Shader Compiler, which it dlopens by name. The runner image
+      # does not carry dxil.dll or dxcompiler.dll, so the provider loads and
+      # then fails when it first needs to compile. Worth knowing beyond CI: an
+      # application shipping this provider on Windows needs them beside it.
+      - name: The DirectX shader compiler, for the WebGPU provider
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          set -euo pipefail
+          url=$(curl -s https://api.github.com/repos/microsoft/DirectXShaderCompiler/releases/latest \
+            | python -c "
+          import json, sys
+          for a in json.load(sys.stdin)['assets']:
+              if a['name'].endswith('.zip') and 'dxc_' in a['name']:
+                  print(a['browser_download_url']); break
+          ")
+          echo "  $url"
+          curl -sL "$url" -o dxc.zip
+          unzip -q -o dxc.zip -d .local/dxc
+          find .local/dxc -name 'dxil.dll' -o -name 'dxcompiler.dll' | head -4
+          dir=$(dirname "$(find .local/dxc -name 'dxcompiler.dll' | grep -i x64 | head -1)")
+          echo "$dir" >> "$GITHUB_PATH"
 
       - name: Point the suite at our build
         shell: bash
