@@ -760,7 +760,10 @@ jobs:
       # Linux packages are cudart, cudart-dev and libcublas, and the Windows
       # installer has no cudart-dev at all and calls the other one cublas.
       - name: The CUDA runtime, so its plugin can be loaded (Linux)
-        if: runner.os == 'Linux' && runner.arch == 'X64'
+        # Both architectures: NVIDIA publishes CUDA for aarch64 as sbsa, and we
+        # publish a CUDA plugin for linux-arm64, so not installing it there
+        # would leave a shipped plugin with nothing ever loading it.
+        if: runner.os == 'Linux'
         uses: Jimver/cuda-toolkit@v0.2.36
         with:
           cuda: '13.0.2'
@@ -779,7 +782,7 @@ jobs:
           sub-packages: '["cudart", "cublas"]'
 
       - name: The driver stub, so the CUDA plugin can be loaded
-        if: runner.os == 'Linux' && runner.arch == 'X64'
+        if: runner.os == 'Linux'
         shell: bash
         run: |
           set -euo pipefail
