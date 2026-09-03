@@ -71,6 +71,29 @@ extension OrtApiKernelApi on OrtApi {
         return out0.value;
       });
 
+  /// `KernelInfoGetAttribute_string`
+  String kernelInfoGetAttribute_string(
+          Pointer<OrtKernelInfo> info, String name) =>
+      withArena((arena) {
+        final size = arena<Size>()..value = 0;
+        final call = this.KernelInfoGetAttribute_string.asFunction<
+            Pointer<OrtStatus> Function(Pointer<OrtKernelInfo>, Pointer<Char>,
+                Pointer<Char>, Pointer<Size>)>();
+
+        // Reports the size it wants and fails because there is no
+        // buffer yet. Expected, so the status is released, not checked.
+        final asked = call(
+            info, name.toNativeUtf8(allocator: arena).cast(), nullptr, size);
+        if (asked != nullptr) {
+          ReleaseStatus.asFunction<void Function(Pointer<OrtStatus>)>()(asked);
+        }
+
+        final buffer = arena<Char>(size.value == 0 ? 1 : size.value);
+        checkOrtStatus(call(
+            info, name.toNativeUtf8(allocator: arena).cast(), buffer, size));
+        return buffer.cast<Utf8>().toDartString();
+      });
+
   /// `KernelContext_GetInputCount`
   int kernelContext_GetInputCount(Pointer<OrtKernelContext> context) =>
       withArena((arena) {
@@ -112,6 +135,52 @@ extension OrtApiKernelApi on OrtApi {
                     Pointer<Int64>, int, Pointer<Pointer<OrtValue>>)>()(
             context, index, nativeInt64s(dimValues, arena), dimCount, out0));
         return out0.value;
+      });
+
+  /// `KernelInfoGetAttributeArray_float`
+  List<double> kernelInfoGetAttributeArray_float(
+          Pointer<OrtKernelInfo> info, String name) =>
+      withArena((arena) {
+        final size = arena<Size>()..value = 0;
+        final call = this.KernelInfoGetAttributeArray_float.asFunction<
+            Pointer<OrtStatus> Function(Pointer<OrtKernelInfo>, Pointer<Char>,
+                Pointer<Float>, Pointer<Size>)>();
+
+        // Reports the size it wants and fails because there is no
+        // buffer yet. Expected, so the status is released, not checked.
+        final asked = call(
+            info, name.toNativeUtf8(allocator: arena).cast(), nullptr, size);
+        if (asked != nullptr) {
+          ReleaseStatus.asFunction<void Function(Pointer<OrtStatus>)>()(asked);
+        }
+
+        final buffer = arena<Float>(size.value == 0 ? 1 : size.value);
+        checkOrtStatus(call(
+            info, name.toNativeUtf8(allocator: arena).cast(), buffer, size));
+        return [for (var i = 0; i < size.value; i++) buffer[i]];
+      });
+
+  /// `KernelInfoGetAttributeArray_int64`
+  List<int> kernelInfoGetAttributeArray_int64(
+          Pointer<OrtKernelInfo> info, String name) =>
+      withArena((arena) {
+        final size = arena<Size>()..value = 0;
+        final call = this.KernelInfoGetAttributeArray_int64.asFunction<
+            Pointer<OrtStatus> Function(Pointer<OrtKernelInfo>, Pointer<Char>,
+                Pointer<Int64>, Pointer<Size>)>();
+
+        // Reports the size it wants and fails because there is no
+        // buffer yet. Expected, so the status is released, not checked.
+        final asked = call(
+            info, name.toNativeUtf8(allocator: arena).cast(), nullptr, size);
+        if (asked != nullptr) {
+          ReleaseStatus.asFunction<void Function(Pointer<OrtStatus>)>()(asked);
+        }
+
+        final buffer = arena<Int64>(size.value == 0 ? 1 : size.value);
+        checkOrtStatus(call(
+            info, name.toNativeUtf8(allocator: arena).cast(), buffer, size));
+        return [for (var i = 0; i < size.value; i++) buffer[i]];
       });
 
   /// `EnableOrtCustomOps`
@@ -212,6 +281,46 @@ extension OrtApiKernelApi on OrtApi {
         return out0.value;
       });
 
+  /// `KernelInfo_GetInputName`
+  String kernelInfo_GetInputName(Pointer<OrtKernelInfo> info, int index) =>
+      withArena((arena) {
+        final size = arena<Size>()..value = 0;
+        final call = this.KernelInfo_GetInputName.asFunction<
+            Pointer<OrtStatus> Function(
+                Pointer<OrtKernelInfo>, int, Pointer<Char>, Pointer<Size>)>();
+
+        // Reports the size it wants and fails because there is no
+        // buffer yet. Expected, so the status is released, not checked.
+        final asked = call(info, index, nullptr, size);
+        if (asked != nullptr) {
+          ReleaseStatus.asFunction<void Function(Pointer<OrtStatus>)>()(asked);
+        }
+
+        final buffer = arena<Char>(size.value == 0 ? 1 : size.value);
+        checkOrtStatus(call(info, index, buffer, size));
+        return buffer.cast<Utf8>().toDartString();
+      });
+
+  /// `KernelInfo_GetOutputName`
+  String kernelInfo_GetOutputName(Pointer<OrtKernelInfo> info, int index) =>
+      withArena((arena) {
+        final size = arena<Size>()..value = 0;
+        final call = this.KernelInfo_GetOutputName.asFunction<
+            Pointer<OrtStatus> Function(
+                Pointer<OrtKernelInfo>, int, Pointer<Char>, Pointer<Size>)>();
+
+        // Reports the size it wants and fails because there is no
+        // buffer yet. Expected, so the status is released, not checked.
+        final asked = call(info, index, nullptr, size);
+        if (asked != nullptr) {
+          ReleaseStatus.asFunction<void Function(Pointer<OrtStatus>)>()(asked);
+        }
+
+        final buffer = arena<Char>(size.value == 0 ? 1 : size.value);
+        checkOrtStatus(call(info, index, buffer, size));
+        return buffer.cast<Utf8>().toDartString();
+      });
+
   /// `KernelInfo_GetInputTypeInfo`
   Pointer<OrtTypeInfo> kernelInfo_GetInputTypeInfo(
           Pointer<OrtKernelInfo> info, int index) =>
@@ -247,6 +356,26 @@ extension OrtApiKernelApi on OrtApi {
                     Pointer<Pointer<OrtValue>>)>()(
             info, name.toNativeUtf8(allocator: arena).cast(), allocator, out0));
         return out0.value;
+      });
+
+  /// `KernelInfo_GetNodeName`
+  String kernelInfo_GetNodeName(Pointer<OrtKernelInfo> info) =>
+      withArena((arena) {
+        final size = arena<Size>()..value = 0;
+        final call = this.KernelInfo_GetNodeName.asFunction<
+            Pointer<OrtStatus> Function(
+                Pointer<OrtKernelInfo>, Pointer<Char>, Pointer<Size>)>();
+
+        // Reports the size it wants and fails because there is no
+        // buffer yet. Expected, so the status is released, not checked.
+        final asked = call(info, nullptr, size);
+        if (asked != nullptr) {
+          ReleaseStatus.asFunction<void Function(Pointer<OrtStatus>)>()(asked);
+        }
+
+        final buffer = arena<Char>(size.value == 0 ? 1 : size.value);
+        checkOrtStatus(call(info, buffer, size));
+        return buffer.cast<Utf8>().toDartString();
       });
 
   /// `KernelInfo_GetLogger`
@@ -427,6 +556,46 @@ extension OrtApiKernelApi on OrtApi {
             Pointer<OrtStatus> Function(Pointer<OrtKernelInfo>,
                 Pointer<Pointer<OrtKeyValuePairs>>)>()(info, out0));
         return out0.value;
+      });
+
+  /// `KernelInfo_GetOperatorDomain`
+  String kernelInfo_GetOperatorDomain(Pointer<OrtKernelInfo> info) =>
+      withArena((arena) {
+        final size = arena<Size>()..value = 0;
+        final call = this.KernelInfo_GetOperatorDomain.asFunction<
+            Pointer<OrtStatus> Function(
+                Pointer<OrtKernelInfo>, Pointer<Char>, Pointer<Size>)>();
+
+        // Reports the size it wants and fails because there is no
+        // buffer yet. Expected, so the status is released, not checked.
+        final asked = call(info, nullptr, size);
+        if (asked != nullptr) {
+          ReleaseStatus.asFunction<void Function(Pointer<OrtStatus>)>()(asked);
+        }
+
+        final buffer = arena<Char>(size.value == 0 ? 1 : size.value);
+        checkOrtStatus(call(info, buffer, size));
+        return buffer.cast<Utf8>().toDartString();
+      });
+
+  /// `KernelInfo_GetOperatorType`
+  String kernelInfo_GetOperatorType(Pointer<OrtKernelInfo> info) =>
+      withArena((arena) {
+        final size = arena<Size>()..value = 0;
+        final call = this.KernelInfo_GetOperatorType.asFunction<
+            Pointer<OrtStatus> Function(
+                Pointer<OrtKernelInfo>, Pointer<Char>, Pointer<Size>)>();
+
+        // Reports the size it wants and fails because there is no
+        // buffer yet. Expected, so the status is released, not checked.
+        final asked = call(info, nullptr, size);
+        if (asked != nullptr) {
+          ReleaseStatus.asFunction<void Function(Pointer<OrtStatus>)>()(asked);
+        }
+
+        final buffer = arena<Char>(size.value == 0 ? 1 : size.value);
+        checkOrtStatus(call(info, buffer, size));
+        return buffer.cast<Utf8>().toDartString();
       });
 
   /// `KernelInfo_GetOperatorSinceVersion`

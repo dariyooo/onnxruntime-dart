@@ -13,19 +13,10 @@ OrtApi.GetEpDevices: output const OrtEpDevice* const**
 OrtApi.GetKeyValuePairs: output const char* const**, output const char* const**
 OrtApi.GetOpaqueValue: output void*
 OrtApi.GetResizedStringTensorElementBuffer: input char**
-OrtApi.GetSessionConfigEntry: output char*, inout size_t*, which is written back or kept
 OrtApi.GetStringTensorContent: output void*
 OrtApi.GetStringTensorElement: output void*
 OrtApi.GetTensorElementTypeAndShapeDataReference: output const int64_t**
-OrtApi.KernelInfoGetAttributeArray_float: inout size_t*, which is written back or kept
-OrtApi.KernelInfoGetAttributeArray_int64: inout size_t*, which is written back or kept
 OrtApi.KernelInfoGetAttributeArray_string: output char***
-OrtApi.KernelInfoGetAttribute_string: output char*, inout size_t*, which is written back or kept
-OrtApi.KernelInfo_GetInputName: output char*, inout size_t*, which is written back or kept
-OrtApi.KernelInfo_GetNodeName: output char*, inout size_t*, which is written back or kept
-OrtApi.KernelInfo_GetOperatorDomain: output char*, inout size_t*, which is written back or kept
-OrtApi.KernelInfo_GetOperatorType: output char*, inout size_t*, which is written back or kept
-OrtApi.KernelInfo_GetOutputName: output char*, inout size_t*, which is written back or kept
 OrtApi.ModelMetadataGetCustomMetadataMapKeys: output char***
 OrtApi.ReleaseAvailableProviders: input char**
 OrtApi.RunAsync: input RunAsyncCallbackFn

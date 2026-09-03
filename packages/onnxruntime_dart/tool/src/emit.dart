@@ -97,6 +97,8 @@ String dartName(String name) => name[0].toLowerCase() + name.substring(1);
 /// [signature] is the same function as ffigen typed it, which is what the
 /// emitted `asFunction` has to agree with.
 String? emit(CFunction function, Signature signature) {
+  final askThenFill = emitAskThenFill(function, signature);
+  if (askThenFill != null) return askThenFill;
   if (!isFullyMapped(function)) return null;
   if (signature.length != function.parameters.length) return null;
 
@@ -313,4 +315,79 @@ String _pointee(String type) {
     throw StateError('out-parameter is not a pointer: $type');
   }
   return type.substring('Pointer<'.length, type.length - 1);
+}
+
+/// The ask-then-fill pattern: call once for the size, once for the contents.
+///
+/// A run of functions ends `_Out_ T* out, _Inout_ size_t* size`, meaning the
+/// caller does not know how much to allocate and asks first. Passing null for
+/// the buffer makes the call report the size it wants and fail, which is not
+/// an error here, so that status is discarded rather than checked. The second
+/// call, with a buffer that size, is the one whose status matters.
+///
+/// Wrapped as a rule rather than by hand because the shape is identical across
+/// the KernelInfo accessors and the two attribute-array readers, and a
+/// hand-written wrapper each would be the same twelve lines rewritten.
+///
+/// For `char*` the size counts bytes and includes the terminator, so the
+/// result is read as a string. For `float*` and `int64_t*` it counts elements
+/// and the result is a list.
+String? emitAskThenFill(CFunction function, Signature signature) {
+  if (function.parameters.length < 2) return null;
+  if (signature.length != function.parameters.length) return null;
+
+  final size = function.parameters.last;
+  final out = function.parameters[function.parameters.length - 2];
+  if (size.direction != Direction.inout || size.type != 'size_t*') return null;
+  if (out.direction != Direction.output) return null;
+  if (out.arrayLengthParameter != null) return null;
+
+  final cell = _pointee(signature[function.parameters.length - 2]);
+  const elements = '[for (var i = 0; i < size.value; i++) buffer[i]]';
+  final ({String type, String read})? result = switch (out.type) {
+    'char*' => (type: 'String', read: 'buffer.cast<Utf8>().toDartString()'),
+    'float*' => (type: 'List<double>', read: elements),
+    'int64_t*' => (type: 'List<int>', read: elements),
+    _ => null,
+  };
+  if (result == null) return null;
+  final returnType = result.type;
+  final read = result.read;
+
+  // Everything before the buffer has to marshal like any other input.
+  final leading =
+      function.parameters.take(function.parameters.length - 2).toList();
+  final marshalled = <String>[];
+  for (final parameter in leading) {
+    final mapping = map(parameter);
+    if (mapping is! InputMapping) return null;
+    marshalled.add(mapping.marshal(_dartParam(parameter.name)));
+  }
+
+  final parameters = [
+    for (final (index, parameter) in leading.indexed)
+      '${(map(parameter) as InputMapping).dartType ?? _callType(signature[index])} '
+          '${_dartParam(parameter.name)}',
+  ].join(', ');
+  final callSignature = signature.map(_callType).join(', ');
+  final arguments = marshalled.join(', ');
+
+  return '${_doc(function.name)}'
+      '  $returnType ${dartName(function.name)}($parameters) =>\n'
+      '      withArena((arena) {\n'
+      '        final size = arena<Size>()..value = 0;\n'
+      '        final call = this.${function.name}.asFunction<\n'
+      '            Pointer<OrtStatus> Function($callSignature)>();\n'
+      '\n'
+      '        // Reports the size it wants and fails because there is no\n'
+      '        // buffer yet. Expected, so the status is released, not checked.\n'
+      '        final asked = call($arguments${arguments.isEmpty ? '' : ', '}nullptr, size);\n'
+      '        if (asked != nullptr) {\n'
+      '          ReleaseStatus.asFunction<void Function(Pointer<OrtStatus>)>()(asked);\n'
+      '        }\n'
+      '\n'
+      '        final buffer = arena<$cell>(size.value == 0 ? 1 : size.value);\n'
+      '        checkOrtStatus(call($arguments${arguments.isEmpty ? '' : ', '}buffer, size));\n'
+      '        return $read;\n'
+      '      });\n';
 }
