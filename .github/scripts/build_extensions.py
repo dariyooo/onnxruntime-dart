@@ -19,6 +19,7 @@ import tarfile
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+import binary_arch  # noqa: E402
 import extensions_matrix  # noqa: E402
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
@@ -78,6 +79,15 @@ def main() -> None:
     )
     stem = "ortextensions" if build.platform == "windows" else "libortextensions"
     member = f"{stem}{suffix}"
+
+    # The same two checks the runtime archives get. This packages separately
+    # from package_artifact.py, which is exactly how it would come to miss
+    # them: a cross compiled library for the wrong target, or an Android one
+    # needing a library the device will not have, is no less broken for having
+    # been built by a different script.
+    binary_arch.verify(library, build.arch)
+    if build.platform == "android":
+        binary_arch.verify_android_dependencies(library)
 
     out = REPO_ROOT / "dist" / extensions_matrix.COMPONENT
     out.mkdir(parents=True, exist_ok=True)
