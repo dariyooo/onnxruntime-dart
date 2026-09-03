@@ -22,7 +22,8 @@ final class CParameter {
   bool get isHandleOut => type.endsWith('**');
 
   /// The handle type this points at, for an out-parameter.
-  String get pointee => type.replaceAll('*', '').replaceAll('const ', '').trim();
+  String get pointee =>
+      type.replaceAll('*', '').replaceAll('const ', '').trim();
 }
 
 /// One exported function.
@@ -73,11 +74,18 @@ final class CFunction {
   String? get owner {
     for (final parameter in parameters) {
       final type = parameter.pointee;
-      if (type.startsWith('Oga') && type != 'OgaResult') return type;
+      if (type.startsWith('Oga') && !notAHandle.contains(type)) return type;
     }
     return null;
   }
 }
+
+/// Types that begin with Oga and are not opaque handles.
+///
+/// OgaResult is how failure is reported and support.dart owns it. OgaElementType
+/// is an enum passed by value. Neither is something a caller holds and releases,
+/// and taking either for a handle produces a class with no destructor.
+const notAHandle = {'OgaResult', 'OgaElementType'};
 
 /// Every function the header exports, in declaration order.
 List<CFunction> readCApi(File header) {

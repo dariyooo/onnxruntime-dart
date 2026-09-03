@@ -31,6 +31,21 @@ bool _isOut(CParameter parameter) =>
     parameter.name == 'out' ||
     parameter.name.startsWith('out_');
 
+/// The parameter [function] writes its result into, if it has one.
+///
+/// The last parameter, when it is somewhere to write: a pointer to a pointer,
+/// a name that says so, or a non-const pointer to a scalar. Const marks an
+/// input, so its absence on a pointer is the signal, and it holds where the
+/// name does not: OgaTokenizerGetBosTokenId calls its out parameter `token_id`.
+CParameter? _outOf(CFunction function) {
+  if (!function.canFail || function.parameters.isEmpty) return null;
+  final last = function.parameters.last;
+  if (_isOut(last)) return last;
+  final type = last.type;
+  if (type.startsWith('const ') || !type.endsWith('*')) return null;
+  return nativeSlot(type.substring(0, type.length - 1)) == null ? null : last;
+}
+
 /// A list parameter and how to get it into the arena.
 final class _ListParameter {
   const _ListParameter({required this.dart, required this.element});
@@ -38,11 +53,14 @@ final class _ListParameter {
   final String dart;
   final String element;
 
-  String setUp(String name) =>
-      'final ${name}Native = arena<$element>($name.length);\n'
-      '        for (var i = 0; i < $name.length; i++) {\n'
-      '          ${name}Native[i] = $name[i];\n'
-      '        }';
+  String setUp(String name) {
+    final value =
+        dart == 'List<String>' ? 'cString(arena, $name[i])' : '$name[i]';
+    return 'final ${name}Native = arena<$element>($name.length);\n'
+        '        for (var i = 0; i < $name.length; i++) {\n'
+        '          ${name}Native[i] = $value;\n'
+        '        }';
+  }
 }
 
 /// The list [parameters] starting at [index] describe, if they describe one.
@@ -55,6 +73,11 @@ _ListParameter? _asList(List<CParameter> parameters, int index) {
     'int32_t*' => const _ListParameter(dart: 'List<int>', element: 'Int32'),
     'int64_t*' => const _ListParameter(dart: 'List<int>', element: 'Int64'),
     'float*' => const _ListParameter(dart: 'List<double>', element: 'Float'),
+    // An array of C strings. Each one is copied into the arena and freed with
+    // it, so the callee sees them for exactly the length of the call.
+    'char*const*' ||
+    'char**' =>
+      const _ListParameter(dart: 'List<String>', element: 'Pointer<Char>'),
     _ => null,
   };
 }
@@ -180,9 +203,7 @@ String? _wrap(CFunction function, String owner, String dartName) {
   final selfIndex = parameters.indexWhere(
     (p) => p.pointee == owner && !p.isHandleOut,
   );
-  final out = parameters.isNotEmpty && _isOut(parameters.last)
-      ? parameters.last
-      : null;
+  final out = _outOf(function);
 
   final isFactory = function.name.startsWith('OgaCreate') &&
       out != null &&
@@ -325,9 +346,7 @@ String? _free(CFunction function) {
   // about who owns it and how long it lives. That is a wrapper someone should
   // write, not one to guess at.
   if (function.takesCallback) return null;
-  final out = function.parameters.isNotEmpty && _isOut(function.parameters.last)
-      ? function.parameters.last
-      : null;
+  final out = _outOf(function);
 
   final arguments = <String>[];
   final signature = <String>[];

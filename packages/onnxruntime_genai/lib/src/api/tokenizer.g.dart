@@ -12,9 +12,62 @@ final class Tokenizer extends GenAiHandle<OgaTokenizer> {
   @override
   void destroy(Pointer<OgaTokenizer> handle) => OgaDestroyTokenizer(handle);
 
+  /// Wraps `OgaTokenizerGetBosTokenId`.
+  int getBosTokenId() => withArena((arena) {
+        final out = arena<Int32>();
+        check(OgaTokenizerGetBosTokenId(handle, out));
+        return out.value;
+      });
+
+  /// Wraps `OgaTokenizerGetPadTokenId`.
+  int getPadTokenId() => withArena((arena) {
+        final out = arena<Int32>();
+        check(OgaTokenizerGetPadTokenId(handle, out));
+        return out.value;
+      });
+
+  /// Wraps `OgaTokenizerGetBotTokenId`.
+  int getBotTokenId() => withArena((arena) {
+        final out = arena<Int32>();
+        check(OgaTokenizerGetBotTokenId(handle, out));
+        return out.value;
+      });
+
+  /// Wraps `OgaTokenizerGetEotTokenId`.
+  int getEotTokenId() => withArena((arena) {
+        final out = arena<Int32>();
+        check(OgaTokenizerGetEotTokenId(handle, out));
+        return out.value;
+      });
+
+  /// Wraps `OgaTokenizerGetBorTokenId`.
+  int getBorTokenId() => withArena((arena) {
+        final out = arena<Int32>();
+        check(OgaTokenizerGetBorTokenId(handle, out));
+        return out.value;
+      });
+
+  /// Wraps `OgaTokenizerGetEorTokenId`.
+  int getEorTokenId() => withArena((arena) {
+        final out = arena<Int32>();
+        check(OgaTokenizerGetEorTokenId(handle, out));
+        return out.value;
+      });
+
   /// Wraps `OgaTokenizerEncode`.
   void encode(String str, Sequences sequences) => withArena((arena) {
         check(OgaTokenizerEncode(handle, cString(arena, str), sequences.handle));
+      });
+
+  /// Wraps `OgaTokenizerEncodeBatch`.
+  Tensor encodeBatch(List<String> strings) => withArena((arena) {
+        final stringsNative = arena<Pointer<Char>>(strings.length);
+        for (var i = 0; i < strings.length; i++) {
+          stringsNative[i] = cString(arena, strings[i]);
+        }
+        final out = arena<Pointer<OgaTensor>>();
+        check(OgaTokenizerEncodeBatch(handle, stringsNative, strings.length, out));
+        return Tensor._(out.value);
       });
 
   /// Wraps `OgaTokenizerDecodeBatch`.
@@ -22,6 +75,13 @@ final class Tokenizer extends GenAiHandle<OgaTokenizer> {
         final out = arena<Pointer<OgaStringArray>>();
         check(OgaTokenizerDecodeBatch(handle, tensor.handle, out));
         return StringArray._(out.value);
+      });
+
+  /// Wraps `OgaTokenizerToTokenId`.
+  int toTokenId(String str) => withArena((arena) {
+        final out = arena<Int32>();
+        check(OgaTokenizerToTokenId(handle, cString(arena, str), out));
+        return out.value;
       });
 
   /// Wraps `OgaTokenizerDecode`.

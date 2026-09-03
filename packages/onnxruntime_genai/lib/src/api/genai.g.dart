@@ -27,6 +27,18 @@ void setLogString(String name, String value) => withArena((arena) {
 /// Wraps `OgaDestroyString`.
 void destroyString(String value) => withArena((arena) => OgaDestroyString(cString(arena, value)));
 
+/// Wraps `OgaSetCurrentGpuDeviceId`.
+void setCurrentGpuDeviceId(int deviceId) => withArena((arena) {
+      check(OgaSetCurrentGpuDeviceId(deviceId));
+    });
+
+/// Wraps `OgaGetCurrentGpuDeviceId`.
+int getCurrentGpuDeviceId() => withArena((arena) {
+      final out = arena<Int>();
+      check(OgaGetCurrentGpuDeviceId(out));
+      return out.value;
+    });
+
 /// Wraps `OgaRegisterExecutionProviderLibrary`.
 void registerExecutionProviderLibrary(String registrationName, String libraryPath) => withArena((arena) => OgaRegisterExecutionProviderLibrary(cString(arena, registrationName), cString(arena, libraryPath)));
 
