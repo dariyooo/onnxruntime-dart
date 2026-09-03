@@ -240,13 +240,15 @@ jobs:
   release:
     name: publish release
     needs: [plan, build]
-    # Moving the ONNX Runtime pin is what produces a release, so this runs on
-    # main as well as on a hand-pushed tag. The name comes from the pin, and
-    # the release is created once and refreshed after that, so re-running a
-    # build that went wrong replaces its binaries rather than piling up tags.
+    # Tags only. Landing on main builds and tests everything, which is what
+    # proves the pin, but publishing is a separate and deliberate decision: a
+    # release is outward facing and cannot be taken back once somebody has
+    # installed from it. The name comes from the pin, and the release is
+    # created once and refreshed after that, so re-running a build that went
+    # wrong replaces its binaries rather than piling up tags.
     if: |
       github.event_name != 'pull_request' &&
-      (startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main')
+      startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-24.04
     permissions:
       contents: write
