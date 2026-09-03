@@ -263,6 +263,17 @@ Mapping _mapOutput(String type, CParameter parameter) {
         readArray: (p, n) => 'takeAllocatedStrings($p.value, $n, ALLOCATOR)',
       );
     }
+    // Runtime-owned, unlike `char***` which comes from an allocator: the
+    // strings belong to the object that was asked, so they are read and not
+    // freed. `GetKeyValuePairs` returns two of these.
+    if (RegExp(r'^const char\* const\*\*$').hasMatch(normalised)) {
+      return OutputMapping(
+        'String',
+        _readValue,
+        readArray: (p, n) =>
+            'List.generate($n, (i) => $p.value[i].cast<Utf8>().toDartString())',
+      );
+    }
     final elements = RegExp(
       r'^(?:const\s+)?(Ort\w+)\s*\*\s*(?:const\s*)?\*\s*\*$',
     ).firstMatch(normalised);

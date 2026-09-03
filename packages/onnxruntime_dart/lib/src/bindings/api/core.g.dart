@@ -11,6 +11,15 @@ import 'support.dart';
 
 /// Core calls on `OrtApi`.
 extension OrtApiCoreApi on OrtApi {
+  /// `GetCurrentGpuDeviceId`
+  int getCurrentGpuDeviceId() => withArena((arena) {
+        final out0 = arena<Int>();
+        checkOrtStatus(this
+            .GetCurrentGpuDeviceId
+            .asFunction<Pointer<OrtStatus> Function(Pointer<Int>)>()(out0));
+        return out0.value;
+      });
+
   /// `CreateOp`
   Pointer<OrtOp> createOp(
           Pointer<OrtKernelInfo> info,

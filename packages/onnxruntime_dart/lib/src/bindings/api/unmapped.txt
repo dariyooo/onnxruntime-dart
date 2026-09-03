@@ -2,16 +2,19 @@ Functions the generator does not handle.
 Each needs a rule in tool/src/types.dart, or a wrapper written by hand
 in lib/src/bindings/api/manual.dart.
 
-OrtApi.GetAvailableProviders: output char***
-OrtApi.GetBoundOutputNames: output size_t**
-OrtApi.GetBoundOutputValues: output OrtValue***
-OrtApi.GetCurrentGpuDeviceId: input int*
-OrtApi.GetKeyValuePairs: output const char* const**, output const char* const**
+Marked [wrapped by hand] means it is not generated but is still
+callable: manual.dart wraps it, for a reason its doc comment gives.
+Unmarked means there is no wrapper at all.
+
+OrtApi.GetAvailableProviders: output char*** [wrapped by hand]
+OrtApi.GetBoundOutputNames: output size_t** [wrapped by hand]
+OrtApi.GetBoundOutputValues: output OrtValue*** [wrapped by hand]
 OrtApi.GetOpaqueValue: output void*
-OrtApi.GetResizedStringTensorElementBuffer: input char**
-OrtApi.GetStringTensorContent: output void*
-OrtApi.GetStringTensorElement: output void*
-OrtApi.ReleaseAvailableProviders: input char**
-OrtApi.UseBlockSparseIndices: inout int32_t*, which is written back or kept
-OrtApi.UseCooIndices: inout int64_t*, which is written back or kept
-OrtApi.UseCsrIndices: inout int64_t*, which is written back or kept, inout int64_t*, which is written back or kept
+    cannot be wrapped: the caller supplies a struct whose layout only the custom op that registered the opaque type knows. Nothing on this side can declare it, so there is no signature to generate
+OrtApi.GetResizedStringTensorElementBuffer: input char** [wrapped by hand]
+OrtApi.GetStringTensorContent: output void* [wrapped by hand]
+OrtApi.GetStringTensorElement: output void* [wrapped by hand]
+OrtApi.ReleaseAvailableProviders: input char** [wrapped by hand]
+OrtApi.UseBlockSparseIndices: inout int32_t*, which is written back or kept [wrapped by hand]
+OrtApi.UseCooIndices: inout int64_t*, which is written back or kept [wrapped by hand]
+OrtApi.UseCsrIndices: inout int64_t*, which is written back or kept, inout int64_t*, which is written back or kept [wrapped by hand]

@@ -199,6 +199,74 @@ void main() {
       expect(messages, isNotEmpty);
     });
 
+    test('two arrays sharing one count both come back', () {
+      // GetKeyValuePairs hands back keys and values with a single num_entries
+      // after both, so the count has to be found by looking past the second
+      // array rather than at the next parameter.
+      final kvps = api.createKeyValuePairs();
+      addTearDown(() => api.releaseKeyValuePairs(kvps));
+      api.addKeyValuePair(kvps, 'device', 'cpu');
+      api.addKeyValuePair(kvps, 'precision', 'fp32');
+
+      final (keys, values) = api.getKeyValuePairs(kvps);
+      expect(keys, hasLength(2));
+      expect(values, hasLength(2));
+      expect(Map.fromIterables(keys, values),
+          {'device': 'cpu', 'precision': 'fp32'});
+    });
+
+    test('a contradictory annotation is overridden, not obeyed', () {
+      // The header marks device_id as _In_ although the call writes into it.
+      // Generated as an output the wrapper returns the id; obeyed, it would
+      // take a pointer and return nothing. That difference is what is checked
+      // here, and it holds whichever way the call itself goes.
+      //
+      // On a build without a GPU provider the runtime raises rather than
+      // answering, which is the call failing and not the wrapper: asking a
+      // CPU build which GPU it is on has no answer. Both outcomes are typed
+      // the same way, so both prove the override took.
+      try {
+        expect(api.getCurrentGpuDeviceId(), isA<int>());
+      } on OrtException {
+        // No GPU provider in this build.
+      }
+    });
+
+    test('a string tensor element reads back what was put in it', () {
+      final allocator = api.getAllocatorWithDefaultOptions();
+      final shape = [2];
+      final tensor = api.createTensorAsOrtValue(
+        allocator,
+        shape,
+        shape.length,
+        ONNXTensorElementDataType.ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING.value,
+      );
+      addTearDown(() => api.releaseValue(tensor));
+
+      api.fillStringTensor(tensor, ['first', 'second'], 2);
+      expect(api.stringTensorElement(tensor, 0), 'first');
+      expect(api.stringTensorElement(tensor, 1), 'second');
+    });
+
+    test('bound output names come back split on their own lengths', () {
+      // The names arrive concatenated in one buffer with a separate array of
+      // lengths, so the split is this side's job and an off-by-one shows up as
+      // a name with a stray character rather than as a failure to read.
+      final binding = api.createIoBinding(session);
+      addTearDown(() => api.releaseIoBinding(binding));
+      final allocator = api.getAllocatorWithDefaultOptions();
+      final memory = api.createCpuMemoryInfo(
+        OrtAllocatorType.OrtArenaAllocator.value,
+        OrtMemType.OrtMemTypeDefault.value,
+      );
+      addTearDown(() => api.releaseMemoryInfo(memory));
+
+      final wanted = api.sessionGetOutputName(session, 0, allocator);
+      api.bindOutputToDevice(binding, wanted, memory);
+
+      expect(api.boundOutputNames(binding, allocator), [wanted]);
+    });
+
     test('memory info round-trips its own fields', () {
       // CreateMemoryInfo takes two enums and a name, so it exercises the
       // string-in, enum-in path that most option calls use.

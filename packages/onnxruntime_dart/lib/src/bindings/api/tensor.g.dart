@@ -572,6 +572,27 @@ extension OrtApiTensorApi on OrtApi {
             value.toNativeUtf8(allocator: arena).cast());
       });
 
+  /// `GetKeyValuePairs`
+  (List<String> keys, List<String> values) getKeyValuePairs(
+          Pointer<OrtKeyValuePairs> kvps) =>
+      withArena((arena) {
+        final out0 = arena<Pointer<Pointer<Char>>>();
+        final out1 = arena<Pointer<Pointer<Char>>>();
+        final out2 = arena<Size>();
+        this.GetKeyValuePairs.asFunction<
+            void Function(
+                Pointer<OrtKeyValuePairs>,
+                Pointer<Pointer<Pointer<Char>>>,
+                Pointer<Pointer<Pointer<Char>>>,
+                Pointer<Size>)>()(kvps, out0, out1, out2);
+        return (
+          List.generate(
+              out2.value, (i) => out0.value[i].cast<Utf8>().toDartString()),
+          List.generate(
+              out2.value, (i) => out1.value[i].cast<Utf8>().toDartString())
+        );
+      });
+
   /// `RemoveKeyValuePair`
   void removeKeyValuePair(Pointer<OrtKeyValuePairs> kvps, String key) =>
       withArena((arena) {
