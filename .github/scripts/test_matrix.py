@@ -1312,5 +1312,34 @@ class ApiAndBinariesAreSeparate(unittest.TestCase):
                 )
 
 
+class WorkspaceReadme(unittest.TestCase):
+    """The package table says what the pubspecs say.
+
+    A table of versions is the first thing a reader trusts and the first thing
+    to go stale, because nothing breaks when it does.
+    """
+
+    def test_every_package_is_listed_at_its_version(self):
+        import yaml
+
+        readme = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
+        for package in sorted((REPO_ROOT / "packages").iterdir()):
+            if not package.is_dir():
+                continue
+            spec = yaml.safe_load((package / "pubspec.yaml").read_text(encoding="utf-8"))
+            with self.subTest(package=package.name):
+                self.assertIn(
+                    f"`{package.name}`",
+                    readme,
+                    f"{package.name} is not in the workspace README table",
+                )
+                self.assertIn(
+                    f"| {spec['version']} |",
+                    readme,
+                    f"{package.name} is listed at a version that is not "
+                    f"{spec['version']}",
+                )
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
