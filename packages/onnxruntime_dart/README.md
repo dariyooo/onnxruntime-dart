@@ -174,6 +174,14 @@ Notes on the table:
 
 - **WebGPU** reaches Vulkan on Android and Linux, D3D12 or Vulkan on Windows,
   and Metal on Apple. Only the 64-bit Android ABIs, where Vulkan is dependable.
+- **On Windows the WebGPU provider needs a shader compiler beside it.** D3D12
+  compiles shaders through `dxcompiler.dll` and `dxil.dll`, which Windows does
+  not ship, and which the provider loads by name at the first compile rather
+  than at load time, so a missing one looks like a working plugin that fails on
+  its first run. Ship both next to `onnxruntime_providers_webgpu.dll`. On ARM64
+  take them from the `Microsoft.Direct3D.DXC` NuGet package: what the upstream
+  DirectX Shader Compiler release ships as `bin/arm64` is ARM64EC, which a
+  native ARM64 process cannot load, and `LoadLibrary` fails with error 87.
 - **CUDA** ships against two toolkits and defaults to 12, which asks less of the
   driver. `build: cuda13` selects the other, and on arm64 it is the only one.
 - **QNN** carries the Qualcomm AI Runtime with it. Not Android: there QNN is
