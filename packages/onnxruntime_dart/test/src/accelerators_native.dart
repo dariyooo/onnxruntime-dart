@@ -8,6 +8,7 @@ library;
 
 import 'dart:io';
 
+import 'package:onnxruntime_dart/native.dart';
 import 'package:onnxruntime_dart/onnxruntime_dart.dart';
 
 import 'accelerator.dart';
@@ -36,19 +37,37 @@ Future<void> registerPlugin(String provider) async {
   registerProviderLibrary(name: provider, path: pluginPath(provider)!);
 }
 
+/// Whether [provider] registered and contributed a device to run on.
+///
+/// Loading a plugin and having hardware for it are different things. CUDA
+/// loads on a machine with the CUDA runtime and no GPU; QNN loads anywhere its
+/// mirror put the Qualcomm runtime and finds no NPU. Neither can run a model,
+/// so neither belongs in a list of accelerators to run models on.
+/// `plugin_load_test.dart` is what proves they load.
+bool _hasDevice(String provider) {
+  if (pluginPath(provider) == null) return false;
+  try {
+    registerPlugin(provider);
+  } on Object {
+    return false;
+  }
+  final environment = OrtEnvironment.instance();
+  return executionProviderDeviceNames(environment.api, environment.handle)
+      .any((name) => name.toLowerCase().contains(provider.toLowerCase()));
+}
+
+/// The providers this machine can actually run a model on.
+///
+/// Filtered rather than skipped: a provider with no hardware behind it is not
+/// a test that did not run, it is a test that does not apply here.
 List<Accelerator> accelerators() => [
       for (final provider in _pluginVariables.keys)
-        Accelerator(
-          label: provider,
-          name: provider,
-          ensure: () => registerPlugin(provider),
-          // The asset as well as the library: registering a provider goes
-          // through the ordinary session API, which resolves its symbols from
-          // the native asset rather than from ONNXRUNTIME_LIB.
-          skip: skipWithoutOrt ??
-              skipWithoutNativeAsset ??
-              (pluginPath(provider) == null
-                  ? 'no $provider plugin (${_pluginVariables[provider]} unset)'
-                  : null),
-        ),
+        if (skipWithoutOrt == null &&
+            skipWithoutNativeAsset == null &&
+            _hasDevice(provider))
+          Accelerator(
+            label: provider,
+            name: provider,
+            ensure: () => registerPlugin(provider),
+          ),
     ];

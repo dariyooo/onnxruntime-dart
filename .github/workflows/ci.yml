@@ -743,6 +743,24 @@ jobs:
           sudo apt-get install -y mesa-vulkan-drivers vulkan-tools
           vulkaninfo --summary 2>/dev/null | head -20 || true
 
+      # The CUDA plugin dlopens libcudart, so without it the library cannot
+      # even be loaded and the load test proves nothing. The runtime ships as
+      # a wheel, which is a few tens of megabytes rather than the whole
+      # toolkit. Inference still needs a GPU this runner does not have; that is
+      # what the accelerator tests are for, and they exclude it.
+      - name: The CUDA runtime, so its plugin can be loaded
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          python3 -m pip install --quiet nvidia-cuda-runtime-cu13
+          lib=$(python3 -c "
+          import pathlib, nvidia.cuda_runtime as m
+          print(pathlib.Path(m.__file__).parent / 'lib')
+          ")
+          echo "  $lib"
+          ls "$lib" | head -5
+          echo "LD_LIBRARY_PATH=$lib:${LD_LIBRARY_PATH:-}" >> "$GITHUB_ENV"
+
       - name: Point the suite at our build
         shell: bash
         run: python3 .github/scripts/locate_library.py "${{ matrix.artifact }}" webgpu qnn cuda
