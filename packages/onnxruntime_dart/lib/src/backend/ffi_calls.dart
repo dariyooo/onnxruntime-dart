@@ -15,7 +15,6 @@ import 'package:ffi/ffi.dart';
 import 'package:meta/meta.dart';
 
 import '../bindings/api/api.g.dart';
-import '../bindings/api/manual.dart';
 import '../bindings/api/support.dart';
 import '../bindings/ort_bindings.g.dart';
 import '../ffi/environment.dart';
