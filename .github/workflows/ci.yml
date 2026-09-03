@@ -409,12 +409,17 @@ jobs:
         include:
           # The emulator is x86_64, so that is the library it needs.
           - { name: android-x64, runner: ubuntu-24.04, artifact: android-x86_64, arch: x86_64, accel: auto }
-          # On macOS, because Flutter publishes no linux-arm64 SDK: an
-          # ubuntu-24.04-arm runner cannot run `flutter test` at all. Apple
-          # silicon is arm64, has Flutter, and runs an arm64-v8a image natively
-          # through HVF. Without this the architecture almost every Android
-          # phone actually uses is built and never run.
-          - { name: android-arm64, runner: macos-15, artifact: android-arm64-v8a, arch: arm64-v8a, accel: 'off' }
+          # An x64 host emulating arm64, which is the only combination left.
+          # Flutter publishes no linux-arm64 SDK, so ubuntu-24.04-arm cannot run
+          # `flutter test` at all despite having KVM. Apple silicon has Flutter,
+          # but GitHub's runners there are virtual machines that do not pass the
+          # hypervisor through, and the emulator dies with "HVF error:
+          # HV_UNSUPPORTED" even when handed -accel off, because
+          # qemu-system-aarch64 on macOS has no software fallback. That leaves
+          # emulating arm64 on an x64 host: slow, and the only way the
+          # architecture almost every Android phone uses gets run at all rather
+          # than only built.
+          - { name: android-arm64, runner: ubuntu-24.04, artifact: android-arm64-v8a, arch: arm64-v8a, accel: 'off' }
           - { name: ios, runner: macos-15, artifact: ios-sim-arm64 }
     steps:
       - uses: actions/checkout@v5
