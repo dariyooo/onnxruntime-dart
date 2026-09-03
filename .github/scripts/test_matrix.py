@@ -1452,5 +1452,30 @@ class InstallInstructions(unittest.TestCase):
                     )
 
 
+class ReleaseIdentityCoversGenAi(unittest.TestCase):
+    """GenAI's release tag comes from GenAI's version.
+
+    It versions from its own submodule, and `release_identity` knows the
+    runtime and the providers. Falling through to that named the GenAI release
+    after the runtime, which is a tag that would never exist.
+    """
+
+    def test_the_genai_tag_names_the_genai_version(self):
+        import genai_matrix
+
+        self.assertEqual(
+            genai_matrix.release_tag(), f"genai-v{genai_matrix.version()}"
+        )
+        runtime = (
+            REPO_ROOT / "third_party" / "onnxruntime" / "VERSION_NUMBER"
+        ).read_text(encoding="utf-8").strip()
+        self.assertNotIn(
+            runtime,
+            genai_matrix.release_tag(),
+            "the GenAI tag carries the runtime version, so it names a release "
+            "that will never be published",
+        )
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
