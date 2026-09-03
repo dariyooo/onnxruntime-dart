@@ -4,26 +4,20 @@ in lib/src/bindings/api/manual.dart.
 
 OrtApi.CreateEnvWithCustomLogger: input OrtLoggingFunction
 OrtApi.CreateEnvWithCustomLoggerAndGlobalThreadPools: input OrtLoggingFunction
-OrtApi.EpAssignedSubgraph_GetNodes: output const OrtEpAssignedNode* const**
 OrtApi.GetAvailableProviders: output char***
 OrtApi.GetBoundOutputNames: output size_t**
 OrtApi.GetBoundOutputValues: output OrtValue***
 OrtApi.GetCurrentGpuDeviceId: input int*
-OrtApi.GetEpDevices: output const OrtEpDevice* const**
 OrtApi.GetKeyValuePairs: output const char* const**, output const char* const**
 OrtApi.GetOpaqueValue: output void*
 OrtApi.GetResizedStringTensorElementBuffer: input char**
 OrtApi.GetStringTensorContent: output void*
 OrtApi.GetStringTensorElement: output void*
-OrtApi.GetTensorElementTypeAndShapeDataReference: output const int64_t**
-OrtApi.KernelInfoGetAttributeArray_string: output char***
-OrtApi.ModelMetadataGetCustomMetadataMapKeys: output char***
 OrtApi.ReleaseAvailableProviders: input char**
 OrtApi.RunAsync: input RunAsyncCallbackFn
 OrtApi.SessionOptionsSetCustomCreateThreadFn: input OrtCustomCreateThreadFn
 OrtApi.SessionOptionsSetCustomJoinThreadFn: input OrtCustomJoinThreadFn
 OrtApi.SessionOptionsSetEpSelectionPolicyDelegate: input EpSelectionDelegate
-OrtApi.Session_GetEpGraphAssignmentInfo: output const OrtEpAssignedSubgraph* const**
 OrtApi.SetGlobalCustomCreateThreadFn: input OrtCustomCreateThreadFn
 OrtApi.SetGlobalCustomJoinThreadFn: input OrtCustomJoinThreadFn
 OrtApi.SetUserLoggingFunction: input OrtLoggingFunction

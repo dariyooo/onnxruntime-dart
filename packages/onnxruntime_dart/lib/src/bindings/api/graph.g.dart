@@ -118,10 +118,8 @@ extension OrtApiGraphApi on OrtApi {
       });
 
   /// `ValueInfo_GetValueProducer`
-  (
-    Pointer<OrtNode> producerNode,
-    int producerOutputIndex
-  ) valueInfo_GetValueProducer(Pointer<OrtValueInfo> valueInfo) =>
+  List<Pointer<OrtNode>> valueInfo_GetValueProducer(
+          Pointer<OrtValueInfo> valueInfo) =>
       withArena((arena) {
         final out0 = arena<Pointer<OrtNode>>();
         final out1 = arena<Size>();
@@ -130,7 +128,7 @@ extension OrtApiGraphApi on OrtApi {
                 Pointer<OrtValueInfo>,
                 Pointer<Pointer<OrtNode>>,
                 Pointer<Size>)>()(valueInfo, out0, out1));
-        return (out0.value, out1.value);
+        return List.generate(out1.value, (i) => (out0 + i).value);
       });
 
   /// `ValueInfo_GetValueNumConsumers`

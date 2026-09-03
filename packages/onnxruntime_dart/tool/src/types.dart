@@ -34,12 +34,18 @@ String _identity(String name) => name;
 
 /// Part of the return value, read out of an out-parameter.
 final class OutputMapping extends Mapping {
-  const OutputMapping(this.dartType, this.read, {this.needsAllocator = false});
+  const OutputMapping(
+    this.dartType,
+    this.read, {
+    this.needsAllocator = false,
+    this.readArray,
+  });
 
   /// A scalar read back, typed from the ffigen signature.
   const OutputMapping.scalar()
       : dartType = null,
         needsAllocator = false,
+        readArray = null,
         read = _readValue;
 
   /// Null when the ffigen signature decides.
@@ -51,6 +57,14 @@ final class OutputMapping extends Mapping {
 
   /// Dart expression reading the result, given the allocated pointer name.
   final String Function(String pointer) read;
+
+  /// Reads the whole array at once, for an array the call allocated rather
+  /// than one it filled in place.
+  ///
+  /// Null for the ordinary case, where walking the buffer element by element
+  /// is all it takes. Set where the array has to be freed as well as read, so
+  /// that per-element reading would have nowhere to put the free.
+  final String Function(String pointer, String count)? readArray;
 
   /// Dart expression reading [count] results, for a parameter the call writes
   /// an array into.
@@ -226,6 +240,40 @@ Mapping _mapOutput(String type, CParameter parameter) {
   if (type.endsWith('*') &&
       _scalars.contains(type.replaceFirst(RegExp(r'\s*\*$'), ''))) {
     return const OutputMapping.scalar();
+  }
+  // `_Outptr_ X** items, _Out_ size_t* count`: the call allocates the array
+  // and says how long it is, so the arena holds one pointer cell and the
+  // elements are read from what came back. Guarded on both marks, because the
+  // same spelling caller-allocated is a buffer to fill, and callee-allocated
+  // without a count is a single handle.
+  if (parameter.isCalleeAllocated && parameter.arrayLengthParameter != null) {
+    if (normalised == 'char***') {
+      return OutputMapping(
+        'String',
+        _readValue,
+        needsAllocator: true,
+        readArray: (p, n) => 'takeAllocatedStrings($p.value, $n, ALLOCATOR)',
+      );
+    }
+    final elements = RegExp(
+      r'^(?:const\s+)?(Ort\w+)\s*\*\s*(?:const\s*)?\*\s*\*$',
+    ).firstMatch(normalised);
+    if (elements != null) {
+      return OutputMapping(
+        'Pointer<${elements.group(1)}>',
+        _readValue,
+        readArray: (p, n) => 'List.generate($n, (i) => $p.value[i])',
+      );
+    }
+    // A shape or similar, borrowed from the runtime: read, never freed.
+    if (RegExp(r'^(?:const\s+)?(?:int64_t|size_t|int32_t|float)\*\*$')
+        .hasMatch(normalised)) {
+      return OutputMapping(
+        normalised.contains('float') ? 'double' : 'int',
+        _readValue,
+        readArray: (p, n) => 'List.generate($n, (i) => $p.value[i])',
+      );
+    }
   }
   final handle = _handleOut.firstMatch(type);
   if (handle != null) {

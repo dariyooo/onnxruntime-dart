@@ -528,6 +528,24 @@ extension OrtApiTensorApi on OrtApi {
             nativePointers(dstTensors, arena), stream, numTensors));
       });
 
+  /// `GetTensorElementTypeAndShapeDataReference`
+  (int elemType, List<int> shapeData) getTensorElementTypeAndShapeDataReference(
+          Pointer<OrtValue> value) =>
+      withArena((arena) {
+        final out0 = arena<UnsignedInt>();
+        final out1 = arena<Pointer<Int64>>();
+        final out2 = arena<Size>();
+        checkOrtStatus(this
+            .GetTensorElementTypeAndShapeDataReference
+            .asFunction<
+                Pointer<OrtStatus> Function(
+                    Pointer<OrtValue>,
+                    Pointer<UnsignedInt>,
+                    Pointer<Pointer<Int64>>,
+                    Pointer<Size>)>()(value, out0, out1, out2));
+        return (out0.value, List.generate(out2.value, (i) => out1.value[i]));
+      });
+
   /// `ReleaseTensorRTProviderOptions`
   void releaseTensorRTProviderOptions(
           Pointer<OrtTensorRTProviderOptionsV2> input) =>
