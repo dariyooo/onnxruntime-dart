@@ -75,7 +75,12 @@ def provider_archive(
         for path in sorted(directory.rglob("*.tar.gz"))
         if config_id in path.name and provider in path.name
     ]
-    return candidates[0] if candidates else None
+    # The newest, not the first. CUDA publishes one archive per toolkit, so a
+    # target has both cuda-cuda12-<target> and cuda-cuda13-<target>, and taking
+    # the first sorted match picks 12 while CI installs 13. The plugin then
+    # fails to load looking for libcudart.so.12, which reads like a broken
+    # plugin rather than the wrong archive being chosen.
+    return candidates[-1] if candidates else None
 
 
 def find(files: list[pathlib.Path], names: tuple[str, ...]) -> pathlib.Path | None:
