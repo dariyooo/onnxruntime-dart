@@ -14,9 +14,11 @@ environment:
 resolution: workspace
 
 dependencies:
-  code_assets: '>=1.0.0 <2.0.0'
+  # No code_assets or hooks: this package runs no build hook and ships
+  # no binaries, they live in the _binaries package. Keeping them here
+  # would drag record_use in, which pins a newer meta than Flutter
+  # ships, making this package unusable from any Flutter app.
   ffi: ^2.1.0
-  hooks: '>=1.0.0 <3.0.0'
   # The sessions GenAI builds run on ONNX Runtime, and this package's API hands
   # back and takes the base package's types.
   onnxruntime_dart: '>=0.1.0 <1.0.0'
