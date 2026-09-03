@@ -78,11 +78,19 @@ def main() -> None:
             f"{provider.name}-*{config}.tar.gz",
         ):
             if download(provider.release_tag, pattern, into):
-                found = next(
-                    (p for p in into.glob("*.tar.gz") if not p.name.endswith(".sha256")),
-                    None,
+                # The newest, not the first one the glob happens to yield. CUDA
+                # publishes an archive per toolkit, so a target has both
+                # cuda-cuda12-<target> and cuda-cuda13-<target>, and taking
+                # either arbitrarily gives a plugin whose runtime is not the
+                # one CI installed. Sorting puts the newer toolkit last.
+                archives = sorted(
+                    p for p in into.glob("*.tar.gz")
+                    if not p.name.endswith(".sha256")
                 )
+                found = archives[-1] if archives else None
                 if found and found != wanted:
+                    for stale in archives[:-1]:
+                        stale.unlink()
                     found.rename(wanted)
                 break
         else:
