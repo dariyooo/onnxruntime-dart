@@ -2,12 +2,9 @@ Functions the generator does not handle.
 Each needs a rule in tool/src/types.dart, or a wrapper written by hand
 in lib/src/bindings/api/manual.dart.
 
-OrtApi.AddExternalInitializersFromFilesInMemory: input char* const*
 OrtApi.CreateEnvWithCustomLogger: input OrtLoggingFunction
 OrtApi.CreateEnvWithCustomLoggerAndGlobalThreadPools: input OrtLoggingFunction
-OrtApi.CreateOp: input const char**
 OrtApi.EpAssignedSubgraph_GetNodes: output const OrtEpAssignedNode* const**
-OrtApi.FillSparseTensorBlockSparse: input const int32_t*
 OrtApi.GetAvailableProviders: output char***
 OrtApi.GetBoundOutputNames: output size_t**
 OrtApi.GetBoundOutputValues: output OrtValue***
@@ -20,7 +17,6 @@ OrtApi.GetSessionConfigEntry: output char*, inout size_t*, which is written back
 OrtApi.GetStringTensorContent: output void*
 OrtApi.GetStringTensorElement: output void*
 OrtApi.GetTensorElementTypeAndShapeDataReference: output const int64_t**
-OrtApi.Graph_GetModelPath: output const ORTCHAR_T**
 OrtApi.KernelInfoGetAttributeArray_float: inout size_t*, which is written back or kept
 OrtApi.KernelInfoGetAttributeArray_int64: inout size_t*, which is written back or kept
 OrtApi.KernelInfoGetAttributeArray_string: output char***
@@ -45,4 +41,3 @@ OrtApi.UseCooIndices: inout int64_t*, which is written back or kept
 OrtApi.UseCsrIndices: inout int64_t*, which is written back or kept, inout int64_t*, which is written back or kept
 OrtCompileApi.ModelCompilationOptions_SetOutputModelGetInitializerLocationFunc: input OrtGetInitializerLocationFunc
 OrtCompileApi.ModelCompilationOptions_SetOutputModelWriteFunc: input OrtWriteBufferFunc
-OrtModelEditorApi.CreateModel: input const int*

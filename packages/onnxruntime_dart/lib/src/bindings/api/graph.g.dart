@@ -75,6 +75,28 @@ extension OrtApiGraphApi on OrtApi {
             numInitializers));
       });
 
+  /// `AddExternalInitializersFromFilesInMemory`
+  void addExternalInitializersFromFilesInMemory(
+          Pointer<OrtSessionOptions> options,
+          List<String> externalInitializerFileNames,
+          List<String> externalInitializerFileBufferArray,
+          List<int> externalInitializerFileLengths,
+          int numExternalInitializerFiles) =>
+      withArena((arena) {
+        checkOrtStatus(this.AddExternalInitializersFromFilesInMemory.asFunction<
+                Pointer<OrtStatus> Function(
+                    Pointer<OrtSessionOptions>,
+                    Pointer<Pointer<Char>>,
+                    Pointer<Pointer<Char>>,
+                    Pointer<Size>,
+                    int)>()(
+            options,
+            nativeOrtPaths(externalInitializerFileNames, arena),
+            nativeStrings(externalInitializerFileBufferArray, arena),
+            nativeSizes(externalInitializerFileLengths, arena),
+            numExternalInitializerFiles));
+      });
+
   /// `GetValueInfoName`
   String getValueInfoName(Pointer<OrtValueInfo> valueInfo) =>
       withArena((arena) {
@@ -220,6 +242,15 @@ extension OrtApiGraphApi on OrtApi {
             Pointer<OrtStatus> Function(
                 Pointer<OrtGraph>, Pointer<Pointer<Char>>)>()(graph, out0));
         return out0.value.cast<Utf8>().toDartString();
+      });
+
+  /// `Graph_GetModelPath`
+  String graph_GetModelPath(Pointer<OrtGraph> graph) => withArena((arena) {
+        final out0 = arena<Pointer<Char>>();
+        checkOrtStatus(this.Graph_GetModelPath.asFunction<
+            Pointer<OrtStatus> Function(
+                Pointer<OrtGraph>, Pointer<Pointer<Char>>)>()(graph, out0));
+        return readOrtPath(out0.value);
       });
 
   /// `Graph_GetOnnxIRVersion`

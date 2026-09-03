@@ -85,6 +85,21 @@ extension OrtModelEditorApiCoreApi on OrtModelEditorApi {
           Pointer<OrtStatus> Function(
               Pointer<OrtGraph>, Pointer<OrtNode>)>()(graph, node));
 
+  /// `CreateModel`
+  Pointer<OrtModel> createModel(List<String> domainNames,
+          List<int> opsetVersions, int opsetEntriesLen) =>
+      withArena((arena) {
+        final out0 = arena<Pointer<OrtModel>>();
+        checkOrtStatus(this.CreateModel.asFunction<
+                Pointer<OrtStatus> Function(Pointer<Pointer<Char>>,
+                    Pointer<Int>, int, Pointer<Pointer<OrtModel>>)>()(
+            nativeStrings(domainNames, arena),
+            nativeInts(opsetVersions, arena),
+            opsetEntriesLen,
+            out0));
+        return out0.value;
+      });
+
   /// `AddGraphToModel`
   void addGraphToModel(Pointer<OrtModel> model, Pointer<OrtGraph> graph) =>
       checkOrtStatus(this.AddGraphToModel.asFunction<

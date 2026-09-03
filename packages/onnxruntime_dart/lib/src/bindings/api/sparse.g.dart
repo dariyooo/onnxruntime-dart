@@ -101,6 +101,37 @@ extension OrtApiSparseApi on OrtApi {
             outerIndicesNum));
       });
 
+  /// `FillSparseTensorBlockSparse`
+  void fillSparseTensorBlockSparse(
+          Pointer<OrtValue> ortValue,
+          Pointer<OrtMemoryInfo> dataMemInfo,
+          List<int> valuesShape,
+          int valuesShapeLen,
+          Pointer<Void> values,
+          List<int> indicesShapeData,
+          int indicesShapeLen,
+          List<int> indicesData) =>
+      withArena((arena) {
+        checkOrtStatus(this.FillSparseTensorBlockSparse.asFunction<
+                Pointer<OrtStatus> Function(
+                    Pointer<OrtValue>,
+                    Pointer<OrtMemoryInfo>,
+                    Pointer<Int64>,
+                    int,
+                    Pointer<Void>,
+                    Pointer<Int64>,
+                    int,
+                    Pointer<Int32>)>()(
+            ortValue,
+            dataMemInfo,
+            nativeInt64s(valuesShape, arena),
+            valuesShapeLen,
+            values,
+            nativeInt64s(indicesShapeData, arena),
+            indicesShapeLen,
+            nativeInt32s(indicesData, arena)));
+      });
+
   /// `CreateSparseTensorWithValuesAsOrtValue`
   ///
   /// Borrows, does not copy: the tensor is a view over `pData` and does not

@@ -6,6 +6,7 @@
 library;
 
 export 'binding.g.dart';
+export 'core.g.dart';
 export 'ep.g.dart';
 export 'graph.g.dart';
 export 'kernel.g.dart';

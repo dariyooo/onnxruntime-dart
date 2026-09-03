@@ -37,9 +37,10 @@ Decided already:
   was asked for. The difference between those two is where most of the
   interesting failures live.
 
-Open, and worth settling before any code: whether this is a Flutter application
-reusing the shape of `integration/harness`, or a plain Dart web application.
-That decides how much of it can run on Pages at all.
+It is a Flutter application, reusing the shape of `integration/harness`. That
+settles how it reaches the packages on each platform, and it is the same
+arrangement the device tests already use, so the native asset path is one that
+is known to work rather than one to find out about.
 
 ### Hosting it on GitHub Pages
 
