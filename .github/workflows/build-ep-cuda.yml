@@ -52,7 +52,7 @@ jobs:
 
       - name: Publish or refresh the release
         # Only from main. dev builds to prove it works, not to publish.
-        if: github.ref == 'refs/heads/main'
+        if: startsWith(github.ref, 'refs/tags/')
         env:
           GH_TOKEN: ${{ github.token }}
         run: python3 .github/scripts/publish_provider.py cuda

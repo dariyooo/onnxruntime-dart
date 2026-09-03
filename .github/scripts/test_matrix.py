@@ -833,24 +833,34 @@ class Pipelines(unittest.TestCase):
             )
         )
 
-    def test_nothing_publishes_off_main(self):
-        # dev exists so work can be proved without cancelling main's runs. It
-        # must not publish: a release cut from an unproven branch is worse than
-        # no release, because the tag then exists and points at it.
+    def test_nothing_publishes_except_on_a_tag(self):
+        """Pushing a branch builds and tests. Only a tag publishes.
+
+        Landing on main is what proves a pin across the whole matrix, and that
+        has to be able to happen freely. Publishing is the other thing: a
+        release is outward facing and cannot be withdrawn once somebody has
+        installed from it, so it waits for a tag, which is deliberate in a way
+        that merging is not.
+
+        This once read the other way round and asserted that publishing was
+        gated on main, which is exactly how pushing a branch came to publish.
+        """
         import yaml
 
-        workflows = (REPO_ROOT / ".github" / "workflows").glob("*.yml")
         checked = 0
-        for path in workflows:
-            content = path.read_text(encoding="utf-8")
-            workflow = yaml.safe_load(content)
+        for path in sorted((REPO_ROOT / ".github" / "workflows").glob("*.yml")):
+            workflow = yaml.safe_load(path.read_text(encoding="utf-8"))
             for name, job in (workflow.get("jobs") or {}).items():
                 steps = job.get("steps") or []
+                # Matched on what a step does, not on what it is called, so a
+                # new publisher cannot slip past by being named something else.
                 publishes = [
                     step
                     for step in steps
                     if "publish" in str(step.get("name", "")).lower()
                     or "release create" in str(step.get("run", ""))
+                    or "release upload" in str(step.get("run", ""))
+                    or "publish_" in str(step.get("run", ""))
                 ]
                 if not publishes:
                     continue
@@ -858,11 +868,17 @@ class Pipelines(unittest.TestCase):
                 guard = str(job.get("if", "")) + "".join(
                     str(step.get("if", "")) for step in publishes
                 )
-                self.assertIn(
-                    "refs/heads/main",
-                    guard,
-                    f"{path.name}:{name} can publish without being on main",
-                )
+                with self.subTest(workflow=path.name, job=name):
+                    self.assertIn(
+                        "refs/tags/",
+                        guard,
+                        f"{path.name}:{name} publishes without being on a tag",
+                    )
+                    self.assertNotIn(
+                        "refs/heads/",
+                        guard,
+                        f"{path.name}:{name} publishes on a branch push too",
+                    )
                 checked += 1
 
         self.assertGreater(checked, 0, "no publishing job was found to check")
