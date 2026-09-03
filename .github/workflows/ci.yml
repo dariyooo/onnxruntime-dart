@@ -389,6 +389,11 @@ jobs:
     if: >-
       ${{ needs.mode.outputs.building == 'true'
       && (inputs.only == '' || contains(inputs.only, 'genai')) }}
+    # The called workflow publishes, so the caller has to grant it. A reusable
+    # workflow cannot hold more than the job calling it was given, and without
+    # this the whole run fails to start rather than the job failing.
+    permissions:
+      contents: write
     uses: ./.github/workflows/build-genai.yml
 
   # Nothing is compiled: ONNX Runtime publishes this plugin itself and we
