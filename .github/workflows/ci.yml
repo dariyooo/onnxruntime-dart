@@ -755,7 +755,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          out=$(dart test --tags exclusive \
+          # Training is excluded, not skipped: this is the base build, which
+          # has none compiled in, and a skip here would read the same as a
+          # runtime that failed to load. test-full-runtime runs them.
+          out=$(dart test --tags exclusive --exclude-tags training \
             --concurrency 1 --reporter expanded 2>&1) && status=0 || status=$?
           echo "$out"
           # See above: a pipe here inverts the test under pipefail.

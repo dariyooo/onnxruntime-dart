@@ -1,4 +1,10 @@
 tags:
+  # Only the full build has training compiled in. Run against the base build
+  # these would skip, which reads the same as a runtime that failed to load.
+  # The full-runtime job runs them with --tags training instead.
+  training:
+    timeout: 2x
+
   # Measures process-global resident memory, so nothing else may allocate
   # concurrently. Run with --tags exclusive --concurrency 1.
   exclusive:
