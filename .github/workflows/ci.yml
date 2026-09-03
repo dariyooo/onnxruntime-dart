@@ -1088,6 +1088,22 @@ jobs:
           Remove-Item $unpack -Recurse -Force
           Add-Content $env:GITHUB_ENV "CUDA_LIB_DIR=$into"
 
+      # GenAI is mirrored rather than built, and published for fewer targets
+      # than the runtime: no macOS x64. A target it has no build for says so
+      # and carries on.
+      - uses: actions/download-artifact@v4
+        if: ${{ needs.mode.outputs.building == 'true' }}
+        with:
+          name: genai
+          path: .local/artifacts
+        continue-on-error: true
+
+      - name: Stage the GenAI library
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 .github/scripts/locate_genai.py "${{ matrix.artifact }}"
+
       - name: Point the suite at our build
         shell: bash
         run: |
@@ -1198,3 +1214,10 @@ jobs:
             echo "::error::bindings_test skipped. Our build was not found."
             exit 1
           fi
+
+      # The GenAI suite, in its own package and so its own invocation. It skips
+      # with a named reason on a target upstream publishes no library for,
+      # which is macOS x64 and nothing else.
+      - name: Test GenAI
+        working-directory: packages/onnxruntime_genai
+        run: dart test --reporter expanded
