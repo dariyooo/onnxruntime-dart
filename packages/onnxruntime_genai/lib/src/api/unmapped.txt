@@ -4,7 +4,7 @@ OgaResultGetError: parameter result is const OgaResult*
 OgaSetLogCallback: takes a callback, which needs a wrapper
 OgaDestroyResult: parameter result is OgaResult*
 OgaRuntimeSettingsSetHandle: parameter handle is void*
-OgaCreateTensorFromBuffer: parameter data is void*
+OgaCreateTensorFromBuffer: keeps the buffer it is given, so an arena cannot own it. Needs a wrapper that keeps it alive as long as the handle
 OgaTensorGetData: returns OgaResult*
 OgaRequestSetOpaqueData: parameter opaque_data is void*
 OgaRequestGetOpaqueData: returns OgaResult*

@@ -214,6 +214,18 @@ String _callName(CFunction function) {
 /// Why a function was left out, for unmapped.txt.
 String _why(CFunction function) {
   if (function.takesCallback) return 'takes a callback, which needs a wrapper';
+
+  // A buffer the callee keeps is the one shape that must not be generated. The
+  // arena frees on return, so the generated wrapper would compile and hand back
+  // something pointing at freed memory. The header says when this applies, and
+  // saying so here is the difference between a missing rule and a decision
+  // somebody has to make.
+  final documentation = function.documentation.toLowerCase();
+  if (documentation.contains('must remain valid') ||
+      documentation.contains('must be valid for the lifetime')) {
+    return 'keeps the buffer it is given, so an arena cannot own it. Needs a '
+        'wrapper that keeps it alive as long as the handle';
+  }
   if (function.parameters.isEmpty) return 'takes nothing this can act on';
   for (final parameter in function.parameters) {
     if (map(parameter.type) == null && !parameter.isHandleOut) {
