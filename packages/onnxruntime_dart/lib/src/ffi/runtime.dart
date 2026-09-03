@@ -26,6 +26,7 @@ import 'package:ffi/ffi.dart';
 import '../bindings/ort_bindings.g.dart';
 import '../exceptions.dart';
 import '../version.g.dart';
+import 'environment.dart';
 
 export '../exceptions.dart' show OrtAbiMismatch;
 
@@ -70,6 +71,14 @@ Pointer<OrtTrainingApi> _trainingApi() => ortApi()
 Pointer<OrtTrainingApi> trainingApi() {
   final api = _trainingApi();
   if (api == nullptr) throw const OrtTrainingUnavailable();
+
+  // Every training call logs, and ONNX Runtime registers its default logger
+  // when an environment is first created. A training program starts at a
+  // checkpoint rather than at a session, so without this the first call fails
+  // with "Attempt to use DefaultLogger but none has been registered", which
+  // says nothing about what to do. The environment is a process-wide lookup
+  // after the first call, so asking for it here costs nothing.
+  OrtEnvironment.instance();
   return api;
 }
 
