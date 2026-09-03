@@ -409,17 +409,13 @@ jobs:
         include:
           # The emulator is x86_64, so that is the library it needs.
           - { name: android-x64, runner: ubuntu-24.04, artifact: android-x86_64, arch: x86_64, accel: auto }
-          # An x64 host emulating arm64, which is the only combination left.
-          # Flutter publishes no linux-arm64 SDK, so ubuntu-24.04-arm cannot run
-          # `flutter test` at all despite having KVM. Apple silicon has Flutter,
-          # but GitHub's runners there are virtual machines that do not pass the
-          # hypervisor through, and the emulator dies with "HVF error:
-          # HV_UNSUPPORTED" even when handed -accel off, because
-          # qemu-system-aarch64 on macOS has no software fallback. That leaves
-          # emulating arm64 on an x64 host: slow, and the only way the
-          # architecture almost every Android phone uses gets run at all rather
-          # than only built.
-          - { name: android-arm64, runner: ubuntu-24.04, artifact: android-arm64-v8a, arch: arm64-v8a, accel: 'off' }
+          # macOS on Apple silicon, because it is the only host Google ships a
+          # native arm64 emulator for: the SDK's emulator package carries
+          # linux_x64, darwin_x64, darwin_aarch64 and windows_x64, and no
+          # linux aarch64 at all. An x64 host can only translate an arm64 image,
+          # which does not finish booting inside an hour, so this is the one
+          # place the architecture almost every Android phone uses can be run.
+          - { name: android-arm64, runner: macos-15, artifact: android-arm64-v8a, arch: arm64-v8a, accel: auto }
           - { name: ios, runner: macos-15, artifact: ios-sim-arm64 }
     steps:
       - uses: actions/checkout@v5
@@ -488,6 +484,24 @@ jobs:
       # The runner has KVM but the runner user cannot open it, and the emulator
       # quietly falls back to software emulation rather than saying so. That is
       # the difference between six minutes and six hours.
+      # Whether this runner can host a virtual machine at all. The arm64
+      # emulator needs the hypervisor and has no software fallback: handed
+      # -accel off it still calls hv_vm_create and dies with "HVF error:
+      # HV_UNSUPPORTED". kern.hv_support says in one line whether that is the
+      # machine refusing or something we are doing wrong, which is otherwise
+      # an hour of waiting to find out.
+      - name: Can this runner host a hypervisor
+        if: matrix.name == 'android-arm64'
+        run: |
+          echo "  kern.hv_support: $(sysctl -n kern.hv_support 2>&1 || echo '(absent)')"
+          echo "  cpu: $(sysctl -n machdep.cpu.brand_string 2>&1 || echo '(absent)')"
+          if [ "$(sysctl -n kern.hv_support 2>/dev/null)" != "1" ]; then
+            echo "::error::this runner exposes no hypervisor, so an arm64"
+            echo "::error::emulator cannot start here. Google ships no arm64"
+            echo "::error::Linux emulator either, so there is no other host."
+            exit 1
+          fi
+
       - name: Let the emulator use KVM
         if: startsWith(matrix.name, 'android') && runner.os == 'Linux'
         run: |
