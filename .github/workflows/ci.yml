@@ -872,11 +872,20 @@ jobs:
           $cuda = Get-ChildItem .local/ort -Recurse `
             -Filter onnxruntime_providers_cuda.dll | Select-Object -First 1
           if ($cuda -and $env:CUDA_PATH) {
-            Get-ChildItem "$env:CUDA_PATH/bin" -Filter '*64_13.dll' |
-              ForEach-Object {
-                Copy-Item $_.FullName $cuda.Directory -Force
-                Write-Host "  $($_.Name) -> $($cuda.Directory)"
-              }
+            # Searched rather than assumed: the silent installer does not
+            # always lay the runtime DLLs out under bin, and a glob that
+            # matches nothing copies nothing and says nothing.
+            $dlls = Get-ChildItem $env:CUDA_PATH -Recurse -Include `
+              cudart64_*.dll, cublas64_*.dll, cublasLt64_*.dll -ErrorAction SilentlyContinue
+            if (-not $dlls) {
+              Write-Host "::warning::no CUDA runtime DLLs under $env:CUDA_PATH"
+              Get-ChildItem $env:CUDA_PATH -Directory |
+                ForEach-Object { Write-Host "  dir: $($_.Name)" }
+            }
+            $dlls | ForEach-Object {
+              Copy-Item $_.FullName $cuda.Directory -Force
+              Write-Host "  $($_.Name) -> $($cuda.Directory)"
+            }
           }
 
       # After the pubspec names a library, never before. The build hook reads
