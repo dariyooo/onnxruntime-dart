@@ -705,7 +705,9 @@ jobs:
       && (needs.mode.outputs.building != 'true'
           || needs.build-runtime.result == 'success') }}
     runs-on: ${{ matrix.runner }}
-    timeout-minutes: 30
+    # Thirty was enough until Windows on ARM started pulling the 3.8 GB
+    # CUDA preview installer to load its plugin against.
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
