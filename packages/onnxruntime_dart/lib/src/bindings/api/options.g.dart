@@ -317,6 +317,29 @@ extension OrtApiOptionsApi on OrtApi {
         return out0.value;
       });
 
+  /// `GetSessionConfigEntry`
+  String getSessionConfigEntry(
+          Pointer<OrtSessionOptions> options, String configKey) =>
+      withArena((arena) {
+        final size = arena<Size>()..value = 0;
+        final call = this.GetSessionConfigEntry.asFunction<
+            Pointer<OrtStatus> Function(Pointer<OrtSessionOptions>,
+                Pointer<Char>, Pointer<Char>, Pointer<Size>)>();
+
+        // Reports the size it wants and fails because there is no
+        // buffer yet. Expected, so the status is released, not checked.
+        final asked = call(options,
+            configKey.toNativeUtf8(allocator: arena).cast(), nullptr, size);
+        if (asked != nullptr) {
+          ReleaseStatus.asFunction<void Function(Pointer<OrtStatus>)>()(asked);
+        }
+
+        final buffer = arena<Char>(size.value == 0 ? 1 : size.value);
+        checkOrtStatus(call(options,
+            configKey.toNativeUtf8(allocator: arena).cast(), buffer, size));
+        return buffer.cast<Utf8>().toDartString();
+      });
+
   /// `SetDeterministicCompute`
   void setDeterministicCompute(
           Pointer<OrtSessionOptions> options, bool value) =>
