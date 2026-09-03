@@ -102,3 +102,89 @@ def verify(path: pathlib.Path, arch: str) -> None:
             f"target it names, which is a build configuration problem, not a "
             f"packaging one."
         )
+
+
+# What Android's linker will find on a device without the app shipping it.
+# Deliberately short: anything else has to travel in the archive, and the
+# NDK's libc++ is the one people reach for by accident, because it links
+# cleanly on the build machine and is absent on the phone.
+ANDROID_PROVIDED = {
+    "libc.so",
+    "libdl.so",
+    "libm.so",
+    "liblog.so",
+    "libz.so",
+    "libandroid.so",
+    "libEGL.so",
+    "libGLESv2.so",
+    "libGLESv3.so",
+    "libvulkan.so",
+    "libnativewindow.so",
+    "libneuralnetworks.so",
+    "ld-android.so",
+}
+
+
+def dependencies(path: pathlib.Path) -> list[str]:
+    """The DT_NEEDED names of a 64-bit little-endian ELF, or an empty list."""
+    blob = path.read_bytes()
+    if blob[:6] != b"\x7fELF\x02\x01":
+        return []
+
+    phoff = struct.unpack_from("<Q", blob, 0x20)[0]
+    phentsize, phnum = struct.unpack_from("<HH", blob, 0x36)
+    loads: list[tuple[int, int, int]] = []
+    dynamic = None
+    for i in range(phnum):
+        at = phoff + i * phentsize
+        kind = struct.unpack_from("<I", blob, at)[0]
+        offset, vaddr = struct.unpack_from("<QQ", blob, at + 8)
+        filesz = struct.unpack_from("<Q", blob, at + 32)[0]
+        if kind == 1:  # PT_LOAD
+            loads.append((vaddr, filesz, offset))
+        elif kind == 2:  # PT_DYNAMIC
+            dynamic = offset
+    if dynamic is None:
+        return []
+
+    def to_file(vaddr: int) -> int | None:
+        for start, size, offset in loads:
+            if start <= vaddr < start + size:
+                return offset + (vaddr - start)
+        return None
+
+    at, strtab, wanted = dynamic, None, []
+    while True:
+        tag, value = struct.unpack_from("<qQ", blob, at)
+        if tag == 0:  # DT_NULL
+            break
+        if tag == 5:  # DT_STRTAB
+            strtab = value
+        elif tag == 1:  # DT_NEEDED, an offset into it
+            wanted.append(value)
+        at += 16
+
+    base = to_file(strtab) if strtab is not None else None
+    if base is None:
+        return []
+    return [
+        blob[base + o : blob.index(b"\0", base + o)].decode() for o in wanted
+    ]
+
+
+def verify_android_dependencies(path: pathlib.Path) -> None:
+    """Raises if [path] needs a library Android will not have.
+
+    Checked because the Android targets are the ones we cannot run. An arm64
+    emulator needs an arm64 host, the only arm64 host with an emulator is
+    macOS, and the hosted ones are virtual machines without a hypervisor. So
+    a dependency that resolves on the build machine and not on a phone would
+    otherwise reach a user before it reached us.
+    """
+    missing = sorted(set(dependencies(path)) - ANDROID_PROVIDED)
+    if missing:
+        raise SystemExit(
+            f"{path.name} needs {', '.join(missing)}, which Android does not "
+            f"provide. It has to be shipped in the archive, or linked "
+            f"statically, or this fails at load time on a device."
+        )

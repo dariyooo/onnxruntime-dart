@@ -180,6 +180,11 @@ def _archive(
             # it, and for the targets we have no hardware to load-test on that
             # would be in a user's application.
             binary_arch.verify(source, config.arch)
+            # Android only: the one platform whose binaries no job can run,
+            # so what the linker will look for is worth checking before it
+            # ships rather than after somebody installs it.
+            if config.platform == "android":
+                binary_arch.verify_android_dependencies(source)
             tar.add(source, arcname=name)
 
     digest = sha256(archive)
