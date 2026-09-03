@@ -398,19 +398,19 @@ jobs:
     runs-on: ${{ matrix.runner }}
     # A booted emulator running a handful of tests takes minutes. Without this
     # a hung one ran to the six hour default, twice.
-    timeout-minutes: 45
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
         include:
           # The emulator is x86_64, so that is the library it needs.
-          - { name: android-x64, runner: ubuntu-24.04, artifact: android-x86_64, arch: x86_64 }
+          - { name: android-x64, runner: ubuntu-24.04, artifact: android-x86_64, arch: x86_64, accel: auto }
           # On macOS, because Flutter publishes no linux-arm64 SDK: an
           # ubuntu-24.04-arm runner cannot run `flutter test` at all. Apple
           # silicon is arm64, has Flutter, and runs an arm64-v8a image natively
           # through HVF. Without this the architecture almost every Android
           # phone actually uses is built and never run.
-          - { name: android-arm64, runner: macos-15, artifact: android-arm64-v8a, arch: arm64-v8a }
+          - { name: android-arm64, runner: macos-15, artifact: android-arm64-v8a, arch: arm64-v8a, accel: 'off' }
           - { name: ios, runner: macos-15, artifact: ios-sim-arm64 }
     steps:
       - uses: actions/checkout@v5
@@ -512,16 +512,25 @@ jobs:
           # the only way the arm build gets run rather than only built.
           arch: ${{ matrix.arch }}
           target: google_apis
-          emulator-boot-timeout: 900
+          # Long enough for a software-emulated boot, which is minutes
+          # rather than seconds and is the arm64 case above.
+          emulator-boot-timeout: 1800
           disable-animations: true
           # Vulkan, not just GLES. swiftshader_indirect gives the emulator a
           # software GL renderer, and ONNX Runtime's WebGPU provider reaches
           # the GPU through Dawn, which wants Vulkan. Without it the provider
           # loads, finds no adapter, and the accelerator goes untested on the
           # architecture most phones actually run.
+          # Hardware acceleration where there is any. GitHub's Apple silicon
+          # runners are themselves virtual machines and do not pass the
+          # hypervisor through, so an arm64 emulator there dies at once with
+          # "HVF error: HV_UNSUPPORTED" and the job waits out its boot timeout
+          # on a device that never appeared. Software emulation is slow, but
+          # slow is what makes the architecture most phones run testable at
+          # all rather than only built.
           emulator-options: >-
             -no-window -gpu swiftshader_indirect -no-snapshot -noaudio
-            -no-boot-anim -feature Vulkan
+            -no-boot-anim -feature Vulkan -accel ${{ matrix.accel }}
           working-directory: integration/harness
           script: |
             # What the emulator actually offers, before the tests run. The
