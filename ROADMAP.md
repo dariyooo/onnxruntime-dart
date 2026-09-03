@@ -16,31 +16,25 @@ the pinned GenAI submodule the same way, behind a backend boundary so the
 package compiles for the web even though upstream publishes no WebAssembly
 build. That decision is recorded in [#2](../../issues/2).
 
+**The C API, wrapped.** Every call in the pinned headers is reachable: the
+generator covers the shapes it can state as rules, `manual.dart` covers the ones
+that need a decision, and `unmapped.txt` says which is which. One call is left,
+`GetOpaqueValue`, and the file records why it cannot be wrapped rather than
+listing it as work outstanding. GenAI is the same, with two calls held back on
+purpose because they are the error plumbing `check()` already owns.
+
+**The example application.** `examples/gallery` runs six upstream models: two
+classifiers, an object detector, an LSTM, a sentence transformer and Phi-3 mini
+through the GenAI package. Models are fetched from whoever published them, sizes
+are shown before they are spent and checked after, and every run reports which
+provider actually executed each node rather than which one was asked for.
+
+Two things it does not do yet. Its tests cannot run in CI until
+`onnxruntime_genai_binaries` has a release, because the build hook has nothing
+to download and a `local_build` override cannot be committed. And the WebGPU
+provider is offered only where the build has one.
+
 ## Next
-
-### An example application
-
-Not started. It exists to exercise the packages rather than to demonstrate
-them, which is why it comes before anything is called finished.
-
-Decided already:
-
-- **Models come from upstream only.** Nothing hand-converted, nothing hosted
-  here. A model that needs converting is a model whose behaviour this project
-  has to explain rather than ONNX Runtime's.
-- **Download size is shown before it is spent.** ResNet50 at 31 MB is fine when
-  a reader knows it is 31 MB.
-- **A spread rather than one model**: a classifier, an object detector, an
-  RNN or LSTM, a small transformer, and something driven by GenAI. Each one
-  exercises a different part of the runtime, which is the point.
-- **A diagnostic panel**, showing which provider actually ran rather than which
-  was asked for. The difference between those two is where most of the
-  interesting failures live.
-
-It is a Flutter application, reusing the shape of `integration/harness`. That
-settles how it reaches the packages on each platform, and it is the same
-arrangement the device tests already use, so the native asset path is one that
-is known to work rather than one to find out about.
 
 ### Hosting it on GitHub Pages
 
