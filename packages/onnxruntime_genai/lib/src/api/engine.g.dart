@@ -6,34 +6,26 @@
 part of 'api.dart';
 
 /// Wraps the `OgaEngine` handle.
-final class Engine extends GenAiHandle<OgaEngine> {
+///
+/// Above the backend boundary, so it names no pointer type and forwards
+/// everything to whichever backend was selected for this platform.
+final class Engine extends GenAiHandle {
   Engine._(super.handle);
 
   @override
-  void destroy(Pointer<OgaEngine> handle) => OgaDestroyEngine(handle);
+  void destroy(GenAiPtr handle) => _calls.destroyEngine(handle);
 
   /// Wraps `OgaEngineStep`.
-  Request step() => withArena((arena) {
-        final out = arena<Pointer<OgaRequest>>();
-        check(OgaEngineStep(handle, out));
-        return Request._(out.value);
-      });
+  Request step() =>
+      Request._(_calls.engineStep(handle));
 
   /// Wraps `OgaEngineHasPendingRequests`.
-  bool hasPendingRequests() => withArena((arena) {
-        final out = arena<Bool>();
-        check(OgaEngineHasPendingRequests(handle, out));
-        return out.value;
-      });
+  bool hasPendingRequests() => _calls.engineHasPendingRequests(handle);
 
   /// Wraps `OgaEngineAddRequest`.
-  void addRequest(Request request) => withArena((arena) {
-        check(OgaEngineAddRequest(handle, request.handle));
-      });
+  void addRequest(GenAiPtr request) => _calls.engineAddRequest(handle, request);
 
   /// Wraps `OgaEngineRemoveRequest`.
-  void removeRequest(Request request) => withArena((arena) {
-        check(OgaEngineRemoveRequest(handle, request.handle));
-      });
+  void removeRequest(GenAiPtr request) => _calls.engineRemoveRequest(handle, request);
 
 }

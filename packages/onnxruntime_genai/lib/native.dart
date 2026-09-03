@@ -29,14 +29,7 @@
 /// ```
 library;
 
-export 'src/api/support.dart'
-    show
-        GenAiException,
-        GenAiHandle,
-        borrowedCString,
-        check,
-        cString,
-        readCString,
-        takeCString,
-        withArena;
+export 'src/backend/ffi_support.dart'
+    show borrowedCString, check, cString, readCString, takeCString, withArena;
+export 'src/backend/types.dart' show GenAiException, GenAiHandle, GenAiPtr;
 export 'src/bindings/genai_bindings.g.dart';

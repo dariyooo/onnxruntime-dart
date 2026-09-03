@@ -9,39 +9,38 @@
 part of 'api.dart';
 
 /// Wraps `OgaShutdown`.
-void shutdown() => OgaShutdown();
+void shutdown() =>
+    _calls.shutdown();
 
 /// Wraps `OgaSetTelemetryEnabled`.
-void setTelemetryEnabled(bool enabled) => withArena((arena) => OgaSetTelemetryEnabled(enabled));
+void setTelemetryEnabled(bool enabled) =>
+    _calls.setTelemetryEnabled(enabled);
 
 /// Wraps `OgaSetLogBool`.
-void setLogBool(String name, bool value) => withArena((arena) {
-      check(OgaSetLogBool(cString(arena, name), value));
-    });
+void setLogBool(String name, bool value) =>
+    _calls.setLogBool(name, value);
 
 /// Wraps `OgaSetLogString`.
-void setLogString(String name, String value) => withArena((arena) {
-      check(OgaSetLogString(cString(arena, name), cString(arena, value)));
-    });
+void setLogString(String name, String value) =>
+    _calls.setLogString(name, value);
 
 /// Wraps `OgaDestroyString`.
-void destroyString(String value) => withArena((arena) => OgaDestroyString(cString(arena, value)));
+void destroyString(String value) =>
+    _calls.destroyString(value);
 
 /// Wraps `OgaSetCurrentGpuDeviceId`.
-void setCurrentGpuDeviceId(int deviceId) => withArena((arena) {
-      check(OgaSetCurrentGpuDeviceId(deviceId));
-    });
+void setCurrentGpuDeviceId(int deviceId) =>
+    _calls.setCurrentGpuDeviceId(deviceId);
 
 /// Wraps `OgaGetCurrentGpuDeviceId`.
-int getCurrentGpuDeviceId() => withArena((arena) {
-      final out = arena<Int>();
-      check(OgaGetCurrentGpuDeviceId(out));
-      return out.value;
-    });
+int getCurrentGpuDeviceId() =>
+    _calls.getCurrentGpuDeviceId();
 
 /// Wraps `OgaRegisterExecutionProviderLibrary`.
-void registerExecutionProviderLibrary(String registrationName, String libraryPath) => withArena((arena) => OgaRegisterExecutionProviderLibrary(cString(arena, registrationName), cString(arena, libraryPath)));
+void registerExecutionProviderLibrary(String registrationName, String libraryPath) =>
+    _calls.registerExecutionProviderLibrary(registrationName, libraryPath);
 
 /// Wraps `OgaUnregisterExecutionProviderLibrary`.
-void unregisterExecutionProviderLibrary(String registrationName) => withArena((arena) => OgaUnregisterExecutionProviderLibrary(cString(arena, registrationName)));
+void unregisterExecutionProviderLibrary(String registrationName) =>
+    _calls.unregisterExecutionProviderLibrary(registrationName);
 

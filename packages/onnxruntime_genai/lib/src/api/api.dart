@@ -3,15 +3,18 @@
 // Generated from third_party/onnxruntime-genai/src/ort_genai_c.h.
 // Regenerate with `dart run tool/generate_bindings.dart` from this package.
 
-/// The generated wrappers over the GenAI C API.
+/// The generated classes over the GenAI API.
+///
+/// One library rather than one per type, because they construct each other and
+/// a private constructor is private to its library.
 library;
 
-import 'dart:ffi';
+import '../backend/calls.dart';
+import '../backend/interface.dart';
+import '../backend/types.dart';
 
-import '../bindings/genai_bindings.g.dart';
-import 'support.dart';
-
-export 'support.dart' show GenAiException, GenAiHandle;
+export '../backend/types.dart'
+    show GenAiException, GenAiHandle, GenAiPtr, GenAiUnsupported;
 
 part 'adapters.g.dart';
 part 'audios.g.dart';
@@ -32,3 +35,6 @@ part 'string_array.g.dart';
 part 'tensor.g.dart';
 part 'tokenizer.g.dart';
 part 'tokenizer_stream.g.dart';
+
+/// The backend for this platform, made once.
+final GenAiCalls _calls = createCalls();

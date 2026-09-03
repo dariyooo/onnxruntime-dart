@@ -6,10 +6,13 @@
 part of 'api.dart';
 
 /// Wraps the `OgaImages` handle.
-final class Images extends GenAiHandle<OgaImages> {
+///
+/// Above the backend boundary, so it names no pointer type and forwards
+/// everything to whichever backend was selected for this platform.
+final class Images extends GenAiHandle {
   Images._(super.handle);
 
   @override
-  void destroy(Pointer<OgaImages> handle) => OgaDestroyImages(handle);
+  void destroy(GenAiPtr handle) => _calls.destroyImages(handle);
 
 }

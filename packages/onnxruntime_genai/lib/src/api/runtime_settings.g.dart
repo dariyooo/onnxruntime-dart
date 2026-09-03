@@ -6,24 +6,21 @@
 part of 'api.dart';
 
 /// Wraps the `OgaRuntimeSettings` handle.
-final class RuntimeSettings extends GenAiHandle<OgaRuntimeSettings> {
+///
+/// Above the backend boundary, so it names no pointer type and forwards
+/// everything to whichever backend was selected for this platform.
+final class RuntimeSettings extends GenAiHandle {
   RuntimeSettings._(super.handle);
 
   @override
-  void destroy(Pointer<OgaRuntimeSettings> handle) => OgaDestroyRuntimeSettings(handle);
+  void destroy(GenAiPtr handle) => _calls.destroyRuntimeSettings(handle);
 
   /// Wraps `OgaCreateRuntimeSettings`.
-  factory RuntimeSettings() => withArena((arena) {
-        final out = arena<Pointer<OgaRuntimeSettings>>();
-        check(OgaCreateRuntimeSettings(out));
-        return RuntimeSettings._(out.value);
-      });
+  factory RuntimeSettings() =>
+      RuntimeSettings._(_calls.createRuntimeSettings());
 
   /// Wraps `OgaCreateModelWithRuntimeSettings`.
-  Model createModelWithRuntimeSettings(String configPath) => withArena((arena) {
-        final out = arena<Pointer<OgaModel>>();
-        check(OgaCreateModelWithRuntimeSettings(cString(arena, configPath), handle, out));
-        return Model._(out.value);
-      });
+  Model createModelWithRuntimeSettings(String configPath) =>
+      Model._(_calls.createModelWithRuntimeSettings(handle, configPath));
 
 }
