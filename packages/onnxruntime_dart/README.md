@@ -192,6 +192,10 @@ Notes on the table:
   dies on with no message at all.
 - **CUDA** ships against two toolkits and defaults to 12, which asks less of the
   driver. `build: cuda13` selects the other, and on arm64 it is the only one.
+- **CUDA on Windows ARM is published but cannot run.** NVIDIA ships no CUDA
+  runtime for that target, so the plugin has nothing to load against. It is
+  built and published for completeness of the matrix, and listed here so nobody
+  reaches for it expecting it to work.
 - **QNN** carries the Qualcomm AI Runtime with it. Not Android: there QNN is
   linked into a whole runtime rather than published as a loadable plugin.
 - **On the web** nothing is loaded: WebGPU and WebNN are compiled into two of
