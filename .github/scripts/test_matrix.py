@@ -1382,5 +1382,43 @@ class ReusableWorkflowPermissions(unittest.TestCase):
                 )
 
 
+class GenAiTargets(unittest.TestCase):
+    """The hook offers exactly what the mirror publishes.
+
+    Two lists of the same thing, in Dart and in Python, and nothing makes them
+    agree except this. A hook that offers a target nothing publishes fails at
+    install time in somebody's build; one that omits a target we publish is a
+    binary nobody can reach.
+    """
+
+    def _hook_targets(self) -> list[str]:
+        import genai_matrix  # noqa: F401  (kept beside the other import)
+
+        source = (
+            REPO_ROOT / "packages" / "onnxruntime_hook" / "lib" / "src" /
+            "target.dart"
+        ).read_text(encoding="utf-8")
+        block = re.search(
+            r"class OrtGenAi.*?static const targets = \[(.*?)\];", source, re.S
+        )
+        self.assertIsNotNone(block, "OrtGenAi.targets is not where this expects")
+        return re.findall(r"'([^']+)'", block.group(1))
+
+    def test_the_hook_and_the_mirror_agree(self):
+        import genai_matrix
+
+        self.assertEqual(sorted(self._hook_targets()), sorted(genai_matrix.targets()))
+
+    def test_every_genai_target_is_one_the_runtime_has(self):
+        # GenAI runs on a session, so a target with no runtime beneath it is a
+        # library that installs and then finds nothing to call.
+        import genai_matrix
+
+        runtime = {config.id for config in m.CONFIGURATIONS}
+        for target in genai_matrix.targets():
+            with self.subTest(target=target):
+                self.assertIn(target, runtime)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

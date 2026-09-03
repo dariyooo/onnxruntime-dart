@@ -184,7 +184,10 @@ def _dependencies(path: pathlib.Path) -> list[str]:
     ]
 
 
-def verify_android_dependencies(path: pathlib.Path) -> None:
+def verify_android_dependencies(
+    path: pathlib.Path,
+    alongside: tuple[str, ...] = (),
+) -> None:
     """Raises if [path] needs a library Android will not have.
 
     Checked because the Android targets are the ones we cannot run. An arm64
@@ -193,10 +196,13 @@ def verify_android_dependencies(path: pathlib.Path) -> None:
     a dependency that resolves on the build machine and not on a phone would
     otherwise reach a user before it reached us.
     """
-    missing = sorted(set(dependencies(path)) - ANDROID_PROVIDED)
+    # What ships in the same archive counts as present. GenAI links libmat.so,
+    # which Android does not have and upstream puts in the same .aar, so the
+    # question is not whether the device provides it but whether we carry it.
+    missing = sorted(set(dependencies(path)) - ANDROID_PROVIDED - set(alongside))
     if missing:
         raise SystemExit(
             f"{path.name} needs {', '.join(missing)}, which Android does not "
-            f"provide. It has to be shipped in the archive, or linked "
-            f"statically, or this fails at load time on a device."
+            f"provide and this archive does not carry. Ship it alongside, or "
+            f"link it statically, or this fails at load time on a device."
         )
