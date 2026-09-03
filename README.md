@@ -52,7 +52,7 @@ build you serve decides which accelerators exist. Pick one.
 ## Building and testing
 
 One workflow, with one switch. By default it builds every binary and tests what
-it built — no binary is published without something loading it first. Give the
+it built, so no binary is published without something loading it first. Give the
 `from_release` input a runtime tag, or `latest`, and it skips the builds and
 runs the same tests against what is already published instead. That is also
 what the weekly run does, so a release that stops installing is noticed without
