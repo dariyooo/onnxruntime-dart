@@ -709,6 +709,21 @@ final class FfiGenAiCalls implements GenAiCalls {
       OgaDestroyTokenizer(pointer<OgaTokenizer>(handle));
 
   @override
+  void updateTokenizerOptions(GenAiPtr handle, Map<String, String> options) =>
+      withArena((arena) {
+        final keys = arena<Pointer<Char>>(options.length);
+        final values = arena<Pointer<Char>>(options.length);
+        var n = 0;
+        for (final entry in options.entries) {
+          keys[n] = cString(arena, entry.key);
+          values[n] = cString(arena, entry.value);
+          n++;
+        }
+        check(OgaUpdateTokenizerOptions(
+            pointer<OgaTokenizer>(handle), keys, values, options.length));
+      });
+
+  @override
   int tokenizerGetBosTokenId(GenAiPtr handle) => withArena((arena) {
         final out = arena<Int32>();
         check(OgaTokenizerGetBosTokenId(pointer<OgaTokenizer>(handle), out));

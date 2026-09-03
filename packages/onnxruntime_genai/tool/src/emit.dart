@@ -117,6 +117,17 @@ final class _ListParameter {
 }
 
 /// The list [parameters] starting at [index] describe, if they describe one.
+/// Whether [parameters] from [index] are two string arrays and a count: one
+/// map written as three arguments.
+bool _isStringMap(List<CParameter> parameters, int index) {
+  if (index + 2 >= parameters.length) return false;
+  String bare(int i) =>
+      parameters[i].type.replaceAll('const', '').replaceAll(' ', '');
+  return bare(index) == 'char**' &&
+      bare(index + 1) == 'char**' &&
+      bare(index + 2) == 'size_t';
+}
+
 /// Whether [parameters] from [index] are a pointer array, a size array and a
 /// count: one list of buffers written as three arguments.
 bool _isBufferList(List<CParameter> parameters, int index) {
@@ -351,6 +362,31 @@ Wrapped? _wrap(CFunction function, String? owner, String? dartName) {
     if (parameter == out || parameter == arrayOut) continue;
     if (owner != null && !isFactory && i == selfIndex) {
       forwarded.add('pointer<$owner>(handle)');
+      continue;
+    }
+
+    if (_isStringMap(parameters, i)) {
+      // Keys and values travel as separate arrays of the same length, which is
+      // one map. Iterated once so the two stay in step.
+      final keys = _dartParameterName(parameter.name);
+      final values = _dartParameterName(parameters[i + 1].name);
+      const name = 'options';
+      declared.add('Map<String, String> $name');
+      passed.add(name);
+      prologue.add(
+        'final $keys = arena<Pointer<Char>>($name.length);\n'
+        '      final $values = arena<Pointer<Char>>($name.length);\n'
+        '      var n = 0;\n'
+        '      for (final entry in $name.entries) {\n'
+        '        $keys[n] = cString(arena, entry.key);\n'
+        '        $values[n] = cString(arena, entry.value);\n'
+        '        n++;\n'
+        '      }',
+      );
+      forwarded.add(keys);
+      forwarded.add(values);
+      forwarded.add('$name.length');
+      i += 2;
       continue;
     }
 
