@@ -201,8 +201,14 @@ jobs:
           dart run tool/generate_bindings.dart
       - name: Generated code must be unchanged
         run: |
+          # lib/src/api/ as well as lib/src/bindings/, because that is where
+          # the GenAI wrappers and its unmapped.txt live. Covering unmapped.txt
+          # is the point: a function upstream adds that the generator cannot
+          # map disappears from the API silently otherwise, and this turns that
+          # into a failed build with the name in the diff.
           if ! git diff --exit-code --stat -- '*.g.dart' \
-                                              packages/*/lib/src/bindings/; then
+                                              packages/*/lib/src/bindings/ \
+                                              packages/*/lib/src/api/; then
             echo "::error::Committed generated code differs from a fresh run."
             echo "Run, in packages/onnxruntime_dart:"
             echo "  dart run ffigen --config ffigen.yaml"
