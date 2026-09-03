@@ -231,13 +231,14 @@ class PackageVersions(unittest.TestCase):
 
     def test_the_extensions_package_carries_the_extensions_version(self):
         self.assertEqual(
-            self._version("onnxruntime_extensions"), extensions_matrix.version()
+            self._version("onnxruntime_extensions_binaries"),
+            extensions_matrix.version(),
         )
 
     def test_each_provider_package_carries_its_plugin_version(self):
         for provider in ep_matrix.PROVIDERS:
             self.assertEqual(
-                self._version(f"onnxruntime_ep_{provider.name}"),
+                self._version(f"onnxruntime_ep_{provider.name}_binaries"),
                 provider.version,
                 provider.name,
             )
@@ -346,7 +347,7 @@ class ProviderTargets(unittest.TestCase):
         )
 
         pubspec = (
-            REPO_ROOT / "packages" / "onnxruntime_extensions" / "pubspec.yaml"
+            REPO_ROOT / "packages" / "onnxruntime_extensions_binaries" / "pubspec.yaml"
         ).read_text(encoding="utf-8")
         installed = re.search(
             r"^version:\s*(\S+)\s*$", pubspec, re.MULTILINE
@@ -396,7 +397,7 @@ class Providers(unittest.TestCase):
             pubspec = (
                 REPO_ROOT
                 / "packages"
-                / f"onnxruntime_ep_{provider.name}"
+                / f"onnxruntime_ep_{provider.name}_binaries"
                 / "pubspec.yaml"
             ).read_text(encoding="utf-8")
             installed = re.search(
@@ -787,7 +788,7 @@ class Extensions(unittest.TestCase):
         # the built library follows the file, so the file is what we publish.
         version = self.ext.version()
         pubspec = (
-            REPO_ROOT / "packages" / "onnxruntime_extensions" / "pubspec.yaml"
+            REPO_ROOT / "packages" / "onnxruntime_extensions_binaries" / "pubspec.yaml"
         ).read_text(encoding="utf-8")
         self.assertIn(f"version: {version}", pubspec)
 
@@ -899,7 +900,7 @@ class Pipelines(unittest.TestCase):
         import release_identity
 
         for provider in ep_matrix.PROVIDERS:
-            package = REPO_ROOT / "packages" / f"onnxruntime_ep_{provider.name}"
+            package = REPO_ROOT / "packages" / f"onnxruntime_ep_{provider.name}_binaries"
             if not package.is_dir():
                 continue
 
@@ -939,7 +940,7 @@ class Pipelines(unittest.TestCase):
         # artifact upstream, which test_a_provider_without_a_package_is_safe
         # covers.
         for provider in ep_matrix.PROVIDERS:
-            package = REPO_ROOT / "packages" / f"onnxruntime_ep_{provider.name}"
+            package = REPO_ROOT / "packages" / f"onnxruntime_ep_{provider.name}_binaries"
             self.assertTrue(
                 package.is_dir(), f"{provider.name} is published with no package"
             )
@@ -1222,6 +1223,90 @@ class PackagingRunsItsChecks(unittest.TestCase):
                 package_artifact.package(config)
         finally:
             package_artifact.REPO_ROOT, package_artifact.DIST = original
+
+
+class ApiAndBinariesAreSeparate(unittest.TestCase):
+    """A Dart API and the library it drives are versioned apart.
+
+    Every package that offers an API and also ships a binary is two packages:
+    the API, on a version of its own, and `<name>_binaries` on the binary's.
+    That is what lets an application move one without the other, and take the
+    API with no binary at all when it means to supply the library itself.
+
+    The pairing is not enforced by pub, which is why it is enforced here.
+    """
+
+    def _pubspec(self, package: str) -> str:
+        return (REPO_ROOT / "packages" / package / "pubspec.yaml").read_text(
+            encoding="utf-8"
+        )
+
+    def _api_packages(self) -> list[str]:
+        """Packages whose Dart names an asset in a sibling binaries package."""
+        found = []
+        for package in sorted((REPO_ROOT / "packages").iterdir()):
+            if not package.is_dir() or package.name.endswith("_binaries"):
+                continue
+            for dart in package.glob("lib/**/*.dart"):
+                if f"package:{package.name}_binaries/" in dart.read_text(
+                    encoding="utf-8"
+                ):
+                    found.append(package.name)
+                    break
+        return found
+
+    def test_each_api_package_has_a_binaries_package(self):
+        packages = self._api_packages()
+        self.assertGreater(len(packages), 0, "no API package was found to check")
+        for name in packages:
+            with self.subTest(package=name):
+                self.assertTrue(
+                    (REPO_ROOT / "packages" / f"{name}_binaries").is_dir(),
+                    f"{name} names an asset in {name}_binaries, which does not "
+                    f"exist",
+                )
+
+    def test_an_api_package_runs_no_hook(self):
+        # The hook installs the binary, so it belongs to the package that is
+        # the binary. An API package with a hook would install one whether the
+        # application wanted it or not.
+        for name in self._api_packages():
+            with self.subTest(package=name):
+                self.assertFalse(
+                    (REPO_ROOT / "packages" / name / "hook").exists(),
+                    f"{name} has a hook, which belongs in {name}_binaries",
+                )
+
+    def test_an_api_package_does_not_require_its_binaries(self):
+        """The binary stays optional, which is the point of the split.
+
+        Naming it as a dependency would make every application take our build
+        of it, and there would be no way to supply one at run time instead.
+        """
+        for name in self._api_packages():
+            with self.subTest(package=name):
+                deps = self._pubspec(name).split("dependencies:", 1)[1]
+                lines = [
+                    line
+                    for line in deps.splitlines()
+                    if line.strip().startswith(f"{name}_binaries:")
+                ]
+                self.assertEqual(
+                    lines, [], f"{name} requires {name}_binaries"
+                )
+
+    def test_an_api_version_names_the_binary_it_was_written_against(self):
+        for name in self._api_packages():
+            with self.subTest(package=name):
+                version = re.search(
+                    r"^version:\s*(\S+)\s*$", self._pubspec(name), re.MULTILINE
+                ).group(1)
+                self.assertIn(
+                    "+",
+                    version,
+                    f"{name} is {version}, which names no binary. Use "
+                    f"<own version>+<component>-<binary version>.",
+                )
 
 
 if __name__ == "__main__":

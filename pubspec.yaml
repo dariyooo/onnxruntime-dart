@@ -13,10 +13,15 @@ workspace:
   - packages/onnxruntime_hook
   - packages/onnxruntime_binaries
   - packages/onnxruntime_extensions
+  - packages/onnxruntime_extensions_binaries
   - packages/onnxruntime_genai
+  - packages/onnxruntime_genai_binaries
   - packages/onnxruntime_ep_webgpu
+  - packages/onnxruntime_ep_webgpu_binaries
   - packages/onnxruntime_ep_cuda
+  - packages/onnxruntime_ep_cuda_binaries
   - packages/onnxruntime_ep_qnn
+  - packages/onnxruntime_ep_qnn_binaries
 
 # The Flutter packages are deliberately not members, and this is a choice
 # rather than a limitation: a workspace resolved by Flutter's own Dart handles

@@ -16,6 +16,15 @@ headers:
 # C enum width is implementation-defined; ffigen warns on every one of them.
 silence-enum-warning: true
 
+# Bound as native assets rather than through a DynamicLibrary lookup, which is
+# how every other library here is reached: the hook declares the asset, and the
+# runtime resolves it when the first call is made. ONNX Runtime itself needs
+# only one such entry point because the rest of its API arrives as a struct of
+# function pointers. GenAI exports its API as plain functions, so each one is
+# bound this way.
+ffi-native:
+  asset-id: 'package:onnxruntime_genai_binaries/genai'
+
 preamble: |
   // AUTO GENERATED FILE, DO NOT EDIT.
   //

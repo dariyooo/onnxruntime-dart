@@ -1,0 +1,21 @@
+name: onnxruntime_extensions_binaries
+description: >-
+  Prebuilt the operator library for onnxruntime_dart, installed as a code asset. The API lives in onnxruntime_extensions.
+# The binary's own version, unchanged by this package existing. It is separate
+# from the API so that an application can move one without the other.
+version: 0.15.0
+repository: https://github.com/dariyooo/onnxruntime-dart
+issue_tracker: https://github.com/dariyooo/onnxruntime-dart/issues
+
+environment:
+  sdk: ^3.6.0
+
+resolution: workspace
+
+dependencies:
+  code_assets: '>=1.0.0 <2.0.0'
+  hooks: '>=1.0.0 <3.0.0'
+  # For loadedLibraryPath: this package declares its own asset and has to find
+  # where it landed. The dependency points this way on purpose, so the base
+  # package knows nothing about which packages exist.
+  onnxruntime_hook: ^1.29.0

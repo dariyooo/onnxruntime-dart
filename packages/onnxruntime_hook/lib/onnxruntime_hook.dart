@@ -8,7 +8,7 @@
 library;
 
 export 'src/install.dart'
-    show installExtensions, installProvider, installRuntime;
+    show installExtensions, installGenAi, installProvider, installRuntime;
 export 'src/target.dart'
     show
         OrtExtensions,

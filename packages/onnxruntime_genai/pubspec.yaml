@@ -1,10 +1,10 @@
 name: onnxruntime_genai
 description: >-
   Generative AI on top of onnxruntime_dart: token generation, KV caching and sampling, driven by ONNX Runtime GenAI.
-# From VERSION_INFO in the pinned tree, which is what upstream tags its releases
-# as and what the archives are named for. This package carries those binaries,
-# so it is versioned as them rather than on a number of its own.
-version: 0.15.2
+# This package is the API, not the binaries, so it has a version of its own.
+# The build metadata names the GenAI it was generated against, so the pairing
+# is visible without opening the submodule.
+version: 0.1.0+genai-0.15.2
 repository: https://github.com/dariyooo/onnxruntime-dart
 issue_tracker: https://github.com/dariyooo/onnxruntime-dart/issues
 
@@ -17,13 +17,16 @@ dependencies:
   code_assets: '>=1.0.0 <2.0.0'
   ffi: ^2.1.0
   hooks: '>=1.0.0 <3.0.0'
-  # GenAI resolves OrtGetApiBase out of an already loaded ONNX Runtime rather
-  # than linking it, so the runtime has to be present and found. Depending on
-  # the base package is what puts it there, and gives loadedLibraryPath for
-  # working out where this library itself landed.
+  # The sessions GenAI builds run on ONNX Runtime, and this package's API hands
+  # back and takes the base package's types.
   onnxruntime_dart: '>=0.1.0 <1.0.0'
-  onnxruntime_hook: ^1.29.0
 
 dev_dependencies:
   ffigen: ^21.0.0
   test: ^1.25.0
+
+# onnxruntime_genai_binaries is deliberately not a dependency. The asset this
+# package is declared against is installed by that package, and naming it
+# here would make it compulsory. Leaving it out is what lets an
+# application pick a build, or take none and supply the library itself at
+# run time. onnxruntime_dart does the same with onnxruntime_binaries.

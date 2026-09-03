@@ -1,0 +1,22 @@
+name: onnxruntime_ep_qnn_binaries
+description: >-
+  Prebuilt the QNN execution provider plugin for onnxruntime_dart, installed as a code asset. The API lives in onnxruntime_ep_qnn.
+# The binary's own version, unchanged by this package existing. It is separate
+# from the API so that an application can move one without the other.
+version: 2.5.0
+repository: https://github.com/dariyooo/onnxruntime-dart
+issue_tracker: https://github.com/dariyooo/onnxruntime-dart/issues
+
+environment:
+  sdk: ^3.6.0
+
+resolution: workspace
+
+dependencies:
+  code_assets: '>=1.0.0 <2.0.0'
+  hooks: '>=1.0.0 <3.0.0'
+  onnxruntime_hook: ^1.29.0
+  # The oldest runtime this plugin works against, from the wheel's own
+  # requirements. ONNX Runtime refuses to load a plugin below it, so declaring
+  # it turns a runtime failure into one pub reports before anything downloads.
+  onnxruntime_binaries: '>=1.24.2 <2.0.0'

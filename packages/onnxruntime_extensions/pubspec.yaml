@@ -1,11 +1,10 @@
 name: onnxruntime_extensions
 description: >-
   Pre and post-processing operators for onnxruntime_dart: tokenizers, text, image and audio ops that run inside the graph instead of in Dart.
-# From version.txt in the pinned tree, which is what the built library reports
-# in its soname. Upstream's release tags disagree with it, so the source wins.
-# It versions separately from the runtime and negotiates its API version at
-# load, so this does not move when ONNX Runtime does.
-version: 0.15.0
+# The API's own version. The build metadata names the binary it was
+# written against, which is a different thing from the one an
+# application chooses to run: that is the _binaries package.
+version: 0.1.0+extensions-0.15.0
 repository: https://github.com/dariyooo/onnxruntime-dart
 issue_tracker: https://github.com/dariyooo/onnxruntime-dart/issues
 
@@ -13,12 +12,14 @@ environment:
   sdk: ^3.6.0
 
 resolution: workspace
-
 dependencies:
-  code_assets: '>=1.0.0 <2.0.0'
-  hooks: '>=1.0.0 <3.0.0'
   # For loadedLibraryPath: this package declares its own asset and has to find
   # where it landed. The dependency points this way on purpose, so the base
   # package knows nothing about which packages exist.
   onnxruntime_dart: '>=0.1.0 <1.0.0'
-  onnxruntime_hook: ^1.29.0
+
+# onnxruntime_extensions_binaries is deliberately not a dependency. The asset this
+# package is declared against is installed by that package, and naming it
+# here would make it compulsory. Leaving it out is what lets an
+# application pick a build, or take none and supply the library itself at
+# run time. onnxruntime_dart does the same with onnxruntime_binaries.
