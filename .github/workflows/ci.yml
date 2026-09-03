@@ -521,8 +521,10 @@ jobs:
             user_defines:
               onnxruntime_binaries:
                 local_build: ../../.local/ort/device/lib
+              onnxruntime_ep_webgpu_binaries:
+                local_build: ../../.local/ort/device/lib
           YAML
-          tail -6 integration/harness/pubspec.yaml
+          tail -8 integration/harness/pubspec.yaml
 
       - name: Set up Java
         if: startsWith(matrix.name, 'android')
