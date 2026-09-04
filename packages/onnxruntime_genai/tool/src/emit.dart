@@ -345,8 +345,9 @@ Emitted emit(List<CFunction> functions) {
   final parts = files.keys.toList()..sort();
   files['api.dart'] = _libraryFile(parts);
   files['../backend/interface.dart'] = _interfaceFile(declarations.toString());
-  files['../backend/ffi_calls.dart'] = _ffiFile(implementations.toString());
-  files['../backend/unsupported_calls.dart'] =
+  files['../backend/ffi_generated.g.dart'] =
+      _ffiFile(implementations.toString());
+  files['../backend/unsupported_generated.g.dart'] =
       _unsupportedFile(refusals.toString());
   return Emitted(files: files, skipped: skipped, wrappers: wrappers);
 }
@@ -673,11 +674,16 @@ String _ffiFile(String body) => '''
 // Generated from third_party/onnxruntime-genai/src/ort_genai_c.h.
 // Regenerate with `dart run tool/generate_bindings.dart` from this package.
 
-/// The native backend.
+/// The generated half of the native backend.
 ///
-/// The only generated file that is native. It marshals Dart values into the
-/// arena, forwards to the generated bindings, and turns a failed `OgaResult`
-/// into a [GenAiException].
+/// Marshals Dart values into the arena, forwards to the generated bindings, and
+/// turns a failed `OgaResult` into a [GenAiException]. Every call in the header
+/// is here, which is why nothing in it needed a decision.
+///
+/// A mixin rather than the backend itself, so that ffi_calls.dart can override
+/// any of it. A call that needs validation, or a lifetime the signature cannot
+/// state, is written there and replaces the version below. The compiler checks
+/// the two agree, so an override cannot drift from the interface.
 library;
 
 import 'dart:ffi';
@@ -687,11 +693,8 @@ import 'ffi_support.dart';
 import 'interface.dart';
 import 'types.dart';
 
-/// The backend for this platform.
-GenAiCalls createCalls() => FfiGenAiCalls();
-
-/// GenAI reached through `dart:ffi`.
-final class FfiGenAiCalls implements GenAiCalls {
+/// Every GenAI call, forwarded to the native library.
+base mixin GeneratedFfiCalls implements GenAiCalls {
 $body}
 ''';
 
@@ -715,13 +718,8 @@ library;
 ${_typedData(body)}import 'interface.dart';
 import 'types.dart';
 
-/// The backend for this platform.
-GenAiCalls createCalls() => const UnsupportedGenAiCalls();
-
-/// GenAI where there is no GenAI.
-final class UnsupportedGenAiCalls implements GenAiCalls {
-  const UnsupportedGenAiCalls();
-
+/// Every GenAI call, refusing.
+base mixin GeneratedUnsupportedCalls implements GenAiCalls {
 $body}
 ''';
 
