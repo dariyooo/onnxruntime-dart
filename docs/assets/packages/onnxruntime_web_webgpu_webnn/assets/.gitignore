@@ -1,4 +1,0 @@
-# Populated at release time from the build matrix, never committed: these are
-# multi-megabyte binaries and the repository is not where they belong.
-*.wasm
-*.mjs
