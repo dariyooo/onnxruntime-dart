@@ -265,8 +265,7 @@ String _supportSource() {
         ),
   ].join('\n');
 
-  final asyncify =
-      asyncifyRefuses.map((name) => "  '$name',").join('\n');
+  final asyncify = asyncifyRefuses.map((name) => "  '$name',").join('\n');
 
   return """
 // AUTO GENERATED FILE, DO NOT EDIT.
