@@ -274,6 +274,25 @@ const correspondence = <Operation>[
 /// Operations written by hand because their shape defeats the table.
 ///
 /// Listed so the coverage check treats them as deliberate rather than missing.
+/// What the Asyncify backend refuses on top of what the plain one does.
+///
+/// There are two WebAssembly backends, not one. The plain build cannot
+/// suspend, so every call returns a result. The Asyncify build can, and hands
+/// back a promise instead, which a synchronous signature has nowhere to put.
+///
+/// Binding is the accelerator path by definition: it exists to keep tensors on
+/// the device between runs, so a bound run is exactly the case that suspends,
+/// and the interface has no asynchronous form of it to fall back to.
+///
+/// Listed because the support table has one flag for "web" and this is the
+/// difference it cannot express. Without it, the table says these work on the
+/// web, `WasmCalls` agrees, and the Asyncify backend that the WebGPU and WebNN
+/// builds actually use refuses them with nothing checking the contradiction.
+const asyncifyRefuses = <String>[
+  'bindInput',
+  'runWithBinding',
+];
+
 const handWritten = <String>[
   // Native mutates a session-options object through a setter per field; the
   // wasm build takes every field as a parameter of OrtCreateSessionOptions.
