@@ -12,6 +12,13 @@ on:
   # Called by ci.yml, which is the only entry point. Building on its own
   # would be building without testing what was built.
   workflow_call:
+    inputs:
+      # The plan step already reads this. Undeclared, it was always empty, so
+      # the whole matrix built whatever a caller asked for.
+      targets:
+        description: 'Subset to build (regex over the id field), or "all"'
+        type: string
+        default: all
 permissions:
   contents: read
 
