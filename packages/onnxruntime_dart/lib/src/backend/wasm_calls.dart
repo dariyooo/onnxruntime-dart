@@ -13,6 +13,8 @@
 library;
 
 import 'dart:js_interop';
+// For `has`, which is how a build says what it was compiled with.
+import 'dart:js_interop_unsafe';
 import 'dart:typed_data';
 
 import 'package:meta/meta.dart';
@@ -78,13 +80,26 @@ base class WasmCalls with GeneratedWasmRawCalls implements OrtCalls {
   String runtimeVersion() => wasmRuntimeVersion;
 
   @override
-  List<String> availableProviders() => const [
-        // What every web build compiles in. The wasm build exports no way to
-        // ask, and which accelerators are present depends on which of the
-        // three builds was served, which this cannot see. WebGPU and WebNN
-        // report themselves through the session when they are there.
+  List<String> availableProviders() => [
+        // Every web build compiles these two in, whichever accelerators it
+        // also carries.
         'CPUExecutionProvider',
         'XnnpackExecutionProvider',
+        // The accelerators are compiled in as well, and the module says so.
+        // There is no `GetAvailableProviders` in the WebAssembly C API, but
+        // each provider brings its own runtime helpers, and those exist only
+        // when it was built in: `webgpuInit` is absent from a CPU-only build
+        // and present in one built with `--use_webgpu`. So the module is asked
+        // rather than the answer being assumed from which package was
+        // depended on.
+        //
+        // Both probes are the provider's initialiser, which the module assigns
+        // as it loads. Its other helpers are not usable as a probe: WebNN
+        // attaches `webnnCreateMLContext` and the rest inside `webnnInit`, so
+        // they do not exist until a context has been made and asking for them
+        // reports a provider that is there as missing.
+        if (module.has('webgpuInit')) 'WebGpuExecutionProvider',
+        if (module.has('webnnInit')) 'WebNnExecutionProvider',
       ];
 
   @override

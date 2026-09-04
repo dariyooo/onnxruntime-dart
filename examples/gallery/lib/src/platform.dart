@@ -7,9 +7,7 @@ library;
 import 'dart:typed_data';
 
 import 'package:file_selector/file_selector.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:onnxruntime_dart/onnxruntime_dart.dart';
-import 'package:onnxruntime_web_webgpu_webnn/onnxruntime_web_webgpu_webnn.dart';
 
 import 'inference.dart';
 
@@ -30,33 +28,15 @@ Future<Uint8List?> pickImage() async {
 
 /// The providers this build can be asked for.
 ///
-/// Two different questions on the two platforms, which is why this is not one
-/// call to `availableProviders`.
-///
-/// Native loads a provider as a library, so the runtime can enumerate what it
-/// found and that list is the answer.
-///
-/// The web is not the same question. Providers are compiled into the build
-/// rather than loaded, which is why there are three builds at all, but the
-/// WebAssembly C API exports no call to enumerate them. So the backend can
-/// only return what every build has, `CPUExecutionProvider` and
-/// `XnnpackExecutionProvider`, and cannot see which of the three was served.
-/// Asking it would offer CPU alone on a build carrying all three.
-///
-/// The only thing that knows is which package was depended on, which is what
-/// `ortWebBuild` records.
+/// One question on both platforms now. Native lists what it loaded; the web
+/// backend asks the module which accelerators were compiled into it, so a
+/// build with WebGPU says so rather than reporting CPU and leaving the app to
+/// guess from which package it depended on.
 List<ProviderChoice> providerChoices() {
-  if (kIsWeb) {
-    return [
-      ProviderChoice.cpu,
-      if (ortWebBuild.contains('webgpu')) ProviderChoice.webgpu,
-      if (ortWebBuild.contains('webnn')) ProviderChoice.webnn,
-    ];
-  }
-  final available = availableProviders();
+  final available = availableProviders().map((p) => p.toLowerCase()).toList();
   return [
     ProviderChoice.cpu,
-    if (available.any((p) => p.toLowerCase().contains('webgpu')))
-      ProviderChoice.webgpu,
+    if (available.any((p) => p.contains('webgpu'))) ProviderChoice.webgpu,
+    if (available.any((p) => p.contains('webnn'))) ProviderChoice.webnn,
   ];
 }

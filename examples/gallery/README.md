@@ -46,6 +46,9 @@ the request, and says plainly when a requested provider took nothing.
 
 ## On the web
 
+Compiled with `--wasm`, so Dart itself runs as WebAssembly where the browser
+supports WasmGC, with a JavaScript build served to those that do not.
+
 It runs in a browser too, and that is where the provider panel earns its keep:
 the bundled runtime carries XNNPACK, WebGPU and WebNN, so all three are
 offerable and the panel reports which one actually took the nodes.
@@ -56,11 +59,10 @@ no directory to keep them in, so a reload fetches them again. And Phi-3 does not
 run: GenAI has no WebAssembly build, and it reads a model directory rather than
 bytes.
 
-Which providers are on offer is read from which runtime was bundled rather than
-from the runtime itself. The providers are compiled in, which is why there are
-three builds, but the WebAssembly C API exports no call to enumerate them, so
-asking reports only `CPUExecutionProvider` and `XnnpackExecutionProvider`
-whichever build is being served.
+Which providers are on offer is asked of the runtime on both platforms. The
+WebAssembly C API has no call that enumerates them, but each provider brings
+its own runtime helpers into the module, and those exist only when it was
+compiled in, so the module can be asked instead.
 
 ## Running it
 
