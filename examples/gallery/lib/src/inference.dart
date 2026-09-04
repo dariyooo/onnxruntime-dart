@@ -47,6 +47,10 @@ class ProviderChoice {
 
   static const cpu = ProviderChoice(null, 'CPU');
   static const webgpu = ProviderChoice('webgpu', 'WebGPU');
+
+  /// The browser's own neural network API, which the runtime hands work to
+  /// rather than running it itself.
+  static const webnn = ProviderChoice('webnn', 'WebNN');
 }
 
 /// Opens a session on [file], with profiling on so the run can be accounted

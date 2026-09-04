@@ -8,7 +8,7 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:onnxruntime_dart/onnxruntime_dart.dart';
-import 'package:onnxruntime_web_webgpu/onnxruntime_web_webgpu.dart';
+import 'package:onnxruntime_web_webgpu_webnn/onnxruntime_web_webgpu_webnn.dart';
 
 import 'src/catalogue.dart';
 import 'src/store.dart';

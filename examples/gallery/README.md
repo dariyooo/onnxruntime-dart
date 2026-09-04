@@ -44,6 +44,24 @@ Each session is created with profiling on. The profile names the provider that
 executed each node, so the panel under every run reports the split rather than
 the request, and says plainly when a requested provider took nothing.
 
+## On the web
+
+It runs in a browser too, and that is where the provider panel earns its keep:
+the bundled runtime carries XNNPACK, WebGPU and WebNN, so all three are
+offerable and the panel reports which one actually took the nodes.
+
+Two things differ there, and the app says so rather than leaving them to be
+discovered. Models are held for as long as the tab lives, because a browser has
+no directory to keep them in, so a reload fetches them again. And Phi-3 does not
+run: GenAI has no WebAssembly build, and it reads a model directory rather than
+bytes.
+
+Which providers are on offer is read from which runtime was bundled rather than
+from the runtime itself. Asked directly, a WebAssembly build reports only
+`CPUExecutionProvider` and `XnnpackExecutionProvider` however it was compiled,
+because WebGPU and WebNN are attached to a session as it is created rather than
+registered globally.
+
 ## Running it
 
 ```

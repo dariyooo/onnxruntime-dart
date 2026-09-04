@@ -7,7 +7,9 @@ library;
 import 'dart:typed_data';
 
 import 'package:file_selector/file_selector.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:onnxruntime_dart/onnxruntime_dart.dart';
+import 'package:onnxruntime_web_webgpu_webnn/onnxruntime_web_webgpu_webnn.dart';
 
 import 'inference.dart';
 
@@ -26,12 +28,32 @@ Future<Uint8List?> pickImage() async {
   return file.readAsBytes();
 }
 
-/// The providers this build actually has, as choices.
+/// The providers this build can be asked for.
 ///
-/// Read from the runtime rather than listed, because a build without WebGPU
-/// would otherwise offer a button that can only fail.
-List<ProviderChoice> providerChoices() => [
+/// Two different questions on the two platforms, which is why this is not one
+/// call to `availableProviders`.
+///
+/// Native compiles a provider in, so the runtime can list it and the list is
+/// the answer. The WebAssembly build does not: it reports only
+/// `CPUExecutionProvider` and `XnnpackExecutionProvider` however it was built,
+/// because WebGPU and WebNN are attached to a session when it is created
+/// rather than registered globally. Asking the runtime there would offer CPU
+/// and nothing else, on a build that has all three.
+///
+/// So on the web the answer comes from which runtime was bundled, which is
+/// what `ortWebBuild` is for.
+List<ProviderChoice> providerChoices() {
+  if (kIsWeb) {
+    return [
       ProviderChoice.cpu,
-      if (availableProviders().any((p) => p.toLowerCase().contains('webgpu')))
-        ProviderChoice.webgpu,
+      if (ortWebBuild.contains('webgpu')) ProviderChoice.webgpu,
+      if (ortWebBuild.contains('webnn')) ProviderChoice.webnn,
     ];
+  }
+  final available = availableProviders();
+  return [
+    ProviderChoice.cpu,
+    if (available.any((p) => p.toLowerCase().contains('webgpu')))
+      ProviderChoice.webgpu,
+  ];
+}
