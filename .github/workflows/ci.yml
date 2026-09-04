@@ -297,6 +297,59 @@ jobs:
           flutter pub get
           flutter test
 
+  compiles-for-web:
+    name: packages build for the web
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    concurrency:
+      group: compiles-for-web-${{ github.ref }}
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dart-lang/setup-dart@v1
+      - run: dart pub get
+
+      # Importing a package that reaches for dart:ffi fails a web build
+      # outright, so one such import makes the package unusable to anyone who
+      # also ships a web target. Grepping for dart:ffi does not find it: the
+      # reach is usually through a dependency, with none in the package itself.
+      # Compiling is the only check that sees that.
+      #
+      # Listed rather than derived. A package that is native only is a
+      # decision, and it should be made here rather than inferred from whether
+      # it happens to compile today.
+      - name: Every shared package compiles for the web
+        shell: bash
+        run: |
+          set -euo pipefail
+          shared=(
+            onnxruntime_dart
+            onnxruntime_genai
+            onnxruntime_ep_webgpu
+            onnxruntime_ep_cuda
+            onnxruntime_ep_qnn
+            onnxruntime_extensions
+          )
+          failed=()
+          for name in "${shared[@]}"; do
+            probe="packages/$name/_web_compile_check.dart"
+            printf "import 'package:%s/%s.dart' as p;\nvoid main() => print(p.hashCode);\n" \
+              "$name" "$name" > "$probe"
+            if ( cd "packages/$name" && dart compile js -o /dev/null \
+                 _web_compile_check.dart ) > "/tmp/$name.log" 2>&1; then
+              echo "  $name compiles for the web"
+            else
+              echo "::error::$name does not compile for the web"
+              sed -n '1,12p' "/tmp/$name.log"
+              failed+=("$name")
+            fi
+            rm -f "$probe"
+          done
+          if [ ${#failed[@]} -ne 0 ]; then
+            echo "::error::not web safe: ${failed[*]}"
+            exit 1
+          fi
+
   bindings-are-current:
     name: bindings match the submodule
     runs-on: ubuntu-24.04

@@ -8,6 +8,7 @@ import 'dart:typed_data';
 
 import 'package:file_selector/file_selector.dart';
 import 'package:onnxruntime_dart/onnxruntime_dart.dart';
+import 'package:onnxruntime_ep_webgpu/onnxruntime_ep_webgpu.dart';
 
 import 'inference.dart';
 
@@ -28,15 +29,18 @@ Future<Uint8List?> pickImage() async {
 
 /// The providers this build can be asked for.
 ///
-/// One question on both platforms now. Native lists what it loaded; the web
-/// backend asks the module which accelerators were compiled into it, so a
-/// build with WebGPU says so rather than reporting CPU and leaving the app to
-/// guess from which package it depended on.
-List<ProviderChoice> providerChoices() {
-  final available = availableProviders().map((p) => p.toLowerCase()).toList();
-  return [
-    ProviderChoice.cpu,
-    if (available.any((p) => p.contains('webgpu'))) ProviderChoice.webgpu,
-    if (available.any((p) => p.contains('webnn'))) ProviderChoice.webnn,
-  ];
-}
+/// One question on both platforms. `registerWebGpu` loads the plugin on
+/// native and reports whether the served runtime carries it on the web, so
+/// asking it is both the check and the setup, and neither platform needs a
+/// branch here.
+///
+/// WebNN has no plugin package because no native build carries it, so it is
+/// asked of the runtime directly, which answers on the web builds that have
+/// it compiled in.
+List<ProviderChoice> providerChoices() => [
+      ProviderChoice.cpu,
+      if (registerWebGpu()) ProviderChoice.webgpu,
+      if (availableProviders()
+          .any((provider) => provider.toLowerCase().contains('webnn')))
+        ProviderChoice.webnn,
+    ];
