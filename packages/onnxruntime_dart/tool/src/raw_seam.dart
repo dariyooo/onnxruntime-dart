@@ -212,7 +212,8 @@ ${sorted.map((h) => '/// A `$h`.\n'
 }
 
 /// The declarations, added to the seam the hand-written interface starts.
-String rawInterfaceFile(List<RawOperation> operations, Set<String> callbacks) => '''
+String rawInterfaceFile(List<RawOperation> operations, Set<String> callbacks) =>
+    '''
 $_banner
 /// Every C API call the WebAssembly build does not have.
 ///
@@ -275,8 +276,9 @@ ${operations.map((o) => _ffiMethod(o, callbacks)).join('\n')}}
 
 String _ffiMethod(RawOperation operation, Set<String> callbacks) {
   final wrapper = operation.wrapper;
-  final parameters =
-      wrapper.parameters.map((p) => '${seamType(p.$1, callbacks)} ${p.$2}').join(', ');
+  final parameters = wrapper.parameters
+      .map((p) => '${seamType(p.$1, callbacks)} ${p.$2}')
+      .join(', ');
   final arguments =
       wrapper.parameters.map((p) => toNative(p.$1, p.$2, callbacks)).join(', ');
   final table = _accessor[operation.owner] ?? 'ortApiForStatus';
@@ -345,5 +347,4 @@ String _wasmMethod(RawOperation operation, Set<String> callbacks) {
 bool touchesInternalType(Wrapper wrapper) => [
       wrapper.returns,
       ...wrapper.parameters.map((p) => p.$1),
-    ].any((type) =>
-        _notHandles.any((name) => type.contains('Pointer<$name>')));
+    ].any((type) => _notHandles.any((name) => type.contains('Pointer<$name>')));

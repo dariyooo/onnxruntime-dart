@@ -97,12 +97,12 @@ Generated generate({
         continue;
       }
       (byFile[(api.key, group)] ??= []).add(wrapper.code);
-        raw.add((
-          name: dartName(function.name),
-          c: function.name,
-          owner: api.key,
-          wrapper: wrapper,
-        ));
+      raw.add((
+        name: dartName(function.name),
+        c: function.name,
+        owner: api.key,
+        wrapper: wrapper,
+      ));
     }
   }
 
@@ -137,8 +137,8 @@ Generated generate({
       if (wasmHeader != null)
         '../../backend/wasm/api.g.dart': _formatter
             .format(_wasmSource(parseWasmApi(wasmHeader.readAsStringSync()))),
-      '../../backend/handles.g.dart':
-          _formatter.format(handlesFile(handlesIn(rawOnly.map((o) => o.wrapper)))),
+      '../../backend/handles.g.dart': _formatter
+          .format(handlesFile(handlesIn(rawOnly.map((o) => o.wrapper)))),
       '../../backend/raw_interface.g.dart':
           _formatter.format(rawInterfaceFile(rawOnly, callbacks)),
       '../../backend/raw_ffi_calls.g.dart':
