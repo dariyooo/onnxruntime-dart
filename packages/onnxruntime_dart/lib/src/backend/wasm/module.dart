@@ -24,7 +24,7 @@ extension type OrtModule(JSObject _) implements JSObject {
 
   /// Reads a NUL-terminated UTF-8 string out of the heap.
   @JS('UTF8ToString')
-  external JSString utf8ToString(JSNumber pointer);
+  external JSString utf8ToString(JSNumber pointer, [JSNumber? maxBytesToRead]);
 
   /// Writes [value] into the heap, including the NUL. [capacity] bounds it.
   @JS('stringToUTF8')
@@ -89,6 +89,15 @@ extension OrtHeap on OrtModule {
   }
 
   String readString(int pointer) => utf8ToString(pointer.toJS).toDart;
+
+  /// Reads at most [bytes] of UTF-8 at [pointer].
+  ///
+  /// For a string tensor's contents, which are packed one after another and
+  /// delimited by the next entry's pointer rather than by a terminator.
+  /// Reading such a buffer without a limit returns that string and every one
+  /// after it.
+  String readStringOfLength(int pointer, int bytes) =>
+      utf8ToString(pointer.toJS, bytes.toJS).toDart;
 
   /// One pointer-sized slot, zeroed, for a call that writes back.
   int allocateSlot([int count = 1]) {

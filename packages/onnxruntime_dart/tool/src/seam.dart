@@ -122,12 +122,15 @@ const correspondence = <Operation>[
       nativeAlso: ['GetTensorTypeAndShape'],
       wasm: 'OrtGetTensorData'),
   Operation('releaseTensor', native: 'ReleaseValue', wasm: 'OrtReleaseTensor'),
+  // Both platforms, through the same two calls the numeric tensors use. A
+  // string tensor is an array of pointers to NUL terminated UTF-8 rather than
+  // a buffer, which is a difference in what is written, not in what is
+  // callable: OrtCreateTensor documents the array as its data, and
+  // OrtGetTensorData documents handing one back for the caller to free.
   Operation('createStringTensor',
-      native: 'FillStringTensor',
-      note: 'the wasm build has no string tensor path'),
+      native: 'FillStringTensor', wasm: 'OrtCreateTensor'),
   Operation('stringTensorData',
-      native: 'GetStringTensorContent',
-      note: 'the wasm build has no string tensor path'),
+      native: 'GetStringTensorContent', wasm: 'OrtGetTensorData'),
 
   // Allocation.
   Operation('free', native: 'AllocatorFree', wasm: 'OrtFree'),
@@ -178,11 +181,118 @@ const correspondence = <Operation>[
   Operation('webGpuDevice',
       wasm: 'OrtGetWebGpuDevice',
       note: 'hands back the WebGPU device the runtime is using'),
+  // The rest of the seam. These were absent until the support table was made
+  // to cover every operation, which left two thirds of it unchecked: a
+  // refusal nobody checks is how several of them came to claim limits that
+  // were not there.
+
+  // Module and session lifecycle.
+  Operation('init', native: 'CreateEnv', wasm: 'OrtInit'),
+  Operation('createSessionOptions',
+      native: 'CreateSessionOptions', wasm: 'OrtCreateSessionOptions'),
+  Operation('releaseSessionOptions',
+      native: 'ReleaseSessionOptions', wasm: 'OrtReleaseSessionOptions'),
+  Operation('releaseSession',
+      native: 'ReleaseSession', wasm: 'OrtReleaseSession'),
+  Operation('createSessionAsync',
+      native: 'CreateSessionFromArray', wasm: 'OrtCreateSession'),
+
+  // Options the wasm build takes as parameters of OrtCreateSessionOptions
+  // rather than as setters, which is why they are all named after it.
+  Operation('setOptimizationLevel',
+      native: 'SetSessionGraphOptimizationLevel',
+      wasm: 'OrtCreateSessionOptions'),
+  Operation('setExecutionMode',
+      native: 'SetSessionExecutionMode', wasm: 'OrtCreateSessionOptions'),
+  Operation('setCpuMemoryArena',
+      native: 'EnableCpuMemArena',
+      nativeAlso: ['DisableCpuMemArena'],
+      wasm: 'OrtCreateSessionOptions'),
+  Operation('setMemoryPattern',
+      native: 'EnableMemPattern',
+      nativeAlso: ['DisableMemPattern'],
+      wasm: 'OrtCreateSessionOptions'),
+  Operation('setLogId',
+      native: 'SetSessionLogId', wasm: 'OrtCreateSessionOptions'),
+  Operation('setLogLevel',
+      native: 'SetSessionLogSeverityLevel', wasm: 'OrtCreateSessionOptions'),
+
+  // Set through a config entry on the web. ONNX Runtime documents
+  // session.use_deterministic_compute as "Equivalent to
+  // OrtApi::SetDeterministicCompute", and config entries are supported.
+  Operation('setDeterministicCompute',
+      native: 'SetDeterministicCompute', wasm: 'OrtAddSessionConfigEntry'),
+  Operation('addSessionConfigEntry',
+      native: 'AddSessionConfigEntry', wasm: 'OrtAddSessionConfigEntry'),
+  Operation('addFreeDimensionOverride',
+      native: 'AddFreeDimensionOverrideByName',
+      wasm: 'OrtAddFreeDimensionOverride'),
+  Operation('appendExecutionProvider',
+      native: 'SessionOptionsAppendExecutionProvider',
+      wasm: 'OrtAppendExecutionProvider'),
+
+  // Threads are fixed when the module is instantiated, by OrtInit, so there is
+  // no per session count to set. Measured rather than assumed:
+  // OrtCreateSessionOptions takes no thread parameters.
+  Operation('setIntraOpNumThreads',
+      native: 'SetIntraOpNumThreads',
+      note: 'the wasm build fixes its thread count at OrtInit'),
+  Operation('setInterOpNumThreads',
+      native: 'SetInterOpNumThreads',
+      note: 'the wasm build fixes its thread count at OrtInit'),
+
+  // Both write a file, and the build is linked with FILESYSTEM=0. Profiling
+  // was measured: enabling it succeeds and OrtEndProfiling hands back a file
+  // name for a file that cannot exist, so nothing can be read back.
+  Operation('setOptimizedModelPath',
+      native: 'SetOptimizedModelFilePath',
+      note: 'the wasm build is linked with FILESYSTEM=0'),
+  Operation('enableProfiling',
+      native: 'EnableProfiling',
+      note: 'the wasm build writes the profile to a file it has no filesystem '
+          'for'),
+
+  // Running.
+  Operation('run', native: 'Run', wasm: 'OrtRun'),
+  Operation('runAsync', native: 'RunAsync', wasm: 'OrtRun'),
+  Operation('createRunOptions',
+      native: 'CreateRunOptions', wasm: 'OrtCreateRunOptions'),
+  Operation('releaseRunOptions',
+      native: 'ReleaseRunOptions', wasm: 'OrtReleaseRunOptions'),
+  Operation('addRunConfigEntry',
+      native: 'AddRunConfigEntry', wasm: 'OrtAddRunConfigEntry'),
+
+  // IO binding.
+  Operation('bindInput', native: 'BindInput', wasm: 'OrtBindInput'),
+  Operation('bindOutput', native: 'BindOutput', wasm: 'OrtBindOutput'),
+  Operation('clearBoundOutputs',
+      native: 'ClearBoundOutputs', wasm: 'OrtClearBoundOutputs'),
+  Operation('runWithBinding',
+      native: 'RunWithBinding', wasm: 'OrtRunWithBinding'),
 ];
 
 /// Operations written by hand because their shape defeats the table.
 ///
 /// Listed so the coverage check treats them as deliberate rather than missing.
+/// What the Asyncify backend refuses on top of what the plain one does.
+///
+/// There are two WebAssembly backends, not one. The plain build cannot
+/// suspend, so every call returns a result. The Asyncify build can, and hands
+/// back a promise instead, which a synchronous signature has nowhere to put.
+///
+/// Binding is the accelerator path by definition: it exists to keep tensors on
+/// the device between runs, so a bound run is exactly the case that suspends,
+/// and the interface has no asynchronous form of it to fall back to.
+///
+/// Listed because the support table has one flag for "web" and this is the
+/// difference it cannot express. Without it, the table says these work on the
+/// web, `WasmCalls` agrees, and the Asyncify backend that the WebGPU and WebNN
+/// builds actually use refuses them with nothing checking the contradiction.
+const asyncifyRefuses = <String>[
+  'bindInput',
+  'runWithBinding',
+];
+
 const handWritten = <String>[
   // Native mutates a session-options object through a setter per field; the
   // wasm build takes every field as a parameter of OrtCreateSessionOptions.

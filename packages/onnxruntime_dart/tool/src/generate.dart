@@ -238,11 +238,34 @@ Set<String> _handWritten() {
 /// asserts the WebAssembly backend refuses exactly the operations marked
 /// unavailable here, and no others.
 String _supportSource() {
+  // Every operation the interface declares, not only those the correspondence
+  // table names. The table holds the ones whose names differ, so generating
+  // from it alone left two thirds of the seam unchecked, and a refusal nobody
+  // checks is how four of them came to claim limits that were not there.
+  //
+  // An operation the table does not mention has no WebAssembly counterpart and
+  // is native only. If that is wrong the backend disagrees and
+  // platform_support_test fails, which is the point.
+  final described = {
+    for (final operation in correspondence) operation.name: operation,
+  };
+  final declared = _declaredBy(File('lib/src/backend/interface.dart'));
+
   final entries = [
-    for (final operation in correspondence)
-      "  '${operation.name}': (native: ${operation.native != null}, "
-          "web: ${operation.onWeb}),",
+    for (final name in ({...declared, ...described.keys}.toList()..sort()))
+      if (described[name] case final operation?)
+        "  '$name': (native: ${operation.native != null}, "
+            "web: ${operation.onWeb}),"
+      else
+        throw StateError(
+          'the seam declares $name and tool/src/seam.dart does not describe '
+          'it. Add an entry saying what it corresponds to on each platform, '
+          'or the support table silently calls it native only and nothing '
+          'checks the refusal.',
+        ),
   ].join('\n');
+
+  final asyncify = asyncifyRefuses.map((name) => "  '$name',").join('\n');
 
   return """
 // AUTO GENERATED FILE, DO NOT EDIT.
@@ -257,6 +280,20 @@ String _supportSource() {
 const platformSupport = <String, ({bool native, bool web})>{
 $entries
 };
+
+/// What the Asyncify backend refuses on top of the plain one.
+///
+/// There are two WebAssembly backends. The plain build cannot suspend, so
+/// every call returns a result. The Asyncify build can, and hands back a
+/// promise a synchronous signature has nowhere to put, so the calls that
+/// suspend are refused there and only there.
+///
+/// [platformSupport] has one flag for "web" and cannot express this, which is
+/// why it is listed separately rather than folded in: the WebGPU and WebNN
+/// builds are Asyncify, so this is what an accelerated page actually gets.
+const asyncifyRefuses = <String>[
+$asyncify
+];
 """;
 }
 
