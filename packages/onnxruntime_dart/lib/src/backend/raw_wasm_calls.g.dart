@@ -55,14 +55,36 @@ base mixin GeneratedWasmRawCalls implements OrtRawCalls {
 
   @override
   @NativeOnly(_why)
+  void addGraphToModel(OrtModelPtr model, OrtGraphPtr graph) =>
+      unsupportedOnWeb('AddGraphToModel', _why);
+
+  @override
+  @NativeOnly(_why)
   void addInitializer(
           OrtSessionOptionsPtr options, String name, OrtValuePtr val) =>
       unsupportedOnWeb('AddInitializer', _why);
 
   @override
   @NativeOnly(_why)
+  void addInitializerToGraph(OrtGraphPtr graph, String name, OrtValuePtr tensor,
+          bool dataIsExternal) =>
+      unsupportedOnWeb('AddInitializerToGraph', _why);
+
+  @override
+  @NativeOnly(_why)
   void addKeyValuePair(OrtKeyValuePairsPtr kvps, String key, String value) =>
       unsupportedOnWeb('AddKeyValuePair', _why);
+
+  @override
+  @NativeOnly(_why)
+  void addNodeToGraph(OrtGraphPtr graph, OrtNodePtr node) =>
+      unsupportedOnWeb('AddNodeToGraph', _why);
+
+  @override
+  @NativeOnly(_why)
+  void addProperty(OrtCheckpointStatePtr checkpointState, String propertyName,
+          int propertyType, OrtPtr propertyValue) =>
+      unsupportedOnWeb('AddProperty', _why);
 
   @override
   @NativeOnly(_why)
@@ -86,9 +108,26 @@ base mixin GeneratedWasmRawCalls implements OrtRawCalls {
 
   @override
   @NativeOnly(_why)
+  void applyModelToModelEditorSession(
+          OrtSessionPtr session, OrtModelPtr model) =>
+      unsupportedOnWeb('ApplyModelToModelEditorSession', _why);
+
+  @override
+  @NativeOnly(_why)
   void bindOutputToDevice(OrtIoBindingPtr bindingPtr, String name,
           OrtMemoryInfoPtr memInfoPtr) =>
       unsupportedOnWeb('BindOutputToDevice', _why);
+
+  @override
+  @NativeOnly(_why)
+  bool canImportMemory(
+          OrtExternalResourceImporterPtr importer, int handleType) =>
+      unsupportedOnWeb('CanImportMemory', _why);
+
+  @override
+  @NativeOnly(_why)
+  bool canImportSemaphore(OrtExternalResourceImporterPtr importer, int type) =>
+      unsupportedOnWeb('CanImportSemaphore', _why);
 
   @override
   @NativeOnly(_why)
@@ -125,8 +164,26 @@ base mixin GeneratedWasmRawCalls implements OrtRawCalls {
 
   @override
   @NativeOnly(_why)
+  void compileModel(
+          OrtEnvPtr env, OrtModelCompilationOptionsPtr modelOptions) =>
+      unsupportedOnWeb('CompileModel', _why);
+
+  @override
+  @NativeOnly(_why)
+  void copyBufferToParameters(OrtTrainingSessionPtr sess,
+          OrtValuePtr parametersBuffer, bool trainableOnly) =>
+      unsupportedOnWeb('CopyBufferToParameters', _why);
+
+  @override
+  @NativeOnly(_why)
   OrtKernelInfoPtr copyKernelInfo(OrtKernelInfoPtr info) =>
       unsupportedOnWeb('CopyKernelInfo', _why);
+
+  @override
+  @NativeOnly(_why)
+  void copyParametersToBuffer(OrtTrainingSessionPtr sess,
+          OrtValuePtr parametersBuffer, bool trainableOnly) =>
+      unsupportedOnWeb('CopyParametersToBuffer', _why);
 
   @override
   @NativeOnly(_why)
@@ -239,6 +296,16 @@ base mixin GeneratedWasmRawCalls implements OrtRawCalls {
 
   @override
   @NativeOnly(_why)
+  OrtExternalResourceImporterPtr createExternalResourceImporterForDevice(
+          OrtEpDevicePtr epDevice) =>
+      unsupportedOnWeb('CreateExternalResourceImporterForDevice', _why);
+
+  @override
+  @NativeOnly(_why)
+  OrtGraphPtr createGraph() => unsupportedOnWeb('CreateGraph', _why);
+
+  @override
+  @NativeOnly(_why)
   OrtIoBindingPtr createIoBinding(OrtSessionPtr session) =>
       unsupportedOnWeb('CreateIoBinding', _why);
 
@@ -261,6 +328,12 @@ base mixin GeneratedWasmRawCalls implements OrtRawCalls {
 
   @override
   @NativeOnly(_why)
+  OrtTypeInfoPtr createMapTypeInfo(
+          int mapKeyType, OrtTypeInfoPtr mapValueType) =>
+      unsupportedOnWeb('CreateMapTypeInfo', _why);
+
+  @override
+  @NativeOnly(_why)
   OrtMemoryInfoPtr createMemoryInfo(
           String name, int type, int id, int memType) =>
       unsupportedOnWeb('CreateMemoryInfo', _why);
@@ -276,6 +349,47 @@ base mixin GeneratedWasmRawCalls implements OrtRawCalls {
           int alignment,
           int allocatorType) =>
       unsupportedOnWeb('CreateMemoryInfo_V2', _why);
+
+  @override
+  @NativeOnly(_why)
+  OrtModelPtr createModel(List<String> domainNames, List<int> opsetVersions,
+          int opsetEntriesLen) =>
+      unsupportedOnWeb('CreateModel', _why);
+
+  @override
+  @NativeOnly(_why)
+  OrtModelCompilationOptionsPtr createModelCompilationOptionsFromSessionOptions(
+          OrtEnvPtr env, OrtSessionOptionsPtr sessionOptions) =>
+      unsupportedOnWeb('CreateModelCompilationOptionsFromSessionOptions', _why);
+
+  @override
+  @NativeOnly(_why)
+  OrtSessionPtr createModelEditorSession(
+          OrtEnvPtr env, String modelPath, OrtSessionOptionsPtr options) =>
+      unsupportedOnWeb('CreateModelEditorSession', _why);
+
+  @override
+  @NativeOnly(_why)
+  OrtSessionPtr createModelEditorSessionFromArray(
+          OrtEnvPtr env,
+          OrtPtr modelData,
+          int modelDataLength,
+          OrtSessionOptionsPtr options) =>
+      unsupportedOnWeb('CreateModelEditorSessionFromArray', _why);
+
+  @override
+  @NativeOnly(_why)
+  OrtNodePtr createNode(
+          String operatorName,
+          String domainName,
+          String nodeName,
+          List<String> inputNames,
+          int inputNamesLen,
+          List<String> outputNames,
+          int outputNamesLen,
+          List<OrtOpAttrPtr> attributes,
+          int attribsLen) =>
+      unsupportedOnWeb('CreateNode', _why);
 
   @override
   @NativeOnly(_why)
@@ -306,6 +420,11 @@ base mixin GeneratedWasmRawCalls implements OrtRawCalls {
 
   @override
   @NativeOnly(_why)
+  OrtTypeInfoPtr createOptionalTypeInfo(OrtTypeInfoPtr containedType) =>
+      unsupportedOnWeb('CreateOptionalTypeInfo', _why);
+
+  @override
+  @NativeOnly(_why)
   OrtPrepackedWeightsContainerPtr createPrepackedWeightsContainer() =>
       unsupportedOnWeb('CreatePrepackedWeightsContainer', _why);
 
@@ -313,6 +432,11 @@ base mixin GeneratedWasmRawCalls implements OrtRawCalls {
   @NativeOnly(_why)
   OrtROCMProviderOptionsPtr createROCMProviderOptions() =>
       unsupportedOnWeb('CreateROCMProviderOptions', _why);
+
+  @override
+  @NativeOnly(_why)
+  OrtTypeInfoPtr createSequenceTypeInfo(OrtTypeInfoPtr sequenceType) =>
+      unsupportedOnWeb('CreateSequenceTypeInfo', _why);
 
   @override
   @NativeOnly(_why)
@@ -330,6 +454,12 @@ base mixin GeneratedWasmRawCalls implements OrtRawCalls {
           OrtPrepackedWeightsContainerPtr prepackedWeightsContainer) =>
       unsupportedOnWeb(
           'CreateSessionFromArrayWithPrepackedWeightsContainer', _why);
+
+  @override
+  @NativeOnly(_why)
+  OrtSessionPtr createSessionFromModel(
+          OrtEnvPtr env, OrtModelPtr model, OrtSessionOptionsPtr options) =>
+      unsupportedOnWeb('CreateSessionFromModel', _why);
 
   @override
   @NativeOnly(_why)
@@ -358,6 +488,12 @@ base mixin GeneratedWasmRawCalls implements OrtRawCalls {
 
   @override
   @NativeOnly(_why)
+  OrtTypeInfoPtr createSparseTensorTypeInfo(
+          OrtTensorTypeAndShapeInfoPtr tensorInfo) =>
+      unsupportedOnWeb('CreateSparseTensorTypeInfo', _why);
+
+  @override
+  @NativeOnly(_why)
   OrtValuePtr createSparseTensorWithValuesAsOrtValue(
           OrtMemoryInfoPtr info,
           OrtPtr pData,
@@ -382,6 +518,14 @@ base mixin GeneratedWasmRawCalls implements OrtRawCalls {
 
   @override
   @NativeOnly(_why)
+  OrtValuePtr createTensorFromMemory(
+          OrtExternalResourceImporterPtr importer,
+          OrtExternalMemoryHandlePtr memHandle,
+          OrtExternalTensorDescriptorPtr tensorDesc) =>
+      unsupportedOnWeb('CreateTensorFromMemory', _why);
+
+  @override
+  @NativeOnly(_why)
   OrtTensorRTProviderOptionsV2Ptr createTensorRTProviderOptions() =>
       unsupportedOnWeb('CreateTensorRTProviderOptions', _why);
 
@@ -389,6 +533,12 @@ base mixin GeneratedWasmRawCalls implements OrtRawCalls {
   @NativeOnly(_why)
   OrtTensorTypeAndShapeInfoPtr createTensorTypeAndShapeInfo() =>
       unsupportedOnWeb('CreateTensorTypeAndShapeInfo', _why);
+
+  @override
+  @NativeOnly(_why)
+  OrtTypeInfoPtr createTensorTypeInfo(
+          OrtTensorTypeAndShapeInfoPtr tensorInfo) =>
+      unsupportedOnWeb('CreateTensorTypeInfo', _why);
 
   @override
   @NativeOnly(_why)
@@ -419,15 +569,50 @@ base mixin GeneratedWasmRawCalls implements OrtRawCalls {
 
   @override
   @NativeOnly(_why)
+  OrtTrainingSessionPtr createTrainingSession(
+          OrtEnvPtr env,
+          OrtSessionOptionsPtr options,
+          OrtCheckpointStatePtr checkpointState,
+          String trainModelPath,
+          String evalModelPath,
+          String optimizerModelPath) =>
+      unsupportedOnWeb('CreateTrainingSession', _why);
+
+  @override
+  @NativeOnly(_why)
+  OrtTrainingSessionPtr createTrainingSessionFromBuffer(
+          OrtEnvPtr env,
+          OrtSessionOptionsPtr options,
+          OrtCheckpointStatePtr checkpointState,
+          OrtPtr trainModelData,
+          int trainDataLength,
+          OrtPtr evalModelData,
+          int evalDataLength,
+          OrtPtr optimModelData,
+          int optimDataLength) =>
+      unsupportedOnWeb('CreateTrainingSessionFromBuffer', _why);
+
+  @override
+  @NativeOnly(_why)
   OrtValuePtr createValue(
           List<OrtValuePtr> in_, int numValues, int valueType) =>
       unsupportedOnWeb('CreateValue', _why);
 
   @override
   @NativeOnly(_why)
+  OrtValueInfoPtr createValueInfo(String name, OrtTypeInfoPtr typeInfo) =>
+      unsupportedOnWeb('CreateValueInfo', _why);
+
+  @override
+  @NativeOnly(_why)
   void customOpDomain_Add(
           OrtCustomOpDomainPtr customOpDomain, OrtCustomOpPtr op) =>
       unsupportedOnWeb('CustomOpDomain_Add', _why);
+
+  @override
+  @NativeOnly(_why)
+  void deinitGraphicsInteropForEpDevice(OrtEpDevicePtr epDevice) =>
+      unsupportedOnWeb('DeinitGraphicsInteropForEpDevice', _why);
 
   @override
   @NativeOnly(_why)
@@ -521,6 +706,26 @@ base mixin GeneratedWasmRawCalls implements OrtRawCalls {
 
   @override
   @NativeOnly(_why)
+  void evalStep(
+          OrtTrainingSessionPtr sess,
+          OrtRunOptionsPtr runOptions,
+          int inputsLen,
+          List<OrtValuePtr> inputs,
+          int outputsLen,
+          List<OrtValuePtr> outputs) =>
+      unsupportedOnWeb('EvalStep', _why);
+
+  @override
+  @NativeOnly(_why)
+  void exportModelForInferencing(
+          OrtTrainingSessionPtr sess,
+          String inferenceModelPath,
+          int graphOutputsLen,
+          List<String> graphOutputNames) =>
+      unsupportedOnWeb('ExportModelForInferencing', _why);
+
+  @override
+  @NativeOnly(_why)
   void fillSparseTensorBlockSparse(
           OrtValuePtr ortValue,
           OrtMemoryInfoPtr dataMemInfo,
@@ -567,6 +772,14 @@ base mixin GeneratedWasmRawCalls implements OrtRawCalls {
   @NativeOnly(_why)
   void fillStringTensorElement(OrtValuePtr value, String s, int index) =>
       unsupportedOnWeb('FillStringTensorElement', _why);
+
+  @override
+  @NativeOnly(_why)
+  void finalizeModelEditorSession(
+          OrtSessionPtr session,
+          OrtSessionOptionsPtr options,
+          OrtPrepackedWeightsContainerPtr prepackedWeightsContainer) =>
+      unsupportedOnWeb('FinalizeModelEditorSession', _why);
 
   @override
   @NativeOnly(_why)
@@ -662,6 +875,11 @@ base mixin GeneratedWasmRawCalls implements OrtRawCalls {
 
   @override
   @NativeOnly(_why)
+  double getLearningRate(OrtTrainingSessionPtr sess) =>
+      unsupportedOnWeb('GetLearningRate', _why);
+
+  @override
+  @NativeOnly(_why)
   int getMapKeyType(OrtMapTypeInfoPtr mapTypeInfo) =>
       unsupportedOnWeb('GetMapKeyType', _why);
 
@@ -696,6 +914,31 @@ base mixin GeneratedWasmRawCalls implements OrtRawCalls {
   OrtTypeInfoPtr getOptionalContainedTypeInfo(
           OrtOptionalTypeInfoPtr optionalTypeInfo) =>
       unsupportedOnWeb('GetOptionalContainedTypeInfo', _why);
+
+  @override
+  @NativeOnly(_why)
+  OrtValuePtr getParameter(OrtCheckpointStatePtr checkpointState,
+          String parameterName, OrtAllocatorPtr allocator) =>
+      unsupportedOnWeb('GetParameter', _why);
+
+  @override
+  @NativeOnly(_why)
+  OrtTensorTypeAndShapeInfoPtr getParameterTypeAndShape(
+          OrtCheckpointStatePtr checkpointState, String parameterName) =>
+      unsupportedOnWeb('GetParameterTypeAndShape', _why);
+
+  @override
+  @NativeOnly(_why)
+  int getParametersSize(OrtTrainingSessionPtr sess, bool trainableOnly) =>
+      unsupportedOnWeb('GetParametersSize', _why);
+
+  @override
+  @NativeOnly(_why)
+  (int propertyType, OrtPtr propertyValue) getProperty(
+          OrtCheckpointStatePtr checkpointState,
+          String propertyName,
+          OrtAllocatorPtr allocator) =>
+      unsupportedOnWeb('GetProperty', _why);
 
   @override
   @NativeOnly(_why)
@@ -947,6 +1190,26 @@ base mixin GeneratedWasmRawCalls implements OrtRawCalls {
 
   @override
   @NativeOnly(_why)
+  OrtExternalMemoryHandlePtr importMemory(
+          OrtExternalResourceImporterPtr importer,
+          OrtExternalMemoryDescriptorPtr desc) =>
+      unsupportedOnWeb('ImportMemory', _why);
+
+  @override
+  @NativeOnly(_why)
+  OrtExternalSemaphoreHandlePtr importSemaphore(
+          OrtExternalResourceImporterPtr importer,
+          OrtExternalSemaphoreDescriptorPtr desc) =>
+      unsupportedOnWeb('ImportSemaphore', _why);
+
+  @override
+  @NativeOnly(_why)
+  void initGraphicsInteropForEpDevice(
+          OrtEpDevicePtr epDevice, OrtGraphicsInteropConfigPtr config) =>
+      unsupportedOnWeb('InitGraphicsInteropForEpDevice', _why);
+
+  @override
+  @NativeOnly(_why)
   void invokeOp(
           OrtKernelContextPtr context,
           OrtOpPtr ortOp,
@@ -1133,6 +1396,22 @@ base mixin GeneratedWasmRawCalls implements OrtRawCalls {
 
   @override
   @NativeOnly(_why)
+  void lazyResetGrad(OrtTrainingSessionPtr session) =>
+      unsupportedOnWeb('LazyResetGrad', _why);
+
+  @override
+  @NativeOnly(_why)
+  OrtCheckpointStatePtr loadCheckpoint(String checkpointPath) =>
+      unsupportedOnWeb('LoadCheckpoint', _why);
+
+  @override
+  @NativeOnly(_why)
+  OrtCheckpointStatePtr loadCheckpointFromBuffer(
+          OrtPtr checkpointBuffer, int numBytes) =>
+      unsupportedOnWeb('LoadCheckpointFromBuffer', _why);
+
+  @override
+  @NativeOnly(_why)
   int logger_GetLoggingSeverityLevel(OrtLoggerPtr logger) =>
       unsupportedOnWeb('Logger_GetLoggingSeverityLevel', _why);
 
@@ -1166,6 +1445,107 @@ base mixin GeneratedWasmRawCalls implements OrtRawCalls {
   @NativeOnly(_why)
   int memoryInfoGetType(OrtMemoryInfoPtr ptr) =>
       unsupportedOnWeb('MemoryInfoGetType', _why);
+
+  @override
+  @NativeOnly(_why)
+  void modelCompilationOptions_SetEpContextBinaryInformation(
+          OrtModelCompilationOptionsPtr modelCompileOptions,
+          String outputDirectory,
+          String modelName) =>
+      unsupportedOnWeb(
+          'ModelCompilationOptions_SetEpContextBinaryInformation', _why);
+
+  @override
+  @NativeOnly(_why)
+  void modelCompilationOptions_SetEpContextEmbedMode(
+          OrtModelCompilationOptionsPtr modelCompileOptions,
+          bool embedEpContextInModel) =>
+      unsupportedOnWeb('ModelCompilationOptions_SetEpContextEmbedMode', _why);
+
+  @override
+  @NativeOnly(_why)
+  void modelCompilationOptions_SetFlags(
+          OrtModelCompilationOptionsPtr modelCompileOptions, int flags) =>
+      unsupportedOnWeb('ModelCompilationOptions_SetFlags', _why);
+
+  @override
+  @NativeOnly(_why)
+  void modelCompilationOptions_SetGraphOptimizationLevel(
+          OrtModelCompilationOptionsPtr modelCompileOptions,
+          int graphOptimizationLevel) =>
+      unsupportedOnWeb(
+          'ModelCompilationOptions_SetGraphOptimizationLevel', _why);
+
+  @override
+  @NativeOnly(_why)
+  void modelCompilationOptions_SetInputModel(
+          OrtModelCompilationOptionsPtr modelCompileOptions,
+          OrtModelPtr model) =>
+      unsupportedOnWeb('ModelCompilationOptions_SetInputModel', _why);
+
+  @override
+  @NativeOnly(_why)
+  void modelCompilationOptions_SetInputModelFromBuffer(
+          OrtModelCompilationOptionsPtr modelCompileOptions,
+          OrtPtr inputModelData,
+          int inputModelDataSize) =>
+      unsupportedOnWeb('ModelCompilationOptions_SetInputModelFromBuffer', _why);
+
+  @override
+  @NativeOnly(_why)
+  void modelCompilationOptions_SetInputModelPath(
+          OrtModelCompilationOptionsPtr modelCompileOptions,
+          String inputModelPath) =>
+      unsupportedOnWeb('ModelCompilationOptions_SetInputModelPath', _why);
+
+  @override
+  @NativeOnly(_why)
+  List<OrtPtr> modelCompilationOptions_SetOutputModelBuffer(
+          OrtModelCompilationOptionsPtr modelCompileOptions,
+          OrtAllocatorPtr allocator) =>
+      unsupportedOnWeb('ModelCompilationOptions_SetOutputModelBuffer', _why);
+
+  @override
+  @NativeOnly(_why)
+  void modelCompilationOptions_SetOutputModelExternalInitializersFile(
+          OrtModelCompilationOptionsPtr modelCompileOptions,
+          String externalInitializersFilePath,
+          int externalInitializersSizeThreshold) =>
+      unsupportedOnWeb(
+          'ModelCompilationOptions_SetOutputModelExternalInitializersFile',
+          _why);
+
+  @override
+  @NativeOnly(_why)
+  void modelCompilationOptions_SetOutputModelGetInitializerLocationFunc(
+          OrtModelCompilationOptionsPtr modelCompileOptions,
+          OrtPtr getInitializerLocationFunc,
+          OrtPtr state) =>
+      unsupportedOnWeb(
+          'ModelCompilationOptions_SetOutputModelGetInitializerLocationFunc',
+          _why);
+
+  @override
+  @NativeOnly(_why)
+  void modelCompilationOptions_SetOutputModelPath(
+          OrtModelCompilationOptionsPtr modelCompileOptions,
+          String outputModelPath) =>
+      unsupportedOnWeb('ModelCompilationOptions_SetOutputModelPath', _why);
+
+  @override
+  @NativeOnly(_why)
+  void modelCompilationOptions_SetOutputModelWriteFunc(
+          OrtModelCompilationOptionsPtr modelCompileOptions,
+          OrtPtr writeFunc,
+          OrtPtr state) =>
+      unsupportedOnWeb('ModelCompilationOptions_SetOutputModelWriteFunc', _why);
+
+  @override
+  @NativeOnly(_why)
+  void modelCompilationOptions_SetWeightlessEnabled(
+          OrtModelCompilationOptionsPtr modelCompileOptions,
+          bool useWeightless) =>
+      unsupportedOnWeb('ModelCompilationOptions_SetWeightlessEnabled', _why);
 
   @override
   @NativeOnly(_why)
@@ -1322,6 +1702,11 @@ base mixin GeneratedWasmRawCalls implements OrtRawCalls {
 
   @override
   @NativeOnly(_why)
+  void optimizerStep(OrtTrainingSessionPtr sess, OrtRunOptionsPtr runOptions) =>
+      unsupportedOnWeb('OptimizerStep', _why);
+
+  @override
+  @NativeOnly(_why)
   int readOpAttr(OrtOpAttrPtr opAttr, int type, OrtPtr data, int len) =>
       unsupportedOnWeb('ReadOpAttr', _why);
 
@@ -1356,6 +1741,12 @@ base mixin GeneratedWasmRawCalls implements OrtRawCalls {
 
   @override
   @NativeOnly(_why)
+  void registerLinearLRScheduler(OrtTrainingSessionPtr sess,
+          int warmupStepCount, int totalStepCount, double initialLr) =>
+      unsupportedOnWeb('RegisterLinearLRScheduler', _why);
+
+  @override
+  @NativeOnly(_why)
   void releaseAllocator(OrtAllocatorPtr input) =>
       unsupportedOnWeb('ReleaseAllocator', _why);
 
@@ -1373,6 +1764,11 @@ base mixin GeneratedWasmRawCalls implements OrtRawCalls {
   @NativeOnly(_why)
   void releaseCUDAProviderOptions(OrtCUDAProviderOptionsV2Ptr input) =>
       unsupportedOnWeb('ReleaseCUDAProviderOptions', _why);
+
+  @override
+  @NativeOnly(_why)
+  void releaseCheckpointState(OrtCheckpointStatePtr input) =>
+      unsupportedOnWeb('ReleaseCheckpointState', _why);
 
   @override
   @NativeOnly(_why)
@@ -1398,6 +1794,21 @@ base mixin GeneratedWasmRawCalls implements OrtRawCalls {
   @NativeOnly(_why)
   void releaseExternalInitializerInfo(OrtExternalInitializerInfoPtr input) =>
       unsupportedOnWeb('ReleaseExternalInitializerInfo', _why);
+
+  @override
+  @NativeOnly(_why)
+  void releaseExternalMemoryHandle(OrtExternalMemoryHandlePtr input) =>
+      unsupportedOnWeb('ReleaseExternalMemoryHandle', _why);
+
+  @override
+  @NativeOnly(_why)
+  void releaseExternalResourceImporter(OrtExternalResourceImporterPtr input) =>
+      unsupportedOnWeb('ReleaseExternalResourceImporter', _why);
+
+  @override
+  @NativeOnly(_why)
+  void releaseExternalSemaphoreHandle(OrtExternalSemaphoreHandlePtr input) =>
+      unsupportedOnWeb('ReleaseExternalSemaphoreHandle', _why);
 
   @override
   @NativeOnly(_why)
@@ -1438,6 +1849,11 @@ base mixin GeneratedWasmRawCalls implements OrtRawCalls {
   @NativeOnly(_why)
   void releaseModel(OrtModelPtr input) =>
       unsupportedOnWeb('ReleaseModel', _why);
+
+  @override
+  @NativeOnly(_why)
+  void releaseModelCompilationOptions(OrtModelCompilationOptionsPtr input) =>
+      unsupportedOnWeb('ReleaseModelCompilationOptions', _why);
 
   @override
   @NativeOnly(_why)
@@ -1498,6 +1914,11 @@ base mixin GeneratedWasmRawCalls implements OrtRawCalls {
   @NativeOnly(_why)
   void releaseThreadingOptions(OrtThreadingOptionsPtr input) =>
       unsupportedOnWeb('ReleaseThreadingOptions', _why);
+
+  @override
+  @NativeOnly(_why)
+  void releaseTrainingSession(OrtTrainingSessionPtr input) =>
+      unsupportedOnWeb('ReleaseTrainingSession', _why);
 
   @override
   @NativeOnly(_why)
@@ -1580,6 +2001,17 @@ base mixin GeneratedWasmRawCalls implements OrtRawCalls {
 
   @override
   @NativeOnly(_why)
+  void saveCheckpoint(OrtCheckpointStatePtr checkpointState,
+          String checkpointPath, bool includeOptimizerState) =>
+      unsupportedOnWeb('SaveCheckpoint', _why);
+
+  @override
+  @NativeOnly(_why)
+  void schedulerStep(OrtTrainingSessionPtr sess) =>
+      unsupportedOnWeb('SchedulerStep', _why);
+
+  @override
+  @NativeOnly(_why)
   String sessionEndProfiling(
           OrtSessionPtr session, OrtAllocatorPtr allocator) =>
       unsupportedOnWeb('SessionEndProfiling', _why);
@@ -1628,6 +2060,11 @@ base mixin GeneratedWasmRawCalls implements OrtRawCalls {
   @NativeOnly(_why)
   OrtModelMetadataPtr sessionGetModelMetadata(OrtSessionPtr session) =>
       unsupportedOnWeb('SessionGetModelMetadata', _why);
+
+  @override
+  @NativeOnly(_why)
+  int sessionGetOpsetForDomain(OrtSessionPtr session, String domain) =>
+      unsupportedOnWeb('SessionGetOpsetForDomain', _why);
 
   @override
   @NativeOnly(_why)
@@ -1893,8 +2330,25 @@ base mixin GeneratedWasmRawCalls implements OrtRawCalls {
 
   @override
   @NativeOnly(_why)
+  void setGraphInputs(
+          OrtGraphPtr graph, List<OrtValueInfoPtr> inputs, int inputsLen) =>
+      unsupportedOnWeb('SetGraphInputs', _why);
+
+  @override
+  @NativeOnly(_why)
+  void setGraphOutputs(
+          OrtGraphPtr graph, List<OrtValueInfoPtr> outputs, int outputsLen) =>
+      unsupportedOnWeb('SetGraphOutputs', _why);
+
+  @override
+  @NativeOnly(_why)
   void setLanguageProjection(OrtEnvPtr ortEnv, int projection) =>
       unsupportedOnWeb('SetLanguageProjection', _why);
+
+  @override
+  @NativeOnly(_why)
+  void setLearningRate(OrtTrainingSessionPtr sess, double learningRate) =>
+      unsupportedOnWeb('SetLearningRate', _why);
 
   @override
   @NativeOnly(_why)
@@ -1907,6 +2361,10 @@ base mixin GeneratedWasmRawCalls implements OrtRawCalls {
   void setPerSessionThreadPoolCallbacks(
           OrtEnvPtr env, OrtThreadPoolCallbacksConfigPtr config) =>
       unsupportedOnWeb('SetPerSessionThreadPoolCallbacks', _why);
+
+  @override
+  @NativeOnly(_why)
+  void setSeed(int seed) => unsupportedOnWeb('SetSeed', _why);
 
   @override
   @NativeOnly(_why)
@@ -1973,6 +2431,15 @@ base mixin GeneratedWasmRawCalls implements OrtRawCalls {
 
   @override
   @NativeOnly(_why)
+  void signalSemaphore(
+          OrtExternalResourceImporterPtr importer,
+          OrtExternalSemaphoreHandlePtr semaphoreHandle,
+          OrtSyncStreamPtr stream,
+          int value) =>
+      unsupportedOnWeb('SignalSemaphore', _why);
+
+  @override
+  @NativeOnly(_why)
   void synchronizeBoundInputs(OrtIoBindingPtr bindingPtr) =>
       unsupportedOnWeb('SynchronizeBoundInputs', _why);
 
@@ -1986,6 +2453,61 @@ base mixin GeneratedWasmRawCalls implements OrtRawCalls {
   OrtPtr tensorAt(OrtValuePtr value, List<int> locationValues,
           int locationValuesCount) =>
       unsupportedOnWeb('TensorAt', _why);
+
+  @override
+  @NativeOnly(_why)
+  void trainStep(
+          OrtTrainingSessionPtr sess,
+          OrtRunOptionsPtr runOptions,
+          int inputsLen,
+          List<OrtValuePtr> inputs,
+          int outputsLen,
+          List<OrtValuePtr> outputs) =>
+      unsupportedOnWeb('TrainStep', _why);
+
+  @override
+  @NativeOnly(_why)
+  int trainingSessionGetEvalModelInputCount(OrtTrainingSessionPtr sess) =>
+      unsupportedOnWeb('TrainingSessionGetEvalModelInputCount', _why);
+
+  @override
+  @NativeOnly(_why)
+  String trainingSessionGetEvalModelInputName(
+          OrtTrainingSessionPtr sess, int index, OrtAllocatorPtr allocator) =>
+      unsupportedOnWeb('TrainingSessionGetEvalModelInputName', _why);
+
+  @override
+  @NativeOnly(_why)
+  int trainingSessionGetEvalModelOutputCount(OrtTrainingSessionPtr sess) =>
+      unsupportedOnWeb('TrainingSessionGetEvalModelOutputCount', _why);
+
+  @override
+  @NativeOnly(_why)
+  String trainingSessionGetEvalModelOutputName(
+          OrtTrainingSessionPtr sess, int index, OrtAllocatorPtr allocator) =>
+      unsupportedOnWeb('TrainingSessionGetEvalModelOutputName', _why);
+
+  @override
+  @NativeOnly(_why)
+  int trainingSessionGetTrainingModelInputCount(OrtTrainingSessionPtr sess) =>
+      unsupportedOnWeb('TrainingSessionGetTrainingModelInputCount', _why);
+
+  @override
+  @NativeOnly(_why)
+  String trainingSessionGetTrainingModelInputName(
+          OrtTrainingSessionPtr sess, int index, OrtAllocatorPtr allocator) =>
+      unsupportedOnWeb('TrainingSessionGetTrainingModelInputName', _why);
+
+  @override
+  @NativeOnly(_why)
+  int trainingSessionGetTrainingModelOutputCount(OrtTrainingSessionPtr sess) =>
+      unsupportedOnWeb('TrainingSessionGetTrainingModelOutputCount', _why);
+
+  @override
+  @NativeOnly(_why)
+  String trainingSessionGetTrainingModelOutputName(
+          OrtTrainingSessionPtr sess, int index, OrtAllocatorPtr allocator) =>
+      unsupportedOnWeb('TrainingSessionGetTrainingModelOutputName', _why);
 
   @override
   @NativeOnly(_why)
@@ -2035,6 +2557,12 @@ base mixin GeneratedWasmRawCalls implements OrtRawCalls {
   @NativeOnly(_why)
   void updateEnvWithCustomLogLevel(OrtEnvPtr ortEnv, int logSeverityLevel) =>
       unsupportedOnWeb('UpdateEnvWithCustomLogLevel', _why);
+
+  @override
+  @NativeOnly(_why)
+  void updateParameter(OrtCheckpointStatePtr checkpointState,
+          String parameterName, OrtValuePtr parameter) =>
+      unsupportedOnWeb('UpdateParameter', _why);
 
   @override
   @NativeOnly(_why)
@@ -2113,4 +2641,13 @@ base mixin GeneratedWasmRawCalls implements OrtRawCalls {
   @NativeOnly(_why)
   bool valueInfo_IsRequiredGraphInput(OrtValueInfoPtr valueInfo) =>
       unsupportedOnWeb('ValueInfo_IsRequiredGraphInput', _why);
+
+  @override
+  @NativeOnly(_why)
+  void waitSemaphore(
+          OrtExternalResourceImporterPtr importer,
+          OrtExternalSemaphoreHandlePtr semaphoreHandle,
+          OrtSyncStreamPtr stream,
+          int value) =>
+      unsupportedOnWeb('WaitSemaphore', _why);
 }

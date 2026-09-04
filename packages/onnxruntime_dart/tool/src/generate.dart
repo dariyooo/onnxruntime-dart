@@ -97,17 +97,12 @@ Generated generate({
         continue;
       }
       (byFile[(api.key, group)] ??= []).add(wrapper.code);
-      // OrtApi only. The sibling tables, OrtModelEditorApi and the rest,
-      // are reached through their own accessor rather than the one the
-      // generated forwards use, so putting them on the seam needs that
-      // routing first. They stay reachable through native.dart meanwhile.
-      if (api.key == 'OrtApi') {
         raw.add((
           name: dartName(function.name),
           c: function.name,
+          owner: api.key,
           wrapper: wrapper,
         ));
-      }
     }
   }
 

@@ -27,6 +27,9 @@ extension type const OrtCUDAProviderOptionsPtr(int address) implements OrtPtr {}
 extension type const OrtCUDAProviderOptionsV2Ptr(int address)
     implements OrtPtr {}
 
+/// A `OrtCheckpointState`.
+extension type const OrtCheckpointStatePtr(int address) implements OrtPtr {}
+
 /// A `OrtCustomOp`.
 extension type const OrtCustomOpPtr(int address) implements OrtPtr {}
 
@@ -59,8 +62,36 @@ extension type const OrtEpDevicePtr(int address) implements OrtPtr {}
 extension type const OrtExternalInitializerInfoPtr(int address)
     implements OrtPtr {}
 
+/// A `OrtExternalMemoryDescriptor`.
+extension type const OrtExternalMemoryDescriptorPtr(int address)
+    implements OrtPtr {}
+
+/// A `OrtExternalMemoryHandle`.
+extension type const OrtExternalMemoryHandlePtr(int address)
+    implements OrtPtr {}
+
+/// A `OrtExternalResourceImporter`.
+extension type const OrtExternalResourceImporterPtr(int address)
+    implements OrtPtr {}
+
+/// A `OrtExternalSemaphoreDescriptor`.
+extension type const OrtExternalSemaphoreDescriptorPtr(int address)
+    implements OrtPtr {}
+
+/// A `OrtExternalSemaphoreHandle`.
+extension type const OrtExternalSemaphoreHandlePtr(int address)
+    implements OrtPtr {}
+
+/// A `OrtExternalTensorDescriptor`.
+extension type const OrtExternalTensorDescriptorPtr(int address)
+    implements OrtPtr {}
+
 /// A `OrtGraph`.
 extension type const OrtGraphPtr(int address) implements OrtPtr {}
+
+/// A `OrtGraphicsInteropConfig`.
+extension type const OrtGraphicsInteropConfigPtr(int address)
+    implements OrtPtr {}
 
 /// A `OrtHardwareDevice`.
 extension type const OrtHardwareDevicePtr(int address) implements OrtPtr {}
@@ -95,6 +126,10 @@ extension type const OrtMemoryInfoPtr(int address) implements OrtPtr {}
 
 /// A `OrtModel`.
 extension type const OrtModelPtr(int address) implements OrtPtr {}
+
+/// A `OrtModelCompilationOptions`.
+extension type const OrtModelCompilationOptionsPtr(int address)
+    implements OrtPtr {}
 
 /// A `OrtModelMetadata`.
 extension type const OrtModelMetadataPtr(int address) implements OrtPtr {}
@@ -158,6 +193,9 @@ extension type const OrtThreadPoolCallbacksConfigPtr(int address)
 
 /// A `OrtThreadingOptions`.
 extension type const OrtThreadingOptionsPtr(int address) implements OrtPtr {}
+
+/// A `OrtTrainingSession`.
+extension type const OrtTrainingSessionPtr(int address) implements OrtPtr {}
 
 /// A `OrtTypeInfo`.
 extension type const OrtTypeInfoPtr(int address) implements OrtPtr {}

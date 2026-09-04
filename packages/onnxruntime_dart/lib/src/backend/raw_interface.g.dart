@@ -49,14 +49,32 @@ abstract interface class OrtRawCalls {
   void addFreeDimensionOverrideByName(
       OrtSessionOptionsPtr options, String dimName, int dimValue);
 
+  /// `AddGraphToModel`
+  @NativeOnly(_why)
+  void addGraphToModel(OrtModelPtr model, OrtGraphPtr graph);
+
   /// `AddInitializer`
   @NativeOnly(_why)
   void addInitializer(
       OrtSessionOptionsPtr options, String name, OrtValuePtr val);
 
+  /// `AddInitializerToGraph`
+  @NativeOnly(_why)
+  void addInitializerToGraph(
+      OrtGraphPtr graph, String name, OrtValuePtr tensor, bool dataIsExternal);
+
   /// `AddKeyValuePair`
   @NativeOnly(_why)
   void addKeyValuePair(OrtKeyValuePairsPtr kvps, String key, String value);
+
+  /// `AddNodeToGraph`
+  @NativeOnly(_why)
+  void addNodeToGraph(OrtGraphPtr graph, OrtNodePtr node);
+
+  /// `AddProperty`
+  @NativeOnly(_why)
+  void addProperty(OrtCheckpointStatePtr checkpointState, String propertyName,
+      int propertyType, OrtPtr propertyValue);
 
   /// `AllocatorAlloc`
   @NativeOnly(_why)
@@ -74,10 +92,22 @@ abstract interface class OrtRawCalls {
   @NativeOnly(_why)
   OrtKeyValuePairsPtr allocatorGetStats(OrtAllocatorPtr ortAllocator);
 
+  /// `ApplyModelToModelEditorSession`
+  @NativeOnly(_why)
+  void applyModelToModelEditorSession(OrtSessionPtr session, OrtModelPtr model);
+
   /// `BindOutputToDevice`
   @NativeOnly(_why)
   void bindOutputToDevice(
       OrtIoBindingPtr bindingPtr, String name, OrtMemoryInfoPtr memInfoPtr);
+
+  /// `CanImportMemory`
+  @NativeOnly(_why)
+  bool canImportMemory(OrtExternalResourceImporterPtr importer, int handleType);
+
+  /// `CanImportSemaphore`
+  @NativeOnly(_why)
+  bool canImportSemaphore(OrtExternalResourceImporterPtr importer, int type);
 
   /// `CastTypeInfoToMapTypeInfo`
   @NativeOnly(_why)
@@ -106,9 +136,23 @@ abstract interface class OrtRawCalls {
   @NativeOnly(_why)
   int compareMemoryInfo(OrtMemoryInfoPtr info1, OrtMemoryInfoPtr info2);
 
+  /// `CompileModel`
+  @NativeOnly(_why)
+  void compileModel(OrtEnvPtr env, OrtModelCompilationOptionsPtr modelOptions);
+
+  /// `CopyBufferToParameters`
+  @NativeOnly(_why)
+  void copyBufferToParameters(OrtTrainingSessionPtr sess,
+      OrtValuePtr parametersBuffer, bool trainableOnly);
+
   /// `CopyKernelInfo`
   @NativeOnly(_why)
   OrtKernelInfoPtr copyKernelInfo(OrtKernelInfoPtr info);
+
+  /// `CopyParametersToBuffer`
+  @NativeOnly(_why)
+  void copyParametersToBuffer(OrtTrainingSessionPtr sess,
+      OrtValuePtr parametersBuffer, bool trainableOnly);
 
   /// `CopyTensors`
   @NativeOnly(_why)
@@ -198,6 +242,15 @@ abstract interface class OrtRawCalls {
   OrtExternalInitializerInfoPtr createExternalInitializerInfo(
       String filepath, int fileOffset, int byteSize);
 
+  /// `CreateExternalResourceImporterForDevice`
+  @NativeOnly(_why)
+  OrtExternalResourceImporterPtr createExternalResourceImporterForDevice(
+      OrtEpDevicePtr epDevice);
+
+  /// `CreateGraph`
+  @NativeOnly(_why)
+  OrtGraphPtr createGraph();
+
   /// `CreateIoBinding`
   @NativeOnly(_why)
   OrtIoBindingPtr createIoBinding(OrtSessionPtr session);
@@ -216,6 +269,10 @@ abstract interface class OrtRawCalls {
   OrtLoraAdapterPtr createLoraAdapterFromArray(
       OrtPtr bytes, int numBytes, OrtAllocatorPtr allocator);
 
+  /// `CreateMapTypeInfo`
+  @NativeOnly(_why)
+  OrtTypeInfoPtr createMapTypeInfo(int mapKeyType, OrtTypeInfoPtr mapValueType);
+
   /// `CreateMemoryInfo`
   @NativeOnly(_why)
   OrtMemoryInfoPtr createMemoryInfo(String name, int type, int id, int memType);
@@ -230,6 +287,39 @@ abstract interface class OrtRawCalls {
       int memType,
       int alignment,
       int allocatorType);
+
+  /// `CreateModel`
+  @NativeOnly(_why)
+  OrtModelPtr createModel(
+      List<String> domainNames, List<int> opsetVersions, int opsetEntriesLen);
+
+  /// `CreateModelCompilationOptionsFromSessionOptions`
+  @NativeOnly(_why)
+  OrtModelCompilationOptionsPtr createModelCompilationOptionsFromSessionOptions(
+      OrtEnvPtr env, OrtSessionOptionsPtr sessionOptions);
+
+  /// `CreateModelEditorSession`
+  @NativeOnly(_why)
+  OrtSessionPtr createModelEditorSession(
+      OrtEnvPtr env, String modelPath, OrtSessionOptionsPtr options);
+
+  /// `CreateModelEditorSessionFromArray`
+  @NativeOnly(_why)
+  OrtSessionPtr createModelEditorSessionFromArray(OrtEnvPtr env,
+      OrtPtr modelData, int modelDataLength, OrtSessionOptionsPtr options);
+
+  /// `CreateNode`
+  @NativeOnly(_why)
+  OrtNodePtr createNode(
+      String operatorName,
+      String domainName,
+      String nodeName,
+      List<String> inputNames,
+      int inputNamesLen,
+      List<String> outputNames,
+      int outputNamesLen,
+      List<OrtOpAttrPtr> attributes,
+      int attribsLen);
 
   /// `CreateOp`
   @NativeOnly(_why)
@@ -255,6 +345,10 @@ abstract interface class OrtRawCalls {
   OrtValuePtr createOpaqueValue(String domainName, String typeName,
       OrtPtr dataContainer, int dataContainerSize);
 
+  /// `CreateOptionalTypeInfo`
+  @NativeOnly(_why)
+  OrtTypeInfoPtr createOptionalTypeInfo(OrtTypeInfoPtr containedType);
+
   /// `CreatePrepackedWeightsContainer`
   @NativeOnly(_why)
   OrtPrepackedWeightsContainerPtr createPrepackedWeightsContainer();
@@ -262,6 +356,10 @@ abstract interface class OrtRawCalls {
   /// `CreateROCMProviderOptions`
   @NativeOnly(_why)
   OrtROCMProviderOptionsPtr createROCMProviderOptions();
+
+  /// `CreateSequenceTypeInfo`
+  @NativeOnly(_why)
+  OrtTypeInfoPtr createSequenceTypeInfo(OrtTypeInfoPtr sequenceType);
 
   /// `CreateSessionFromArray`
   @NativeOnly(_why)
@@ -276,6 +374,11 @@ abstract interface class OrtRawCalls {
       int modelDataLength,
       OrtSessionOptionsPtr options,
       OrtPrepackedWeightsContainerPtr prepackedWeightsContainer);
+
+  /// `CreateSessionFromModel`
+  @NativeOnly(_why)
+  OrtSessionPtr createSessionFromModel(
+      OrtEnvPtr env, OrtModelPtr model, OrtSessionOptionsPtr options);
 
   /// `CreateSessionWithPrepackedWeightsContainer`
   @NativeOnly(_why)
@@ -294,6 +397,11 @@ abstract interface class OrtRawCalls {
   @NativeOnly(_why)
   OrtValuePtr createSparseTensorAsOrtValue(OrtAllocatorPtr allocator,
       List<int> denseShape, int denseShapeLen, int type);
+
+  /// `CreateSparseTensorTypeInfo`
+  @NativeOnly(_why)
+  OrtTypeInfoPtr createSparseTensorTypeInfo(
+      OrtTensorTypeAndShapeInfoPtr tensorInfo);
 
   /// `CreateSparseTensorWithValuesAsOrtValue`
   @NativeOnly(_why)
@@ -316,6 +424,13 @@ abstract interface class OrtRawCalls {
   OrtValuePtr createTensorAsOrtValue(
       OrtAllocatorPtr allocator, List<int> shape, int shapeLen, int type);
 
+  /// `CreateTensorFromMemory`
+  @NativeOnly(_why)
+  OrtValuePtr createTensorFromMemory(
+      OrtExternalResourceImporterPtr importer,
+      OrtExternalMemoryHandlePtr memHandle,
+      OrtExternalTensorDescriptorPtr tensorDesc);
+
   /// `CreateTensorRTProviderOptions`
   @NativeOnly(_why)
   OrtTensorRTProviderOptionsV2Ptr createTensorRTProviderOptions();
@@ -323,6 +438,10 @@ abstract interface class OrtRawCalls {
   /// `CreateTensorTypeAndShapeInfo`
   @NativeOnly(_why)
   OrtTensorTypeAndShapeInfoPtr createTensorTypeAndShapeInfo();
+
+  /// `CreateTensorTypeInfo`
+  @NativeOnly(_why)
+  OrtTypeInfoPtr createTensorTypeInfo(OrtTensorTypeAndShapeInfoPtr tensorInfo);
 
   /// `CreateTensorWithDataAndDeleterAsOrtValue`
   @NativeOnly(_why)
@@ -338,14 +457,45 @@ abstract interface class OrtRawCalls {
   @NativeOnly(_why)
   OrtThreadingOptionsPtr createThreadingOptions();
 
+  /// `CreateTrainingSession`
+  @NativeOnly(_why)
+  OrtTrainingSessionPtr createTrainingSession(
+      OrtEnvPtr env,
+      OrtSessionOptionsPtr options,
+      OrtCheckpointStatePtr checkpointState,
+      String trainModelPath,
+      String evalModelPath,
+      String optimizerModelPath);
+
+  /// `CreateTrainingSessionFromBuffer`
+  @NativeOnly(_why)
+  OrtTrainingSessionPtr createTrainingSessionFromBuffer(
+      OrtEnvPtr env,
+      OrtSessionOptionsPtr options,
+      OrtCheckpointStatePtr checkpointState,
+      OrtPtr trainModelData,
+      int trainDataLength,
+      OrtPtr evalModelData,
+      int evalDataLength,
+      OrtPtr optimModelData,
+      int optimDataLength);
+
   /// `CreateValue`
   @NativeOnly(_why)
   OrtValuePtr createValue(List<OrtValuePtr> in_, int numValues, int valueType);
+
+  /// `CreateValueInfo`
+  @NativeOnly(_why)
+  OrtValueInfoPtr createValueInfo(String name, OrtTypeInfoPtr typeInfo);
 
   /// `CustomOpDomain_Add`
   @NativeOnly(_why)
   void customOpDomain_Add(
       OrtCustomOpDomainPtr customOpDomain, OrtCustomOpPtr op);
+
+  /// `DeinitGraphicsInteropForEpDevice`
+  @NativeOnly(_why)
+  void deinitGraphicsInteropForEpDevice(OrtEpDevicePtr epDevice);
 
   /// `DeviceEpIncompatibilityDetails_GetErrorCode`
   @NativeOnly(_why)
@@ -419,6 +569,24 @@ abstract interface class OrtRawCalls {
   List<OrtEpAssignedNodePtr> epAssignedSubgraph_GetNodes(
       OrtEpAssignedSubgraphPtr epSubgraph);
 
+  /// `EvalStep`
+  @NativeOnly(_why)
+  void evalStep(
+      OrtTrainingSessionPtr sess,
+      OrtRunOptionsPtr runOptions,
+      int inputsLen,
+      List<OrtValuePtr> inputs,
+      int outputsLen,
+      List<OrtValuePtr> outputs);
+
+  /// `ExportModelForInferencing`
+  @NativeOnly(_why)
+  void exportModelForInferencing(
+      OrtTrainingSessionPtr sess,
+      String inferenceModelPath,
+      int graphOutputsLen,
+      List<String> graphOutputNames);
+
   /// `FillSparseTensorBlockSparse`
   @NativeOnly(_why)
   void fillSparseTensorBlockSparse(
@@ -462,6 +630,13 @@ abstract interface class OrtRawCalls {
   /// `FillStringTensorElement`
   @NativeOnly(_why)
   void fillStringTensorElement(OrtValuePtr value, String s, int index);
+
+  /// `FinalizeModelEditorSession`
+  @NativeOnly(_why)
+  void finalizeModelEditorSession(
+      OrtSessionPtr session,
+      OrtSessionOptionsPtr options,
+      OrtPrepackedWeightsContainerPtr prepackedWeightsContainer);
 
   /// `GetAllocatorWithDefaultOptions`
   @NativeOnly(_why)
@@ -538,6 +713,10 @@ abstract interface class OrtRawCalls {
   (List<String> keys, List<String> values) getKeyValuePairs(
       OrtKeyValuePairsPtr kvps);
 
+  /// `GetLearningRate`
+  @NativeOnly(_why)
+  double getLearningRate(OrtTrainingSessionPtr sess);
+
   /// `GetMapKeyType`
   @NativeOnly(_why)
   int getMapKeyType(OrtMapTypeInfoPtr mapTypeInfo);
@@ -567,6 +746,27 @@ abstract interface class OrtRawCalls {
   @NativeOnly(_why)
   OrtTypeInfoPtr getOptionalContainedTypeInfo(
       OrtOptionalTypeInfoPtr optionalTypeInfo);
+
+  /// `GetParameter`
+  @NativeOnly(_why)
+  OrtValuePtr getParameter(OrtCheckpointStatePtr checkpointState,
+      String parameterName, OrtAllocatorPtr allocator);
+
+  /// `GetParameterTypeAndShape`
+  @NativeOnly(_why)
+  OrtTensorTypeAndShapeInfoPtr getParameterTypeAndShape(
+      OrtCheckpointStatePtr checkpointState, String parameterName);
+
+  /// `GetParametersSize`
+  @NativeOnly(_why)
+  int getParametersSize(OrtTrainingSessionPtr sess, bool trainableOnly);
+
+  /// `GetProperty`
+  @NativeOnly(_why)
+  (int propertyType, OrtPtr propertyValue) getProperty(
+      OrtCheckpointStatePtr checkpointState,
+      String propertyName,
+      OrtAllocatorPtr allocator);
 
   /// `GetROCMProviderOptionsAsString`
   @NativeOnly(_why)
@@ -769,6 +969,23 @@ abstract interface class OrtRawCalls {
   @NativeOnly(_why)
   int hasValue(OrtValuePtr value);
 
+  /// `ImportMemory`
+  @NativeOnly(_why)
+  OrtExternalMemoryHandlePtr importMemory(
+      OrtExternalResourceImporterPtr importer,
+      OrtExternalMemoryDescriptorPtr desc);
+
+  /// `ImportSemaphore`
+  @NativeOnly(_why)
+  OrtExternalSemaphoreHandlePtr importSemaphore(
+      OrtExternalResourceImporterPtr importer,
+      OrtExternalSemaphoreDescriptorPtr desc);
+
+  /// `InitGraphicsInteropForEpDevice`
+  @NativeOnly(_why)
+  void initGraphicsInteropForEpDevice(
+      OrtEpDevicePtr epDevice, OrtGraphicsInteropConfigPtr config);
+
   /// `InvokeOp`
   @NativeOnly(_why)
   void invokeOp(
@@ -920,6 +1137,19 @@ abstract interface class OrtRawCalls {
   @NativeOnly(_why)
   OrtTypeInfoPtr kernelInfo_GetOutputTypeInfo(OrtKernelInfoPtr info, int index);
 
+  /// `LazyResetGrad`
+  @NativeOnly(_why)
+  void lazyResetGrad(OrtTrainingSessionPtr session);
+
+  /// `LoadCheckpoint`
+  @NativeOnly(_why)
+  OrtCheckpointStatePtr loadCheckpoint(String checkpointPath);
+
+  /// `LoadCheckpointFromBuffer`
+  @NativeOnly(_why)
+  OrtCheckpointStatePtr loadCheckpointFromBuffer(
+      OrtPtr checkpointBuffer, int numBytes);
+
   /// `Logger_GetLoggingSeverityLevel`
   @NativeOnly(_why)
   int logger_GetLoggingSeverityLevel(OrtLoggerPtr logger);
@@ -948,6 +1178,85 @@ abstract interface class OrtRawCalls {
   /// `MemoryInfoGetType`
   @NativeOnly(_why)
   int memoryInfoGetType(OrtMemoryInfoPtr ptr);
+
+  /// `ModelCompilationOptions_SetEpContextBinaryInformation`
+  @NativeOnly(_why)
+  void modelCompilationOptions_SetEpContextBinaryInformation(
+      OrtModelCompilationOptionsPtr modelCompileOptions,
+      String outputDirectory,
+      String modelName);
+
+  /// `ModelCompilationOptions_SetEpContextEmbedMode`
+  @NativeOnly(_why)
+  void modelCompilationOptions_SetEpContextEmbedMode(
+      OrtModelCompilationOptionsPtr modelCompileOptions,
+      bool embedEpContextInModel);
+
+  /// `ModelCompilationOptions_SetFlags`
+  @NativeOnly(_why)
+  void modelCompilationOptions_SetFlags(
+      OrtModelCompilationOptionsPtr modelCompileOptions, int flags);
+
+  /// `ModelCompilationOptions_SetGraphOptimizationLevel`
+  @NativeOnly(_why)
+  void modelCompilationOptions_SetGraphOptimizationLevel(
+      OrtModelCompilationOptionsPtr modelCompileOptions,
+      int graphOptimizationLevel);
+
+  /// `ModelCompilationOptions_SetInputModel`
+  @NativeOnly(_why)
+  void modelCompilationOptions_SetInputModel(
+      OrtModelCompilationOptionsPtr modelCompileOptions, OrtModelPtr model);
+
+  /// `ModelCompilationOptions_SetInputModelFromBuffer`
+  @NativeOnly(_why)
+  void modelCompilationOptions_SetInputModelFromBuffer(
+      OrtModelCompilationOptionsPtr modelCompileOptions,
+      OrtPtr inputModelData,
+      int inputModelDataSize);
+
+  /// `ModelCompilationOptions_SetInputModelPath`
+  @NativeOnly(_why)
+  void modelCompilationOptions_SetInputModelPath(
+      OrtModelCompilationOptionsPtr modelCompileOptions, String inputModelPath);
+
+  /// `ModelCompilationOptions_SetOutputModelBuffer`
+  @NativeOnly(_why)
+  List<OrtPtr> modelCompilationOptions_SetOutputModelBuffer(
+      OrtModelCompilationOptionsPtr modelCompileOptions,
+      OrtAllocatorPtr allocator);
+
+  /// `ModelCompilationOptions_SetOutputModelExternalInitializersFile`
+  @NativeOnly(_why)
+  void modelCompilationOptions_SetOutputModelExternalInitializersFile(
+      OrtModelCompilationOptionsPtr modelCompileOptions,
+      String externalInitializersFilePath,
+      int externalInitializersSizeThreshold);
+
+  /// `ModelCompilationOptions_SetOutputModelGetInitializerLocationFunc`
+  @NativeOnly(_why)
+  void modelCompilationOptions_SetOutputModelGetInitializerLocationFunc(
+      OrtModelCompilationOptionsPtr modelCompileOptions,
+      OrtPtr getInitializerLocationFunc,
+      OrtPtr state);
+
+  /// `ModelCompilationOptions_SetOutputModelPath`
+  @NativeOnly(_why)
+  void modelCompilationOptions_SetOutputModelPath(
+      OrtModelCompilationOptionsPtr modelCompileOptions,
+      String outputModelPath);
+
+  /// `ModelCompilationOptions_SetOutputModelWriteFunc`
+  @NativeOnly(_why)
+  void modelCompilationOptions_SetOutputModelWriteFunc(
+      OrtModelCompilationOptionsPtr modelCompileOptions,
+      OrtPtr writeFunc,
+      OrtPtr state);
+
+  /// `ModelCompilationOptions_SetWeightlessEnabled`
+  @NativeOnly(_why)
+  void modelCompilationOptions_SetWeightlessEnabled(
+      OrtModelCompilationOptionsPtr modelCompileOptions, bool useWeightless);
 
   /// `ModelMetadataGetCustomMetadataMapKeys`
   @NativeOnly(_why)
@@ -1074,6 +1383,10 @@ abstract interface class OrtRawCalls {
   @NativeOnly(_why)
   int opAttr_GetType(OrtOpAttrPtr attribute);
 
+  /// `OptimizerStep`
+  @NativeOnly(_why)
+  void optimizerStep(OrtTrainingSessionPtr sess, OrtRunOptionsPtr runOptions);
+
   /// `ReadOpAttr`
   @NativeOnly(_why)
   int readOpAttr(OrtOpAttrPtr opAttr, int type, OrtPtr data, int len);
@@ -1102,6 +1415,11 @@ abstract interface class OrtRawCalls {
   void registerExecutionProviderLibrary(
       OrtEnvPtr env, String registrationName, String path);
 
+  /// `RegisterLinearLRScheduler`
+  @NativeOnly(_why)
+  void registerLinearLRScheduler(OrtTrainingSessionPtr sess,
+      int warmupStepCount, int totalStepCount, double initialLr);
+
   /// `ReleaseAllocator`
   @NativeOnly(_why)
   void releaseAllocator(OrtAllocatorPtr input);
@@ -1117,6 +1435,10 @@ abstract interface class OrtRawCalls {
   /// `ReleaseCUDAProviderOptions`
   @NativeOnly(_why)
   void releaseCUDAProviderOptions(OrtCUDAProviderOptionsV2Ptr input);
+
+  /// `ReleaseCheckpointState`
+  @NativeOnly(_why)
+  void releaseCheckpointState(OrtCheckpointStatePtr input);
 
   /// `ReleaseCustomOpDomain`
   @NativeOnly(_why)
@@ -1138,6 +1460,18 @@ abstract interface class OrtRawCalls {
   /// `ReleaseExternalInitializerInfo`
   @NativeOnly(_why)
   void releaseExternalInitializerInfo(OrtExternalInitializerInfoPtr input);
+
+  /// `ReleaseExternalMemoryHandle`
+  @NativeOnly(_why)
+  void releaseExternalMemoryHandle(OrtExternalMemoryHandlePtr input);
+
+  /// `ReleaseExternalResourceImporter`
+  @NativeOnly(_why)
+  void releaseExternalResourceImporter(OrtExternalResourceImporterPtr input);
+
+  /// `ReleaseExternalSemaphoreHandle`
+  @NativeOnly(_why)
+  void releaseExternalSemaphoreHandle(OrtExternalSemaphoreHandlePtr input);
 
   /// `ReleaseGraph`
   @NativeOnly(_why)
@@ -1170,6 +1504,10 @@ abstract interface class OrtRawCalls {
   /// `ReleaseModel`
   @NativeOnly(_why)
   void releaseModel(OrtModelPtr input);
+
+  /// `ReleaseModelCompilationOptions`
+  @NativeOnly(_why)
+  void releaseModelCompilationOptions(OrtModelCompilationOptionsPtr input);
 
   /// `ReleaseModelMetadata`
   @NativeOnly(_why)
@@ -1219,6 +1557,10 @@ abstract interface class OrtRawCalls {
   /// `ReleaseThreadingOptions`
   @NativeOnly(_why)
   void releaseThreadingOptions(OrtThreadingOptionsPtr input);
+
+  /// `ReleaseTrainingSession`
+  @NativeOnly(_why)
+  void releaseTrainingSession(OrtTrainingSessionPtr input);
 
   /// `ReleaseTypeInfo`
   @NativeOnly(_why)
@@ -1284,6 +1626,15 @@ abstract interface class OrtRawCalls {
   @NativeOnly(_why)
   void runOptionsUnsetTerminate(OrtRunOptionsPtr options);
 
+  /// `SaveCheckpoint`
+  @NativeOnly(_why)
+  void saveCheckpoint(OrtCheckpointStatePtr checkpointState,
+      String checkpointPath, bool includeOptimizerState);
+
+  /// `SchedulerStep`
+  @NativeOnly(_why)
+  void schedulerStep(OrtTrainingSessionPtr sess);
+
   /// `SessionEndProfiling`
   @NativeOnly(_why)
   String sessionEndProfiling(OrtSessionPtr session, OrtAllocatorPtr allocator);
@@ -1324,6 +1675,10 @@ abstract interface class OrtRawCalls {
   /// `SessionGetModelMetadata`
   @NativeOnly(_why)
   OrtModelMetadataPtr sessionGetModelMetadata(OrtSessionPtr session);
+
+  /// `SessionGetOpsetForDomain`
+  @NativeOnly(_why)
+  int sessionGetOpsetForDomain(OrtSessionPtr session, String domain);
 
   /// `SessionGetOutputCount`
   @NativeOnly(_why)
@@ -1543,9 +1898,23 @@ abstract interface class OrtRawCalls {
   void setGlobalSpinControl(
       OrtThreadingOptionsPtr tpOptions, int allowSpinning);
 
+  /// `SetGraphInputs`
+  @NativeOnly(_why)
+  void setGraphInputs(
+      OrtGraphPtr graph, List<OrtValueInfoPtr> inputs, int inputsLen);
+
+  /// `SetGraphOutputs`
+  @NativeOnly(_why)
+  void setGraphOutputs(
+      OrtGraphPtr graph, List<OrtValueInfoPtr> outputs, int outputsLen);
+
   /// `SetLanguageProjection`
   @NativeOnly(_why)
   void setLanguageProjection(OrtEnvPtr ortEnv, int projection);
+
+  /// `SetLearningRate`
+  @NativeOnly(_why)
+  void setLearningRate(OrtTrainingSessionPtr sess, double learningRate);
 
   /// `SetOptimizedModelFilePath`
   @NativeOnly(_why)
@@ -1556,6 +1925,10 @@ abstract interface class OrtRawCalls {
   @NativeOnly(_why)
   void setPerSessionThreadPoolCallbacks(
       OrtEnvPtr env, OrtThreadPoolCallbacksConfigPtr config);
+
+  /// `SetSeed`
+  @NativeOnly(_why)
+  void setSeed(int seed);
 
   /// `SetSessionExecutionMode`
   @NativeOnly(_why)
@@ -1608,6 +1981,14 @@ abstract interface class OrtRawCalls {
   void shapeInferContext_SetOutputTypeShape(OrtShapeInferContextPtr context,
       int index, OrtTensorTypeAndShapeInfoPtr info);
 
+  /// `SignalSemaphore`
+  @NativeOnly(_why)
+  void signalSemaphore(
+      OrtExternalResourceImporterPtr importer,
+      OrtExternalSemaphoreHandlePtr semaphoreHandle,
+      OrtSyncStreamPtr stream,
+      int value);
+
   /// `SynchronizeBoundInputs`
   @NativeOnly(_why)
   void synchronizeBoundInputs(OrtIoBindingPtr bindingPtr);
@@ -1620,6 +2001,52 @@ abstract interface class OrtRawCalls {
   @NativeOnly(_why)
   OrtPtr tensorAt(
       OrtValuePtr value, List<int> locationValues, int locationValuesCount);
+
+  /// `TrainStep`
+  @NativeOnly(_why)
+  void trainStep(
+      OrtTrainingSessionPtr sess,
+      OrtRunOptionsPtr runOptions,
+      int inputsLen,
+      List<OrtValuePtr> inputs,
+      int outputsLen,
+      List<OrtValuePtr> outputs);
+
+  /// `TrainingSessionGetEvalModelInputCount`
+  @NativeOnly(_why)
+  int trainingSessionGetEvalModelInputCount(OrtTrainingSessionPtr sess);
+
+  /// `TrainingSessionGetEvalModelInputName`
+  @NativeOnly(_why)
+  String trainingSessionGetEvalModelInputName(
+      OrtTrainingSessionPtr sess, int index, OrtAllocatorPtr allocator);
+
+  /// `TrainingSessionGetEvalModelOutputCount`
+  @NativeOnly(_why)
+  int trainingSessionGetEvalModelOutputCount(OrtTrainingSessionPtr sess);
+
+  /// `TrainingSessionGetEvalModelOutputName`
+  @NativeOnly(_why)
+  String trainingSessionGetEvalModelOutputName(
+      OrtTrainingSessionPtr sess, int index, OrtAllocatorPtr allocator);
+
+  /// `TrainingSessionGetTrainingModelInputCount`
+  @NativeOnly(_why)
+  int trainingSessionGetTrainingModelInputCount(OrtTrainingSessionPtr sess);
+
+  /// `TrainingSessionGetTrainingModelInputName`
+  @NativeOnly(_why)
+  String trainingSessionGetTrainingModelInputName(
+      OrtTrainingSessionPtr sess, int index, OrtAllocatorPtr allocator);
+
+  /// `TrainingSessionGetTrainingModelOutputCount`
+  @NativeOnly(_why)
+  int trainingSessionGetTrainingModelOutputCount(OrtTrainingSessionPtr sess);
+
+  /// `TrainingSessionGetTrainingModelOutputName`
+  @NativeOnly(_why)
+  String trainingSessionGetTrainingModelOutputName(
+      OrtTrainingSessionPtr sess, int index, OrtAllocatorPtr allocator);
 
   /// `UnregisterAllocator`
   @NativeOnly(_why)
@@ -1662,6 +2089,11 @@ abstract interface class OrtRawCalls {
   /// `UpdateEnvWithCustomLogLevel`
   @NativeOnly(_why)
   void updateEnvWithCustomLogLevel(OrtEnvPtr ortEnv, int logSeverityLevel);
+
+  /// `UpdateParameter`
+  @NativeOnly(_why)
+  void updateParameter(OrtCheckpointStatePtr checkpointState,
+      String parameterName, OrtValuePtr parameter);
 
   /// `UpdateROCMProviderOptions`
   @NativeOnly(_why)
@@ -1727,4 +2159,12 @@ abstract interface class OrtRawCalls {
   /// `ValueInfo_IsRequiredGraphInput`
   @NativeOnly(_why)
   bool valueInfo_IsRequiredGraphInput(OrtValueInfoPtr valueInfo);
+
+  /// `WaitSemaphore`
+  @NativeOnly(_why)
+  void waitSemaphore(
+      OrtExternalResourceImporterPtr importer,
+      OrtExternalSemaphoreHandlePtr semaphoreHandle,
+      OrtSyncStreamPtr stream,
+      int value);
 }
