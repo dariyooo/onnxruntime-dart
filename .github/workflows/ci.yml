@@ -474,8 +474,13 @@ jobs:
           // Written by the test-web-runtime job.
           library;
 
-          const webRuntimeLoader = './web_runtime/$loader';
-          const webRuntimeWasm = './web_runtime/$wasm';
+          // Deliberately without a leading './'. That is the form the asset
+          // packages publish, and a dynamic import treats a specifier with no
+          // './' as a bare one that only an import map resolves. Writing
+          // './' here tested a path no consumer uses, and the difference went
+          // unnoticed until an application tried it.
+          const webRuntimeLoader = 'web_runtime/$loader';
+          const webRuntimeWasm = 'web_runtime/$wasm';
           EOF
           cat packages/onnxruntime_dart/test/src/web_runtime_config.dart
 
