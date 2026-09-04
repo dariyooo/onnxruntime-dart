@@ -238,10 +238,31 @@ Set<String> _handWritten() {
 /// asserts the WebAssembly backend refuses exactly the operations marked
 /// unavailable here, and no others.
 String _supportSource() {
+  // Every operation the interface declares, not only those the correspondence
+  // table names. The table holds the ones whose names differ, so generating
+  // from it alone left two thirds of the seam unchecked, and a refusal nobody
+  // checks is how four of them came to claim limits that were not there.
+  //
+  // An operation the table does not mention has no WebAssembly counterpart and
+  // is native only. If that is wrong the backend disagrees and
+  // platform_support_test fails, which is the point.
+  final described = {
+    for (final operation in correspondence) operation.name: operation,
+  };
+  final declared = _declaredBy(File('lib/src/backend/interface.dart'));
+
   final entries = [
-    for (final operation in correspondence)
-      "  '${operation.name}': (native: ${operation.native != null}, "
-          "web: ${operation.onWeb}),",
+    for (final name in ({...declared, ...described.keys}.toList()..sort()))
+      if (described[name] case final operation?)
+        "  '$name': (native: ${operation.native != null}, "
+            "web: ${operation.onWeb}),"
+      else
+        throw StateError(
+          'the seam declares $name and tool/src/seam.dart does not describe '
+          'it. Add an entry saying what it corresponds to on each platform, '
+          'or the support table silently calls it native only and nothing '
+          'checks the refusal.',
+        ),
   ].join('\n');
 
   return """
