@@ -19,6 +19,7 @@ import 'package:meta/meta.dart';
 
 import '../annotations.dart';
 import 'interface.dart';
+import 'raw_wasm_calls.g.dart';
 import 'types.dart';
 import 'wasm/api.g.dart';
 import 'wasm/async_calls.dart';
@@ -47,7 +48,7 @@ const _dataLocationCpu = 1;
 /// Base rather than final: the Asyncify backend is the same code except for
 /// the five calls that can suspend, and re-implementing the rest would be two
 /// copies to keep in step.
-base class WasmCalls implements OrtCalls {
+base class WasmCalls with GeneratedWasmRawCalls implements OrtCalls {
   WasmCalls(this.module);
 
   /// The module. Visible to the Asyncify backend, which calls the same
