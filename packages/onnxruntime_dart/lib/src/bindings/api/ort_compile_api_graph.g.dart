@@ -28,4 +28,18 @@ extension OrtCompileApiGraphApi on OrtCompileApi {
             allocateOrtPath(externalInitializersFilePath, arena),
             externalInitializersSizeThreshold));
       });
+
+  /// `ModelCompilationOptions_SetOutputModelGetInitializerLocationFunc`
+  void modelCompilationOptions_SetOutputModelGetInitializerLocationFunc(
+          Pointer<OrtModelCompilationOptions> modelCompileOptions,
+          OrtGetInitializerLocationFunc getInitializerLocationFunc,
+          Pointer<Void> state) =>
+      checkOrtStatus(this
+              .ModelCompilationOptions_SetOutputModelGetInitializerLocationFunc
+              .asFunction<
+                  Pointer<OrtStatus> Function(
+                      Pointer<OrtModelCompilationOptions>,
+                      OrtGetInitializerLocationFunc,
+                      Pointer<Void>)>()(
+          modelCompileOptions, getInitializerLocationFunc, state));
 }

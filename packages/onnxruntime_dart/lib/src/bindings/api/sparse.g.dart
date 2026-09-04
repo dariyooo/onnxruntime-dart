@@ -101,6 +101,37 @@ extension OrtApiSparseApi on OrtApi {
             outerIndicesNum));
       });
 
+  /// `FillSparseTensorBlockSparse`
+  void fillSparseTensorBlockSparse(
+          Pointer<OrtValue> ortValue,
+          Pointer<OrtMemoryInfo> dataMemInfo,
+          List<int> valuesShape,
+          int valuesShapeLen,
+          Pointer<Void> values,
+          List<int> indicesShapeData,
+          int indicesShapeLen,
+          List<int> indicesData) =>
+      withArena((arena) {
+        checkOrtStatus(this.FillSparseTensorBlockSparse.asFunction<
+                Pointer<OrtStatus> Function(
+                    Pointer<OrtValue>,
+                    Pointer<OrtMemoryInfo>,
+                    Pointer<Int64>,
+                    int,
+                    Pointer<Void>,
+                    Pointer<Int64>,
+                    int,
+                    Pointer<Int32>)>()(
+            ortValue,
+            dataMemInfo,
+            nativeInt64s(valuesShape, arena),
+            valuesShapeLen,
+            values,
+            nativeInt64s(indicesShapeData, arena),
+            indicesShapeLen,
+            nativeInt32s(indicesData, arena)));
+      });
+
   /// `CreateSparseTensorWithValuesAsOrtValue`
   ///
   /// Borrows, does not copy: the tensor is a view over `pData` and does not
@@ -165,5 +196,30 @@ extension OrtApiSparseApi on OrtApi {
             Pointer<OrtStatus> Function(
                 Pointer<OrtValue>, Pointer<Pointer<Void>>)>()(ortValue, out0));
         return out0.value;
+      });
+
+  /// `GetSparseTensorIndicesTypeShape`
+  Pointer<OrtTensorTypeAndShapeInfo> getSparseTensorIndicesTypeShape(
+          Pointer<OrtValue> ortValue, int indicesFormat) =>
+      withArena((arena) {
+        final out0 = arena<Pointer<OrtTensorTypeAndShapeInfo>>();
+        checkOrtStatus(this.GetSparseTensorIndicesTypeShape.asFunction<
+                Pointer<OrtStatus> Function(Pointer<OrtValue>, int,
+                    Pointer<Pointer<OrtTensorTypeAndShapeInfo>>)>()(
+            ortValue, indicesFormat, out0));
+        return out0.value;
+      });
+
+  /// `GetSparseTensorIndices`
+  (int numIndices, Pointer<Void> indices) getSparseTensorIndices(
+          Pointer<OrtValue> ortValue, int indicesFormat) =>
+      withArena((arena) {
+        final out0 = arena<Size>();
+        final out1 = arena<Pointer<Void>>();
+        checkOrtStatus(this.GetSparseTensorIndices.asFunction<
+                Pointer<OrtStatus> Function(Pointer<OrtValue>, int,
+                    Pointer<Size>, Pointer<Pointer<Void>>)>()(
+            ortValue, indicesFormat, out0, out1));
+        return (out0.value, out1.value);
       });
 }

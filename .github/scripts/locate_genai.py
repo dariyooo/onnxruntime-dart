@@ -1,0 +1,90 @@
+#!/usr/bin/env python3
+"""Stages the GenAI library and points its build hook at it.
+
+Separate from locate_library.py because it stages a different component from a
+different release, and because GenAI is published for fewer targets than the
+runtime is: a target upstream has no build for is not an error here, it is a
+job that runs the tests it can and says which it could not.
+
+    locate_genai.py <target-id>
+"""
+
+from __future__ import annotations
+
+import os
+import pathlib
+import subprocess
+import sys
+import tarfile
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+import genai_matrix  # noqa: E402
+import locate_library  # noqa: E402
+
+REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
+
+
+def main() -> None:
+    if len(sys.argv) != 2:
+        raise SystemExit("usage: locate_genai.py <target-id>")
+
+    target = sys.argv[1]
+
+    # Exported either way, because the job has to know whether to run the GenAI
+    # tests at all. On a target with no build the hook refuses outright, which
+    # is right for an application and wrong for a test run that should simply
+    # not happen.
+    supported = target in genai_matrix.targets()
+    locate_library.export("GENAI_SUPPORTED", str(supported).lower())
+
+    if not supported:
+        # Not a failure. Upstream publishes no macOS x64 or WebAssembly build,
+        # and a job on one of those should say so and carry on rather than
+        # fail for a library that was never going to exist.
+        print(f"::notice::no GenAI build for {target}; its tests do not run")
+        return
+
+    staged = REPO_ROOT / ".local" / "genai" / target
+    staged.mkdir(parents=True, exist_ok=True)
+
+    archive = REPO_ROOT / ".local" / "artifacts" / "genai" / (
+        genai_matrix.our_asset(target)
+    )
+    if not archive.is_file():
+        # Not built in this run, so take it from the release the pinned
+        # submodule names. That release only exists once someone has tagged,
+        # and publishing is deliberately a separate decision from building, so
+        # its absence is a reason for these tests to skip rather than a reason
+        # to fail the job that stages them.
+        archive = staged / genai_matrix.our_asset(target)
+        fetched = subprocess.run(
+            (
+                "gh", "release", "download", genai_matrix.release_tag(),
+                "--pattern", genai_matrix.our_asset(target),
+                "--dir", str(staged), "--clobber",
+            ),
+            capture_output=True,
+            text=True,
+        )
+        if fetched.returncode != 0:
+            print(
+                f"::notice::no {genai_matrix.release_tag()} release to stage "
+                f"from, so the GenAI tests will skip. "
+                f"{fetched.stderr.strip().splitlines()[-1] if fetched.stderr.strip() else ''}"
+            )
+            return
+
+    with tarfile.open(archive) as tar:
+        tar.extractall(staged)
+
+    library = staged / genai_matrix.library_for(target)
+    if not library.is_file():
+        raise SystemExit(f"{archive} held no {library.name}")
+
+    locate_library.point_hook_at(staged, "onnxruntime_genai_binaries")
+    locate_library.export("ONNXRUNTIME_GENAI_LIB", library)
+
+
+if __name__ == "__main__":
+    main()

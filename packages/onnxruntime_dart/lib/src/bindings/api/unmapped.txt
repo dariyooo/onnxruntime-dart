@@ -2,53 +2,19 @@ Functions the generator does not handle.
 Each needs a rule in tool/src/types.dart, or a wrapper written by hand
 in lib/src/bindings/api/manual.dart.
 
-OrtApi.AddExternalInitializersFromFilesInMemory: input char* const*
-OrtApi.CreateEnvWithCustomLogger: input OrtLoggingFunction
-OrtApi.CreateEnvWithCustomLoggerAndGlobalThreadPools: input OrtLoggingFunction
-OrtApi.CreateOp: input const char**
-OrtApi.EpAssignedSubgraph_GetNodes: output const OrtEpAssignedNode* const**
-OrtApi.FillSparseTensorBlockSparse: input const int32_t*
-OrtApi.GetAvailableProviders: output char***
-OrtApi.GetBoundOutputNames: output size_t**
-OrtApi.GetBoundOutputValues: output OrtValue***
-OrtApi.GetCurrentGpuDeviceId: input int*
-OrtApi.GetEpDevices: output const OrtEpDevice* const**
-OrtApi.GetKeyValuePairs: output const char* const**, output const char* const**
+Marked [wrapped by hand] means it is not generated but is still
+callable: manual.dart wraps it, for a reason its doc comment gives.
+Unmarked means there is no wrapper at all.
+
+OrtApi.GetAvailableProviders: output char*** [wrapped by hand]
+OrtApi.GetBoundOutputNames: output size_t** [wrapped by hand]
+OrtApi.GetBoundOutputValues: output OrtValue*** [wrapped by hand]
 OrtApi.GetOpaqueValue: output void*
-OrtApi.GetResizedStringTensorElementBuffer: input char**
-OrtApi.GetSessionConfigEntry: output char*, inout size_t*, which is written back or kept
-OrtApi.GetSparseTensorIndices: input enum OrtSparseIndicesFormat
-OrtApi.GetSparseTensorIndicesTypeShape: input enum OrtSparseIndicesFormat
-OrtApi.GetStringTensorContent: output void*
-OrtApi.GetStringTensorElement: output void*
-OrtApi.GetTensorElementTypeAndShapeDataReference: output const int64_t**
-OrtApi.Graph_GetModelPath: output const ORTCHAR_T**
-OrtApi.KernelInfoGetAttributeArray_float: inout size_t*, which is written back or kept
-OrtApi.KernelInfoGetAttributeArray_int64: inout size_t*, which is written back or kept
-OrtApi.KernelInfoGetAttributeArray_string: output char***
-OrtApi.KernelInfoGetAttribute_string: output char*, inout size_t*, which is written back or kept
-OrtApi.KernelInfo_GetInputName: output char*, inout size_t*, which is written back or kept
-OrtApi.KernelInfo_GetNodeName: output char*, inout size_t*, which is written back or kept
-OrtApi.KernelInfo_GetOperatorDomain: output char*, inout size_t*, which is written back or kept
-OrtApi.KernelInfo_GetOperatorType: output char*, inout size_t*, which is written back or kept
-OrtApi.KernelInfo_GetOutputName: output char*, inout size_t*, which is written back or kept
-OrtApi.ModelMetadataGetCustomMetadataMapKeys: output char***
-OrtApi.ReleaseAvailableProviders: input char**
-OrtApi.RunAsync: input RunAsyncCallbackFn
-OrtApi.SessionOptionsSetCustomCreateThreadFn: input OrtCustomCreateThreadFn
-OrtApi.SessionOptionsSetCustomJoinThreadFn: input OrtCustomJoinThreadFn
-OrtApi.SessionOptionsSetEpSelectionPolicyDelegate: input EpSelectionDelegate
-OrtApi.Session_GetEpGraphAssignmentInfo: output const OrtEpAssignedSubgraph* const**
-OrtApi.SetGlobalCustomCreateThreadFn: input OrtCustomCreateThreadFn
-OrtApi.SetGlobalCustomJoinThreadFn: input OrtCustomJoinThreadFn
-OrtApi.SetUserLoggingFunction: input OrtLoggingFunction
-OrtApi.UseBlockSparseIndices: inout int32_t*, which is written back or kept
-OrtApi.UseCooIndices: inout int64_t*, which is written back or kept
-OrtApi.UseCsrIndices: inout int64_t*, which is written back or kept, inout int64_t*, which is written back or kept
-OrtCompileApi.ModelCompilationOptions_SetOutputModelGetInitializerLocationFunc: input OrtGetInitializerLocationFunc
-OrtCompileApi.ModelCompilationOptions_SetOutputModelWriteFunc: input OrtWriteBufferFunc
-OrtModelEditorApi.CreateModel: input const int*
-OrtTrainingApi.LoadCheckpointFromBuffer: input const size_t
-OrtTrainingApi.RegisterLinearLRScheduler: input const int64_t, input const int64_t, input const float
-OrtTrainingApi.SaveCheckpoint: input const bool
-OrtTrainingApi.SetSeed: input const int64_t
+    cannot be wrapped: the caller supplies a struct whose layout only the custom op that registered the opaque type knows. Nothing on this side can declare it, so there is no signature to generate
+OrtApi.GetResizedStringTensorElementBuffer: input char** [wrapped by hand]
+OrtApi.GetStringTensorContent: output void* [wrapped by hand]
+OrtApi.GetStringTensorElement: output void* [wrapped by hand]
+OrtApi.ReleaseAvailableProviders: input char** [wrapped by hand]
+OrtApi.UseBlockSparseIndices: inout int32_t*, which is written back or kept [wrapped by hand]
+OrtApi.UseCooIndices: inout int64_t*, which is written back or kept [wrapped by hand]
+OrtApi.UseCsrIndices: inout int64_t*, which is written back or kept, inout int64_t*, which is written back or kept [wrapped by hand]

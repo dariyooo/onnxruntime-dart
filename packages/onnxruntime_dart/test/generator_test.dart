@@ -18,6 +18,13 @@ import '../tool/src/generate.dart';
 import '../tool/src/types.dart';
 import 'src/paths.dart';
 
+/// The emitted source, for the tests that assert on it.
+///
+/// `emit` hands back the Dart signature as well now, because the seam
+/// generator needs the same types and deriving them twice would drift.
+String? emitCode(CFunction function, Signature signature) =>
+    emit(function, signature)?.code;
+
 void main() {
   final header = File(
     fromRoot(
@@ -239,7 +246,7 @@ void main() {
     test('qualifies member access', () {
       // package:ffi exports an extension named AllocatorAlloc, which shadows
       // the struct member of the same name.
-      final code = emit(
+      final code = emitCode(
         CFunction(
           name: 'AllocatorAlloc',
           parameters: [
@@ -258,7 +265,7 @@ void main() {
     test('warns where the runtime keeps a caller buffer', () {
       // The signature cannot say it and the SAL does not mark it, so silence
       // is what makes passing a short-lived pointer easy.
-      final code = emit(
+      final code = emitCode(
         CFunction(
           name: 'CreateTensorWithDataAsOrtValue',
           parameters: [
@@ -278,7 +285,7 @@ void main() {
     test('frees with the allocator the call was given', () {
       // Freeing with the default allocator when the caller passed another is
       // a mismatched free, and it works right up until someone passes one.
-      final code = emit(
+      final code = emitCode(
         CFunction(
           name: 'SessionGetInputName',
           parameters: [
@@ -311,7 +318,7 @@ void main() {
     });
 
     test('refuses a signature that disagrees with the header', () {
-      final code = emit(
+      final code = emitCode(
         CFunction(
           name: 'Whatever',
           parameters: [

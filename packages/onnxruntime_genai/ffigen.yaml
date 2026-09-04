@@ -1,0 +1,36 @@
+# Regenerate with:  dart run ffigen
+#
+# Headers come from the pinned GenAI submodule (third_party/onnxruntime-genai,
+# 0.15.2). The submodule is the single source of truth: the generated bindings
+# must always correspond to the commit it points at.
+name: GenAiBindings
+description: Generated ONNX Runtime GenAI C API bindings (0.15.2).
+output: 'lib/src/bindings/genai_bindings.g.dart'
+
+headers:
+  entry-points:
+    - '../../third_party/onnxruntime-genai/src/ort_genai_c.h'
+  include-directives:
+    - '**ort_genai_c.h'
+
+# C enum width is implementation-defined; ffigen warns on every one of them.
+silence-enum-warning: true
+
+# Bound as native assets rather than through a DynamicLibrary lookup, which is
+# how every other library here is reached: the hook declares the asset, and the
+# runtime resolves it when the first call is made. ONNX Runtime itself needs
+# only one such entry point because the rest of its API arrives as a struct of
+# function pointers. GenAI exports its API as plain functions, so each one is
+# bound this way.
+ffi-native:
+  asset-id: 'package:onnxruntime_genai_binaries/genai'
+
+preamble: |
+  // AUTO GENERATED FILE, DO NOT EDIT.
+  //
+  // Generated from third_party/onnxruntime-genai/src/ort_genai_c.h at 0.15.2.
+  // Regenerate with `dart run ffigen` from this package.
+
+  // ignore_for_file: always_specify_types, camel_case_types
+  // ignore_for_file: non_constant_identifier_names, unused_element
+  // ignore_for_file: unused_field, constant_identifier_names

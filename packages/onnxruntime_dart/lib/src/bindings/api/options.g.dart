@@ -24,6 +24,22 @@ extension OrtApiOptionsApi on OrtApi {
         return out0.value;
       });
 
+  /// `CreateEnvWithCustomLogger`
+  Pointer<OrtEnv> createEnvWithCustomLogger(OrtLoggingFunction loggingFunction,
+          Pointer<Void> loggerParam, int logSeverityLevel, String logid) =>
+      withArena((arena) {
+        final out0 = arena<Pointer<OrtEnv>>();
+        checkOrtStatus(this.CreateEnvWithCustomLogger.asFunction<
+                Pointer<OrtStatus> Function(OrtLoggingFunction, Pointer<Void>,
+                    int, Pointer<Char>, Pointer<Pointer<OrtEnv>>)>()(
+            loggingFunction,
+            loggerParam,
+            logSeverityLevel,
+            logid.toNativeUtf8(allocator: arena).cast(),
+            out0));
+        return out0.value;
+      });
+
   /// `EnableTelemetryEvents`
   void enableTelemetryEvents(Pointer<OrtEnv> env) => checkOrtStatus(this
       .EnableTelemetryEvents
@@ -256,6 +272,34 @@ extension OrtApiOptionsApi on OrtApi {
           Pointer<OrtStatus> Function(
               Pointer<OrtThreadingOptions>, int)>()(tpOptions, allowSpinning));
 
+  /// `CreateEnvWithCustomLoggerAndGlobalThreadPools`
+  Pointer<OrtEnv> createEnvWithCustomLoggerAndGlobalThreadPools(
+          OrtLoggingFunction loggingFunction,
+          Pointer<Void> loggerParam,
+          int logSeverityLevel,
+          String logid,
+          Pointer<OrtThreadingOptions> tpOptions) =>
+      withArena((arena) {
+        final out0 = arena<Pointer<OrtEnv>>();
+        checkOrtStatus(this
+                .CreateEnvWithCustomLoggerAndGlobalThreadPools
+                .asFunction<
+                    Pointer<OrtStatus> Function(
+                        OrtLoggingFunction,
+                        Pointer<Void>,
+                        int,
+                        Pointer<Char>,
+                        Pointer<OrtThreadingOptions>,
+                        Pointer<Pointer<OrtEnv>>)>()(
+            loggingFunction,
+            loggerParam,
+            logSeverityLevel,
+            logid.toNativeUtf8(allocator: arena).cast(),
+            tpOptions,
+            out0));
+        return out0.value;
+      });
+
   /// `SetGlobalDenormalAsZero`
   void setGlobalDenormalAsZero(Pointer<OrtThreadingOptions> tpOptions) =>
       checkOrtStatus(this.SetGlobalDenormalAsZero.asFunction<
@@ -279,6 +323,13 @@ extension OrtApiOptionsApi on OrtApi {
             configValue.toNativeUtf8(allocator: arena).cast()));
       });
 
+  /// `SetGlobalCustomCreateThreadFn`
+  void setGlobalCustomCreateThreadFn(Pointer<OrtThreadingOptions> tpOptions,
+          OrtCustomCreateThreadFn ortCustomCreateThreadFn) =>
+      checkOrtStatus(this.SetGlobalCustomCreateThreadFn.asFunction<
+          Pointer<OrtStatus> Function(Pointer<OrtThreadingOptions>,
+              OrtCustomCreateThreadFn)>()(tpOptions, ortCustomCreateThreadFn));
+
   /// `SetGlobalCustomThreadCreationOptions`
   void setGlobalCustomThreadCreationOptions(
           Pointer<OrtThreadingOptions> tpOptions,
@@ -286,6 +337,13 @@ extension OrtApiOptionsApi on OrtApi {
       checkOrtStatus(this.SetGlobalCustomThreadCreationOptions.asFunction<
           Pointer<OrtStatus> Function(Pointer<OrtThreadingOptions>,
               Pointer<Void>)>()(tpOptions, ortCustomThreadCreationOptions));
+
+  /// `SetGlobalCustomJoinThreadFn`
+  void setGlobalCustomJoinThreadFn(Pointer<OrtThreadingOptions> tpOptions,
+          OrtCustomJoinThreadFn ortCustomJoinThreadFn) =>
+      checkOrtStatus(this.SetGlobalCustomJoinThreadFn.asFunction<
+          Pointer<OrtStatus> Function(Pointer<OrtThreadingOptions>,
+              OrtCustomJoinThreadFn)>()(tpOptions, ortCustomJoinThreadFn));
 
   /// `UpdateEnvWithCustomLogLevel`
   void updateEnvWithCustomLogLevel(
@@ -315,6 +373,29 @@ extension OrtApiOptionsApi on OrtApi {
                     Pointer<OrtSessionOptions>, Pointer<Char>, Pointer<Int>)>()(
             options, configKey.toNativeUtf8(allocator: arena).cast(), out0));
         return out0.value;
+      });
+
+  /// `GetSessionConfigEntry`
+  String getSessionConfigEntry(
+          Pointer<OrtSessionOptions> options, String configKey) =>
+      withArena((arena) {
+        final size = arena<Size>()..value = 0;
+        final call = this.GetSessionConfigEntry.asFunction<
+            Pointer<OrtStatus> Function(Pointer<OrtSessionOptions>,
+                Pointer<Char>, Pointer<Char>, Pointer<Size>)>();
+
+        // Reports the size it wants and fails because there is no
+        // buffer yet. Expected, so the status is released, not checked.
+        final asked = call(options,
+            configKey.toNativeUtf8(allocator: arena).cast(), nullptr, size);
+        if (asked != nullptr) {
+          ReleaseStatus.asFunction<void Function(Pointer<OrtStatus>)>()(asked);
+        }
+
+        final buffer = arena<Char>(size.value == 0 ? 1 : size.value);
+        checkOrtStatus(call(options,
+            configKey.toNativeUtf8(allocator: arena).cast(), buffer, size));
+        return buffer.cast<Utf8>().toDartString();
       });
 
   /// `SetDeterministicCompute`

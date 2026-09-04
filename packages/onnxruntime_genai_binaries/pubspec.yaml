@@ -1,0 +1,22 @@
+name: onnxruntime_genai_binaries
+description: >-
+  Prebuilt ONNX Runtime GenAI libraries, installed as a code asset. The API lives in onnxruntime_genai.
+# From VERSION_INFO in the pinned tree, which is what upstream names its release
+# archives for. This package is those binaries, so it is versioned as them, and
+# an application can move it without waiting for the API package to be released.
+version: 0.15.2
+repository: https://github.com/dariyooo/onnxruntime-dart
+issue_tracker: https://github.com/dariyooo/onnxruntime-dart/issues
+
+environment:
+  sdk: ^3.6.0
+
+resolution: workspace
+
+dependencies:
+  code_assets: '>=1.0.0 <2.0.0'
+  hooks: '>=1.0.0 <3.0.0'
+  onnxruntime_hook: ^1.29.0
+  # GenAI looks up OrtGetApiBase in an ONNX Runtime that is already loaded
+  # rather than linking one, so the runtime has to be installed alongside.
+  onnxruntime_binaries: '>=1.24.4 <2.0.0'

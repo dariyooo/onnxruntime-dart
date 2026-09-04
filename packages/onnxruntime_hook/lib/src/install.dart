@@ -376,6 +376,77 @@ Future<void> installExtensions(List<String> args) async {
   });
 }
 
+/// Declares the ONNX Runtime GenAI library for the target being built.
+///
+/// Shaped like [installExtensions] rather than [installProvider], because GenAI
+/// is not something ONNX Runtime loads. It is a library an application links to
+/// that drives a session itself, so it is installed as an asset of its own and
+/// the runtime has to be there beside it.
+Future<void> installGenAi(List<String> args) async {
+  await build(args, (input, output) async {
+    if (!input.config.buildCodeAssets) return;
+
+    final code = input.config.code;
+    final target = targetId(
+      os: code.targetOS,
+      architecture: code.targetArchitecture,
+      iosSdk: code.targetOS == OS.iOS ? code.iOS.targetSdk : null,
+    );
+
+    if (!OrtGenAi.isAvailableOn(target)) {
+      throw StateError(
+        '${input.packageName}: there is no GenAI library for $target. '
+        'Upstream publishes it for ${OrtGenAi.targets.join(', ')}.',
+      );
+    }
+
+    final library = await _resolveGenAi(input, target, code.targetOS);
+    if (library == null) return;
+
+    output.assets.code.add(
+      CodeAsset(
+        package: input.packageName,
+        name: 'genai',
+        linkMode: DynamicLoadingBundled(),
+        file: library.uri,
+      ),
+    );
+  });
+}
+
+Future<File?> _resolveGenAi(
+  BuildInput input,
+  String target,
+  OS os,
+) async {
+  final fileName = OrtGenAi.fileName(os);
+
+  final override = input.userDefines.path('local_build');
+  if (override != null) {
+    final file = File.fromUri(_asDirectory(override).resolve(fileName));
+    if (file.existsSync()) return file;
+    stderr.writeln(
+      '${input.packageName}: local_build holds no $fileName, so the '
+      'GenAI library is not installed.',
+    );
+    return null;
+  }
+
+  final tag = releaseTag(input, component: 'genai');
+  final cached = File.fromUri(
+    input.outputDirectoryShared.resolve('$tag/$target/$fileName'),
+  );
+  if (cached.existsSync()) return cached;
+
+  return _download(
+    url: genAiAssetUrl(releaseTag: tag, targetId: target),
+    into: cached,
+    fileName: fileName,
+    target: target,
+    package: input.packageName,
+  );
+}
+
 Future<File?> _resolveExtensions(
   BuildInput input,
   String target,

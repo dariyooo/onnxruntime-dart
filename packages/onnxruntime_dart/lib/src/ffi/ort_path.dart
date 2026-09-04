@@ -27,6 +27,19 @@ int get ortPathUnitBytes => ortPathIsWide ? 2 : 1;
 Pointer<Char> allocateOrtPath(String path, Allocator allocator) =>
     encodeOrtPath(path, allocator, wide: ortPathIsWide);
 
+/// Allocates an array of NUL-terminated ORTCHAR_T copies. The caller frees it.
+///
+/// `AddExternalInitializersFromFiles` takes one of these. Each path needs the
+/// same platform-dependent encoding a single path gets, so this is that call in
+/// a loop rather than a plain array of UTF-8 pointers.
+Pointer<Pointer<Char>> nativeOrtPaths(List<String> paths, Allocator allocator) {
+  final array = allocator<Pointer<Char>>(paths.isEmpty ? 1 : paths.length);
+  for (var i = 0; i < paths.length; i++) {
+    array[i] = allocateOrtPath(paths[i], allocator);
+  }
+  return array;
+}
+
 /// Reads a NUL-terminated ORTCHAR_T string.
 String readOrtPath(Pointer<Char> pointer) =>
     decodeOrtPath(pointer, wide: ortPathIsWide);

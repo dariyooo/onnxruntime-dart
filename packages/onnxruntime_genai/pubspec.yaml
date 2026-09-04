@@ -1,0 +1,47 @@
+name: onnxruntime_genai
+description: >-
+  Generative AI on top of onnxruntime_dart: token generation, KV caching and sampling, driven by ONNX Runtime GenAI.
+# This package is the API, not the binaries, so it has a version of its own.
+# The build metadata names the GenAI it was generated against, so the pairing
+# is visible without opening the submodule.
+version: 0.1.0+genai-0.15.2
+repository: https://github.com/dariyooo/onnxruntime-dart
+issue_tracker: https://github.com/dariyooo/onnxruntime-dart/issues
+
+environment:
+  sdk: ^3.6.0
+
+resolution: workspace
+
+dependencies:
+  # No code_assets or hooks: this package runs no build hook and ships
+  # no binaries, they live in the _binaries package. Keeping them here
+  # would drag record_use in, which pins a newer meta than Flutter
+  # ships, making this package unusable from any Flutter app.
+  ffi: ^2.1.0
+  # The sessions GenAI builds run on ONNX Runtime, and this package's API hands
+  # back and takes the base package's types.
+  onnxruntime_dart: '>=0.1.0 <1.0.0'
+
+dev_dependencies:
+  ffigen: ^21.0.0
+  # The generator formats its own output, so what it writes is final. Without
+  # this a regeneration leaves files the format check rejects, and committing
+  # formatted ones makes them differ from a fresh run.
+  dart_style: ^3.1.0
+  # For the language version DartFormatter is given.
+  pub_semver: ^2.1.0
+  test: ^1.25.0
+  # So this package's own tests have a library to load. A dev dependency is not
+  # transitive, so an application still chooses its own and is never handed one
+  # by depending on the bindings.
+  onnxruntime_genai_binaries: any
+  # GenAI looks up OrtGetApiBase in an already loaded runtime, so the tests
+  # need one of those too.
+  onnxruntime_binaries: any
+
+# onnxruntime_genai_binaries is deliberately not a dependency. The asset this
+# package is declared against is installed by that package, and naming it
+# here would make it compulsory. Leaving it out is what lets an
+# application pick a build, or take none and supply the library itself at
+# run time. onnxruntime_dart does the same with onnxruntime_binaries.

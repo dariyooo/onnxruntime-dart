@@ -1,0 +1,9 @@
+2 of 150 functions are not wrapped.
+
+The two OgaResult calls are deliberate rather than pending. OgaResult is
+how the C API reports failure, and check() in ffi_support.dart reads and
+releases it on every call. Wrapping them would offer an error object that
+is already spent, and a way to release one twice.
+
+OgaResultGetError: parameter result is const OgaResult*
+OgaDestroyResult: parameter result is OgaResult*

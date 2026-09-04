@@ -18,6 +18,11 @@ dependencies:
   # framework, and neither resembles the desktop layout the plugin path
   # recovery was written against.
   onnxruntime_ep_webgpu: { path: ../../packages/onnxruntime_ep_webgpu }
+  # The API package declares the asset; this one installs it. They were one
+  # package until the split, and depending on the API alone now leaves the
+  # provider undeclared and the device tests proving nothing.
+  onnxruntime_ep_webgpu_binaries:
+    { path: ../../packages/onnxruntime_ep_webgpu_binaries }
 
 dev_dependencies:
   flutter_test: { sdk: flutter }
@@ -31,6 +36,8 @@ dependency_overrides:
   onnxruntime_binaries: { path: ../../packages/onnxruntime_binaries }
   onnxruntime_dart: { path: ../../packages/onnxruntime_dart }
   onnxruntime_hook: { path: ../../packages/onnxruntime_hook }
+  onnxruntime_ep_webgpu_binaries:
+    { path: ../../packages/onnxruntime_ep_webgpu_binaries }
 
 flutter:
   assets:

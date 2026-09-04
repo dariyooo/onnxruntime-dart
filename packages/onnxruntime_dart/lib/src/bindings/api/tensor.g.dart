@@ -528,6 +528,24 @@ extension OrtApiTensorApi on OrtApi {
             nativePointers(dstTensors, arena), stream, numTensors));
       });
 
+  /// `GetTensorElementTypeAndShapeDataReference`
+  (int elemType, List<int> shapeData) getTensorElementTypeAndShapeDataReference(
+          Pointer<OrtValue> value) =>
+      withArena((arena) {
+        final out0 = arena<UnsignedInt>();
+        final out1 = arena<Pointer<Int64>>();
+        final out2 = arena<Size>();
+        checkOrtStatus(this
+            .GetTensorElementTypeAndShapeDataReference
+            .asFunction<
+                Pointer<OrtStatus> Function(
+                    Pointer<OrtValue>,
+                    Pointer<UnsignedInt>,
+                    Pointer<Pointer<Int64>>,
+                    Pointer<Size>)>()(value, out0, out1, out2));
+        return (out0.value, List.generate(out2.value, (i) => out1.value[i]));
+      });
+
   /// `ReleaseTensorRTProviderOptions`
   void releaseTensorRTProviderOptions(
           Pointer<OrtTensorRTProviderOptionsV2> input) =>
@@ -552,6 +570,27 @@ extension OrtApiTensorApi on OrtApi {
             kvps,
             key.toNativeUtf8(allocator: arena).cast(),
             value.toNativeUtf8(allocator: arena).cast());
+      });
+
+  /// `GetKeyValuePairs`
+  (List<String> keys, List<String> values) getKeyValuePairs(
+          Pointer<OrtKeyValuePairs> kvps) =>
+      withArena((arena) {
+        final out0 = arena<Pointer<Pointer<Char>>>();
+        final out1 = arena<Pointer<Pointer<Char>>>();
+        final out2 = arena<Size>();
+        this.GetKeyValuePairs.asFunction<
+            void Function(
+                Pointer<OrtKeyValuePairs>,
+                Pointer<Pointer<Pointer<Char>>>,
+                Pointer<Pointer<Pointer<Char>>>,
+                Pointer<Size>)>()(kvps, out0, out1, out2);
+        return (
+          List.generate(
+              out2.value, (i) => out0.value[i].cast<Utf8>().toDartString()),
+          List.generate(
+              out2.value, (i) => out1.value[i].cast<Utf8>().toDartString())
+        );
       });
 
   /// `RemoveKeyValuePair`

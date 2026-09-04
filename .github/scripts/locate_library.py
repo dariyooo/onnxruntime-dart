@@ -87,8 +87,11 @@ def find(files: list[pathlib.Path], names: tuple[str, ...]) -> pathlib.Path | No
     return next((p for p in sorted(files) if p.name in names), None)
 
 
-def point_hook_at(directory: pathlib.Path) -> None:
-    """Points the build hook at the runtime this job downloaded.
+def point_hook_at(
+    directory: pathlib.Path,
+    package: str = "onnxruntime_binaries",
+) -> None:
+    """Points [package]'s build hook at what this job downloaded.
 
     Setting ONNXRUNTIME_LIB is enough for the tests that open the library
     themselves, and not for anything that goes through the ordinary API: the
@@ -105,19 +108,25 @@ def point_hook_at(directory: pathlib.Path) -> None:
     """
     pubspec = REPO_ROOT / "pubspec.yaml"
     text = pubspec.read_text(encoding="utf-8")
-    updated = re.sub(
-        r"^(\s*local_build:).*$",
+
+    # Anchored on the package, not on the first local_build line in the file.
+    # There is one entry per package that ships a binary, and rewriting
+    # whichever came first pointed the runtime at a GenAI directory the moment
+    # a second entry existed.
+    updated, count = re.subn(
+        rf"^(\s*{re.escape(package)}:\n\s*local_build:).*$",
         lambda m: f"{m.group(1)} {directory}",
         text,
         count=1,
         flags=re.MULTILINE,
     )
-    if updated == text:
+    if count == 0:
         raise SystemExit(
-            f"{pubspec} has no local_build line for the hook to be pointed at"
+            f"{pubspec} has no local_build line under {package} for the hook "
+            f"to be pointed at"
         )
     pubspec.write_text(updated, encoding="utf-8")
-    print(f"hook local_build={directory}")
+    print(f"hook {package} local_build={directory}")
 
 
 def export(key: str, value: pathlib.Path) -> None:

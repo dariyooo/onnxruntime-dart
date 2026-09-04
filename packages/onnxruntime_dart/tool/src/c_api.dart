@@ -32,6 +32,8 @@ final class CParameter {
     this.arrayLengthParameter,
     this.isOptional = false,
     this.isEnum = false,
+    this.isCalleeAllocated = false,
+    this.isFunctionPointer = false,
   });
 
   final String name;
@@ -49,6 +51,19 @@ final class CParameter {
 
   /// Whether [type] names a C enum, which crosses as its underlying integer.
   final bool isEnum;
+
+  /// Whether [type] names a function-pointer typedef, which crosses as the
+  /// `Pointer<NativeFunction<...>>` ffigen declared for it. Building one, and
+  /// keeping it alive as long as the runtime holds it, is the caller's.
+  final bool isFunctionPointer;
+
+  /// `_Outptr_` rather than `_Out_`: the call allocates and hands back a
+  /// pointer, instead of filling a buffer the caller allocated.
+  ///
+  /// The difference decides how much to allocate. A caller-allocated array
+  /// needs room for every element up front, a callee-allocated one needs a
+  /// single pointer cell and is read by walking what comes back.
+  final bool isCalleeAllocated;
 
   bool get isPointer => type.endsWith('*');
 
@@ -91,6 +106,7 @@ final class CFunction {
 Map<String, List<CFunction>> parseApis(String header) {
   final structs = _structSpans(header);
   final enums = parseEnums(header);
+  final callbacks = parseFunctionPointers(header);
   final apis = <String, List<CFunction>>{};
 
   void add(int offset, CFunction function) {
@@ -102,9 +118,13 @@ Map<String, List<CFunction>> parseApis(String header) {
     r'ORT_API2_STATUS\(\s*(\w+)\s*,([^;]*)\)\s*;',
     multiLine: true,
   ).allMatches(header)) {
-    final parameters = _parseParameters(match.group(2)!, enums);
-    if (parameters == null) continue;
-    add(match.start, CFunction(name: match.group(1)!, parameters: parameters));
+    final name = match.group(1)!;
+    final parsed = _parseParameters(match.group(2)!, enums, callbacks);
+    if (parsed == null) continue;
+    add(
+      match.start,
+      CFunction(name: name, parameters: _withOverrides(name, parsed)),
+    );
   }
 
   for (final match in RegExp(
@@ -112,7 +132,7 @@ Map<String, List<CFunction>> parseApis(String header) {
     r'(?:\s*NO_EXCEPTION)?(?:\s*ORT_ALL_ARGS_NONNULL)?\s*;',
     multiLine: true,
   ).allMatches(header)) {
-    final parameters = _parseParameters(match.group(2)!, enums);
+    final parameters = _parseParameters(match.group(2)!, enums, callbacks);
     if (parameters == null) continue;
     add(
       match.start,
@@ -205,25 +225,64 @@ List<String> _splitParameters(String text) {
 ///
 /// Read rather than listed: an enum added by a new ORT version would otherwise
 /// silently drop every function that takes one.
+/// Names of the function-pointer typedefs the header declares.
+///
+/// `typedef void(ORT_API_CALL* OrtLoggingFunction)(...)` and the plainer
+/// `typedef void (*RunAsyncCallbackFn)(...)`, which the header uses for the
+/// callbacks it does not route through the calling convention macro. Without
+/// this a callback parameter looks like an unknown struct and the whole
+/// function is skipped.
+Set<String> parseFunctionPointers(String header) => {
+      for (final match in RegExp(
+        r'typedef\s+[\w\s*]+\(\s*(?:ORT_API_CALL\s*)?\*\s*(\w+)\s*\)\s*\(',
+      ).allMatches(header))
+        match.group(1)!,
+    };
+
 Set<String> parseEnums(String header) => {
+      // Two spellings, and the header uses both. Most enums are typedef'd,
+      // `typedef enum { ... } OrtErrorCode;`, but a few are declared bare:
+      // `enum OrtSparseIndicesFormat { ... };`. Reading only the first kind
+      // leaves every parameter of the second looking like an unknown type.
       for (final match in RegExp(
         r'typedef\s+enum\s*\w*\s*\{[^}]*\}\s*(\w+)\s*;',
         dotAll: true,
       ).allMatches(header))
         match.group(1)!,
+      for (final match in RegExp(
+        r'(?<!typedef\s)\benum\s+(\w+)\s*\{[^}]*\}\s*;',
+        dotAll: true,
+      ).allMatches(header))
+        match.group(1)!,
     };
 
-List<CParameter>? _parseParameters(String text, Set<String> enums) {
+List<CParameter>? _parseParameters(
+  String text,
+  Set<String> enums,
+  Set<String> callbacks,
+) {
   if (text.contains('...')) return null;
 
   final parameters = <CParameter>[];
   for (final raw in _splitParameters(text)) {
-    final parameter = _parseParameter(raw, enums);
+    final parameter = _parseParameter(raw, enums, callbacks);
     if (parameter == null) return null;
     parameters.add(parameter);
   }
   return _withArrayLengths(parameters);
 }
+
+/// Parameters the header annotates in a way that contradicts what it does.
+///
+/// `GetCurrentGpuDeviceId(_In_ int* device_id)` reads the id into `device_id`,
+/// which makes it an output whatever the annotation says. Its own doc comment
+/// describes it that way, and `SetCurrentGpuDeviceId` takes the id by value, so
+/// there is nothing an input pointer could mean here. Listed rather than
+/// inferred: a heuristic that promoted pointers to outputs would be wrong far
+/// more often than this table is long.
+const _directionOverrides = <String, Map<String, Direction>>{
+  'GetCurrentGpuDeviceId': {'device_id': Direction.output},
+};
 
 /// Suffixes naming the length of another parameter.
 const _lengthSuffixes = ['_length', '_len', '_count'];
@@ -237,10 +296,11 @@ const _lengthSuffixes = ['_length', '_len', '_count'];
 List<CParameter> _withArrayLengths(List<CParameter> parameters) {
   final names = {for (final p in parameters) p.name};
   final result = <CParameter>[];
-  for (final parameter in parameters) {
+  for (final (index, parameter) in parameters.indexed) {
     final length = parameter.direction == Direction.output &&
             parameter.arrayLengthParameter == null
-        ? _lengthOf(parameter.name, names)
+        ? _lengthOf(parameter.name, names) ??
+            _countAfter(parameter, parameters, index)
         : null;
     result.add(
       length == null
@@ -251,10 +311,63 @@ List<CParameter> _withArrayLengths(List<CParameter> parameters) {
               direction: parameter.direction,
               arrayLengthParameter: length,
               isOptional: parameter.isOptional,
+              // Rebuilding drops whatever is not restated. `isEnum` was
+              // being lost here, which turned an enum out-parameter paired
+              // with a length back into a plain integer.
+              isEnum: parameter.isEnum,
+              isCalleeAllocated: parameter.isCalleeAllocated,
+              isFunctionPointer: parameter.isFunctionPointer,
             ),
     );
   }
   return result;
+}
+
+/// The count parameter sitting immediately after a callee-allocated array.
+///
+/// `GetEpDevices(env, _Outptr_ ... ** ep_devices, _Out_ size_t* num_ep_devices)`
+/// names its count `num_ep_devices`, which no suffix rule finds. Position is
+/// what identifies it: the header writes the array and its length adjacently,
+/// in that order, everywhere this shape appears.
+String? _countAfter(
+  CParameter parameter,
+  List<CParameter> parameters,
+  int index,
+) {
+  if (!parameter.isCalleeAllocated) return null;
+  // Scanning rather than looking at the next parameter alone, because a run of
+  // arrays can share one count: `GetKeyValuePairs` hands back keys and values
+  // with a single `num_entries` after both. Only sibling arrays are stepped
+  // over, so this cannot reach past the group into an unrelated output.
+  for (var i = index + 1; i < parameters.length; i++) {
+    final next = parameters[i];
+    if (next.direction != Direction.output) return null;
+    if (const {'size_t*', 'int64_t*'}.contains(next.type)) return next.name;
+    if (!next.isCalleeAllocated) return null;
+  }
+  return null;
+}
+
+/// Applies [_directionOverrides] to a parsed parameter list.
+List<CParameter> _withOverrides(String function, List<CParameter> parameters) {
+  final overrides = _directionOverrides[function];
+  if (overrides == null) return parameters;
+  return [
+    for (final parameter in parameters)
+      if (overrides[parameter.name] case final direction?)
+        CParameter(
+          name: parameter.name,
+          type: parameter.type,
+          direction: direction,
+          arrayLengthParameter: parameter.arrayLengthParameter,
+          isOptional: parameter.isOptional,
+          isEnum: parameter.isEnum,
+          isCalleeAllocated: parameter.isCalleeAllocated,
+          isFunctionPointer: parameter.isFunctionPointer,
+        )
+      else
+        parameter,
+  ];
 }
 
 String? _lengthOf(String name, Set<String> names) {
@@ -267,18 +380,24 @@ String? _lengthOf(String name, Set<String> names) {
 /// `_Frees_ptr_opt_` marks a release parameter, which goes in like any other.
 final _sal = RegExp(r'_(In|Out|Inout|Outptr|Frees_ptr)\w*_(?:\(([^)]*)\))?');
 
-CParameter? _parseParameter(String raw, Set<String> enums) {
+CParameter? _parseParameter(
+  String raw,
+  Set<String> enums,
+  Set<String> callbacks,
+) {
   var text = raw.replaceAll('\n', ' ').trim();
   if (text.isEmpty || text == 'void') return null;
 
   var direction = Direction.input;
   String? arrayLength;
   var optional = false;
+  var calleeAllocated = false;
 
   for (final match in _sal.allMatches(text)) {
     final annotation = match.group(0)!;
     if (annotation.startsWith('_Outptr') || annotation.startsWith('_Out')) {
       direction = Direction.output;
+      if (annotation.startsWith('_Outptr')) calleeAllocated = true;
     } else if (annotation.startsWith('_Inout')) {
       direction = Direction.inout;
     }
@@ -303,6 +422,8 @@ CParameter? _parseParameter(String raw, Set<String> enums) {
     direction: direction,
     arrayLengthParameter: arrayLength,
     isOptional: optional,
+    isCalleeAllocated: calleeAllocated,
+    isFunctionPointer: callbacks.contains(type),
     isEnum: enums.contains(
       type.replaceAll(RegExp(r'^(?:const\s+)?(?:enum\s+)?|\s*\*$'), '').trim(),
     ),
