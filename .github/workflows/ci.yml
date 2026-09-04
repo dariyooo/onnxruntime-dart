@@ -20,9 +20,6 @@ on:
     # anything; run it deliberately with the inputs below when there is
     # something worth running. Merging to main then runs all of it.
     branches: [main]
-    # gallery.yml commits into docs/ for Pages to serve, and that commit must
-    # not start this pipeline.
-    paths-ignore: ['docs/**']
     # The patterns releases actually use. `v*` matched none of them, so no tag
     # has ever started a run and publishing has been unreachable since the
     # publish jobs became tag-only. Each prefix names one component, which is
