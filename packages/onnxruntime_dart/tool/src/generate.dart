@@ -85,12 +85,12 @@ Generated generate({
         continue;
       }
 
-      final code = emit(function, signature);
-      if (code == null) {
+      final wrapper = emit(function, signature);
+      if (wrapper == null) {
         skipped.add('$name: ${unmappedReasons(function).join(', ')}');
         continue;
       }
-      (byFile[(api.key, group)] ??= []).add(code);
+      (byFile[(api.key, group)] ??= []).add(wrapper.code);
     }
   }
 
