@@ -73,9 +73,14 @@ jobs:
         run: |
           set -euo pipefail
           flutter pub get
+          # --wasm compiles Dart itself to WebAssembly. It emits a
+          # JavaScript build alongside, which browsers without WasmGC get, so
+          # it costs nothing to support and the page is smaller and faster
+          # where it is supported.
+          #
           # Served from a project page, so every asset URL is prefixed. Getting
           # this wrong produces a page that loads and then fetches nothing.
-          flutter build web --base-href=/onnxruntime-dart/
+          flutter build web --wasm --base-href=/onnxruntime-dart/
 
       # Pages serves main branch /docs, so only a run on main can update it. A
       # run on a branch stops here, which still catches a broken web build.
