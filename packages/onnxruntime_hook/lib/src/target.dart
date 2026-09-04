@@ -306,6 +306,55 @@ abstract final class OrtExtensions {
       };
 }
 
+/// ONNX Runtime GenAI, which is a library above the runtime rather than a part
+/// of it.
+///
+/// It builds token generation, KV caching and sampling on top of a session, and
+/// reaches ONNX Runtime by looking up `OrtGetApiBase` in a runtime that is
+/// already loaded rather than by linking one. So it needs the runtime installed
+/// beside it, which is why `onnxruntime_genai_binaries` depends on
+/// `onnxruntime_binaries`.
+abstract final class OrtGenAi {
+  /// The library name without prefix or extension.
+  static const libraryStem = 'onnxruntime-genai';
+
+  /// Where upstream publishes a build.
+  ///
+  /// Narrower than the runtime's own list, and the gaps are upstream's rather
+  /// than ours: there is no macOS x64 archive and no WebAssembly one at all.
+  /// Asking for one of those has to say so, instead of failing later on a
+  /// library that was never going to be there.
+  static const targets = [
+    'linux-x64',
+    'linux-arm64',
+    'macos-arm64',
+    'windows-x64',
+    'windows-arm64',
+    'android-arm64-v8a',
+    'android-x86_64',
+    'ios-device-arm64',
+    'ios-sim-arm64',
+  ];
+
+  static bool isAvailableOn(String target) => targets.contains(target);
+
+  static String fileName(OS os) => switch (os) {
+        OS.windows => '$libraryStem.dll',
+        OS.macOS || OS.iOS => 'lib$libraryStem.dylib',
+        _ => 'lib$libraryStem.so',
+      };
+}
+
+/// Asset name for the GenAI library on [targetId].
+String genAiAssetFileName(String targetId) => 'genai-$targetId.tar.gz';
+
+/// URL of the GenAI asset for [targetId] at [releaseTag].
+Uri genAiAssetUrl({
+  required String releaseTag,
+  required String targetId,
+}) =>
+    Uri.parse('$_releases/$releaseTag/${genAiAssetFileName(targetId)}');
+
 /// Asset name for the extensions library on [targetId].
 String extensionsAssetFileName(String targetId) =>
     'extensions-$targetId.tar.gz';

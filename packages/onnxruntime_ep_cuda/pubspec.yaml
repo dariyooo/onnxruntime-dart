@@ -1,10 +1,10 @@
 name: onnxruntime_ep_cuda
 description: >-
   The cuda execution provider for onnxruntime_dart. NVIDIA GPUs. Needs the CUDA runtime installed on the machine.
-# The version is the plugin's own, which ONNX Runtime versions separately from
-# the runtime: this works against any runtime from 1.24.4 onwards, so it does
-# not move when ONNX Runtime does.
-version: 0.1.0
+# The API's own version. The build metadata names the binary it was
+# written against, which is a different thing from the one an
+# application chooses to run: that is the _binaries package.
+version: 0.1.0+cuda-0.1.0
 repository: https://github.com/dariyooo/onnxruntime-dart
 issue_tracker: https://github.com/dariyooo/onnxruntime-dart/issues
 
@@ -12,14 +12,15 @@ environment:
   sdk: ^3.6.0
 
 resolution: workspace
-
 dependencies:
-  code_assets: '>=1.0.0 <2.0.0'
-  hooks: '>=1.0.0 <3.0.0'
   onnxruntime_dart: ^0.1.0
-  onnxruntime_hook: ^1.29.0
   # The oldest runtime this plugin works against, from its own
   # MIN_ONNXRUNTIME_VERSION. ONNX Runtime compiles that into the library and
   # refuses to load below it, so declaring it here turns a runtime failure into
   # one pub reports before anything is downloaded.
-  onnxruntime_binaries: '>=1.24.4 <2.0.0'
+
+# onnxruntime_ep_cuda_binaries is deliberately not a dependency. The asset this
+# package is declared against is installed by that package, and naming it
+# here would make it compulsory. Leaving it out is what lets an
+# application pick a build, or take none and supply the library itself at
+# run time. onnxruntime_dart does the same with onnxruntime_binaries.

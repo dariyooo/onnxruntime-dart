@@ -1,0 +1,148 @@
+/// What the GenAI library does without a model.
+///
+/// Sequences, string arrays and tensors are handles a caller can build on
+/// their own, so this exercises the wrappers, the ownership contract and the
+/// error path without downloading anything. The model paths need a model and
+/// live in the device and example suites.
+library;
+
+import 'dart:ffi';
+
+import 'package:ffi/ffi.dart';
+import 'package:onnxruntime_genai/native.dart';
+import 'package:onnxruntime_genai/onnxruntime_genai.dart';
+import 'package:test/test.dart';
+
+import 'src/genai_library.dart';
+
+void main() {
+  group('a sequences handle', () {
+    test('starts empty and counts what is appended', () {
+      final sequences = Sequences();
+      addTearDown(sequences.release);
+
+      expect(sequences.count(), 0);
+      sequences.appendTokenSequence([1, 2, 3]);
+      expect(sequences.count(), 1);
+    });
+
+    test('reports the length of a sequence it holds', () {
+      final sequences = Sequences();
+      addTearDown(sequences.release);
+
+      sequences.appendTokenSequence([7, 8, 9, 10]);
+      expect(sequences.getSequenceCount(0), 4);
+    });
+
+    test('gives back the tokens that were appended', () {
+      // The output path, and the one most easily wrong: the array belongs to
+      // the handle, so it is copied out rather than viewed. A view would read
+      // freed memory once the handle moved on.
+      final sequences = Sequences();
+      addTearDown(sequences.release);
+
+      sequences.appendTokenSequence([11, 22, 33]);
+      expect(sequences.getSequenceData(0), [11, 22, 33]);
+    });
+
+    test('a released handle refuses further use rather than crashing', () {
+      final sequences = Sequences()..release();
+      expect(sequences.isReleased, isTrue);
+      expect(sequences.count, throwsA(isA<StateError>()));
+    });
+
+    test('releasing twice is refused, not ignored', () {
+      final sequences = Sequences()..release();
+      expect(sequences.release, throwsA(isA<StateError>()));
+    });
+  }, skip: skipWithoutGenAi);
+
+  group('a string array', () {
+    test('counts what is added', () {
+      final strings = StringArray();
+      addTearDown(strings.release);
+
+      expect(strings.getCount(), 0);
+      strings.addString('alpha');
+      strings.addString('beta');
+      expect(strings.getCount(), 2);
+    });
+
+    test('gives back what was put in', () {
+      final strings = StringArray();
+      addTearDown(strings.release);
+
+      strings.addString('gamma');
+      expect(strings.getString(0), 'gamma');
+    });
+  }, skip: skipWithoutGenAi);
+
+  group('raw memory', () {
+    test('a tensor built on a buffer hands back that buffer', () {
+      // The tensor does not copy: it points at what it was given. Getting the
+      // same address back is what proves both wrappers agree about that, and
+      // that the address survived the trip through the seam as an integer.
+      final data = malloc<Float>(6);
+      addTearDown(() => malloc.free(data));
+      for (var i = 0; i < 6; i++) {
+        data[i] = i.toDouble();
+      }
+
+      final tensor = Tensor.fromBuffer(
+        GenAiPtr(data.address),
+        [2, 3],
+        OgaElementType.OgaElementType_float32.value,
+      );
+      addTearDown(tensor.release);
+
+      expect(tensor.getData().address, data.address);
+    });
+
+    test('a callback crosses the seam as an address and is accepted', () {
+      // The library keeps the pointer and calls it later, so the wrapper takes
+      // an address rather than a closure: only the caller knows how long the
+      // callable has to stay alive. The seam carries it as an integer, which
+      // is what lets the interface stay spellable without dart:ffi.
+      final callback =
+          NativeCallable<Void Function(Pointer<Char>, Size)>.isolateLocal(
+        (Pointer<Char> text, int length) {},
+      );
+      addTearDown(callback.close);
+
+      final address = GenAiPtr(callback.nativeFunction.address);
+      expect(address.address, isNot(0));
+
+      setLogCallback(address);
+      // Cleared before the callable is closed, or the library would be left
+      // holding a pointer to a callable that no longer exists.
+      setLogCallback(const GenAiPtr(0));
+
+      // What the callback receives is not asserted here: GenAI logs during
+      // generation, which needs a model this suite deliberately does not
+      // download. The base package covers the same mechanism end to end
+      // against ONNX Runtime's own logger.
+    });
+  });
+
+  group('failure', () {
+    test('a bad model path is an exception, not a crash', () {
+      // The C API reports failure by returning a result object rather than a
+      // code. This is the one path that proves check() reads the message and
+      // releases the result rather than leaking it.
+      expect(
+        () => Model('/no/such/model'),
+        throwsA(isA<GenAiException>()),
+      );
+    });
+
+    test('the message says what went wrong', () {
+      try {
+        Model('/no/such/model');
+        fail('expected a GenAiException');
+      } on GenAiException catch (error) {
+        expect(error.message, isNotEmpty);
+        expect(error.toString(), contains('GenAiException'));
+      }
+    });
+  }, skip: skipWithoutGenAi);
+}

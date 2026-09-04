@@ -15,7 +15,6 @@ import 'package:ffi/ffi.dart';
 import 'package:meta/meta.dart';
 
 import '../bindings/api/api.g.dart';
-import '../bindings/api/manual.dart';
 import '../bindings/api/support.dart';
 import '../bindings/ort_bindings.g.dart';
 import '../ffi/environment.dart';
@@ -23,6 +22,7 @@ import '../ffi/execution_provider.dart';
 import '../ffi/runtime.dart' as ffi;
 import '../ffi/status.dart';
 import 'interface.dart';
+import 'raw_ffi_calls.g.dart';
 import 'types.dart';
 
 /// Returns the backend for this platform.
@@ -39,7 +39,9 @@ OrtCalls createCalls() => FfiCalls();
 Allocator asyncArrayAllocator = calloc;
 
 /// `OrtCalls` implemented against the ONNX Runtime C API.
-final class FfiCalls implements OrtCalls, OrtAsyncCalls {
+final class FfiCalls
+    with GeneratedFfiRawCalls
+    implements OrtCalls, OrtAsyncCalls {
   FfiCalls._(this._environment);
 
   static FfiCalls? _instance;

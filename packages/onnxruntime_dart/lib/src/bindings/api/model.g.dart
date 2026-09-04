@@ -90,6 +90,22 @@ extension OrtApiModelApi on OrtApi {
         return out0.value;
       });
 
+  /// `ModelMetadataGetCustomMetadataMapKeys`
+  List<String> modelMetadataGetCustomMetadataMapKeys(
+          Pointer<OrtModelMetadata> modelMetadata,
+          Pointer<OrtAllocator> allocator) =>
+      withArena((arena) {
+        final out0 = arena<Pointer<Pointer<Char>>>();
+        final out1 = arena<Int64>();
+        checkOrtStatus(this.ModelMetadataGetCustomMetadataMapKeys.asFunction<
+            Pointer<OrtStatus> Function(
+                Pointer<OrtModelMetadata>,
+                Pointer<OrtAllocator>,
+                Pointer<Pointer<Pointer<Char>>>,
+                Pointer<Int64>)>()(modelMetadata, allocator, out0, out1));
+        return takeAllocatedStrings(out0.value, out1.value, allocator);
+      });
+
   /// `ModelMetadataGetGraphDescription`
   String modelMetadataGetGraphDescription(
           Pointer<OrtModelMetadata> modelMetadata,

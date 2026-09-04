@@ -7,4 +7,4 @@
 /// depend on. Serving the files yourself still works and needs none of this.
 library;
 
-export 'src/asset.dart' show ortLoaderUrl, ortWasmUrl;
+export 'src/asset.dart' show ortLoaderUrl, ortWasmUrl, ortWebBuild;

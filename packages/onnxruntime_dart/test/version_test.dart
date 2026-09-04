@@ -73,12 +73,15 @@ void main() {
     });
 
     for (final ep in ['webgpu', 'cuda']) {
-      test('onnxruntime_ep_$ep is versioned as the plugin it installs', () {
+      test('onnxruntime_ep_${ep}_binaries is versioned as its plugin', () {
         // ONNX Runtime versions each plugin separately from the runtime and
         // from each other, which is why they are separate packages: they
         // cannot share a version, so they cannot share a pubspec.
+        //
+        // The binaries package carries that version. The API beside it has one
+        // of its own, so an application can move either without the other.
         final declared = _field(
-          fromRoot('packages/onnxruntime_ep_$ep/pubspec.yaml'),
+          fromRoot('packages/onnxruntime_ep_${ep}_binaries/pubspec.yaml'),
           'version',
         );
         final upstream = File(
@@ -88,7 +91,8 @@ void main() {
         expect(
           declared,
           upstream,
-          reason: 'onnxruntime_ep_$ep says $declared but the pinned tree says '
+          reason: 'onnxruntime_ep_${ep}_binaries says $declared but the pinned '
+              'tree says '
               '$upstream. That version names the release its hook downloads '
               'from.',
         );
@@ -106,7 +110,11 @@ void main() {
       final packages = Directory(fromRoot('packages'))
           .listSync()
           .whereType<Directory>()
-          .where((d) => d.path.contains('onnxruntime_ep_'));
+          // The API packages, not the binaries beside them: the minimum is
+          // declared where it is reported from, which is the Dart side.
+          .where((d) =>
+              d.path.contains('onnxruntime_ep_') &&
+              !d.path.endsWith('_binaries'));
 
       var checked = 0;
       for (final package in packages) {
@@ -114,12 +122,19 @@ void main() {
             .split(Platform.pathSeparator)
             .last
             .replaceFirst('onnxruntime_ep_', '');
-        final source = File('${package.path}/lib/onnxruntime_ep_$name.dart');
-        if (!source.existsSync()) continue;
-
-        final declared = RegExp(r"minimumRuntime = '([^']+)'")
-            .firstMatch(source.readAsStringSync())
-            ?.group(1);
+        // Searched across the package rather than read from one file. Each
+        // provider is a conditional export now, so the constant lives beside
+        // the halves rather than in the entry point, and where exactly is
+        // not this test's business.
+        String? declared;
+        for (final source in Directory('${package.path}/lib')
+            .listSync(recursive: true)
+            .whereType<File>()
+            .where((f) => f.path.endsWith('.dart'))) {
+          declared ??= RegExp(r"minimumRuntime = '([^']+)'")
+              .firstMatch(source.readAsStringSync())
+              ?.group(1);
+        }
         expect(declared, isNotNull, reason: '$name declares no minimumRuntime');
 
         final pinned = File(fromRoot(

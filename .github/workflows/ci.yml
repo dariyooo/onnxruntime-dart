@@ -20,7 +20,17 @@ on:
     # anything; run it deliberately with the inputs below when there is
     # something worth running. Merging to main then runs all of it.
     branches: [main]
-    tags: ['v*']
+    # The patterns releases actually use. `v*` matched none of them, so no tag
+    # has ever started a run and publishing has been unreachable since the
+    # publish jobs became tag-only. Each prefix names one component, which is
+    # what makes a single-component release possible: the tag selects the area.
+    tags:
+      - 'runtime-v*'
+      - 'ep-webgpu-v*'
+      - 'ep-cuda-v*'
+      - 'ep-qnn-v*'
+      - 'extensions-v*'
+      - 'genai-v*'
   pull_request:
   workflow_dispatch:
     inputs:
@@ -34,7 +44,15 @@ on:
       only:
         description: >-
           Run part of it. Comma separated, any of: runtime, full, webgpu, qnn,
-          cuda, extensions, desktop, device, web. Empty runs everything.
+          cuda, extensions, genai, desktop, device, web, example. Empty runs
+          everything.
+
+          A test area needs the areas it loads. "desktop" downloads the
+          runtime, webgpu, qnn, cuda and extensions and fails if one of them
+          was not built, deliberately: a binary published without anything
+          loading it is one nobody knows works. So test one of them with
+          "runtime,webgpu,qnn,cuda,extensions,genai,desktop" rather than
+          "desktop" on its own, or with from_release to skip building entirely.
         type: string
         default: ''
   schedule:
@@ -61,9 +79,28 @@ jobs:
     outputs:
       building: ${{ steps.pick.outputs.building }}
       release: ${{ steps.pick.outputs.release }}
+      only: ${{ steps.area.outputs.only }}
     steps:
       - uses: actions/checkout@v5
         with: { submodules: true }
+        # A tag names one component, so it runs and publishes that component
+        # alone. A dispatch says so itself. Anything else runs everything.
+      - id: area
+        run: |
+          set -euo pipefail
+          ref='${{ github.ref }}'
+          case "$ref" in
+            refs/tags/runtime-v*)    only=runtime,full ;;
+            refs/tags/ep-webgpu-v*)  only=webgpu ;;
+            refs/tags/ep-cuda-v*)    only=cuda ;;
+            refs/tags/ep-qnn-v*)     only=qnn ;;
+            refs/tags/extensions-v*) only=extensions ;;
+            refs/tags/genai-v*)      only=genai ;;
+            *)                       only='${{ inputs.only }}' ;;
+          esac
+          echo "only=$only" >> "$GITHUB_OUTPUT"
+          echo "running ${only:-everything}"
+
       - id: pick
         run: |
           set -euo pipefail
@@ -117,9 +154,14 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          # integration/ too: it is Dart we maintain, and leaving it out
-          # is how two files there drifted without anything noticing.
-          files=$(find packages integration -name '*.dart' -not -name '*.g.dart')
+          # integration/ and examples/ too: they are Dart we maintain, and
+          # leaving integration out is how two files there drifted without
+          # anything noticing.
+          # .dart_tool holds build output, including a generated plugin
+          # registrant that is not named .g.dart and is not ours to format.
+          files=$(find packages integration examples \
+            -path '*/.dart_tool' -prune -o \
+            -name '*.dart' -not -name '*.g.dart' -print)
           if [ -z "$files" ]; then
             echo "::error::found no Dart files to format-check"
             exit 1
@@ -162,11 +204,148 @@ jobs:
           for dir in packages/onnxruntime_web \
                      packages/onnxruntime_web_webgpu \
                      packages/onnxruntime_web_webgpu_webnn \
-                     integration/harness; do
+                     integration/harness \
+                     examples/gallery; do
             echo "::group::$dir"
             ( cd "$dir" && flutter pub get && flutter analyze )
             echo "::endgroup::"
           done
+
+  example-app:
+    name: example · gallery
+    needs: [static, mode, build-runtime, build-genai]
+    # Only when this run built the libraries. The gallery depends on
+    # onnxruntime_genai_binaries, whose hook downloads from a release that does
+    # not exist until someone tags, so from_release has nothing to point it at.
+    # Running it anyway would fail on the missing release rather than on
+    # anything about the app.
+    if: >-
+      ${{ needs.mode.outputs.building == 'true'
+      && (needs.mode.outputs.only == '' || contains(needs.mode.outputs.only, 'example')) }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    concurrency:
+      group: example-app-${{ github.ref }}
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@v5
+      - uses: subosito/flutter-action@v2
+        with: { channel: stable }
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: onnxruntime-linux-x64
+          path: .local/artifacts
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: genai
+          path: .local/artifacts
+
+      # Its own pipeline and its own artifact, so the provider is not in the
+      # runtime tarball. The app declares onnxruntime_ep_webgpu_binaries, whose
+      # hook fails rather than falls back when pointed at a directory without
+      # the provider in it.
+      - uses: actions/download-artifact@v4
+        with:
+          name: onnxruntime-linux-x64-webgpu
+          path: .local/artifacts
+
+      - name: Unpack what the app will link against
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .local/gallery/lib
+          tar xzf .local/artifacts/runtime/linux-x64.tar.gz -C .local/gallery/lib
+          tar xzf .local/artifacts/genai/genai-linux-x64.tar.gz \
+            -C .local/gallery/lib
+          tar xzf .local/artifacts/ep-webgpu/linux-x64-webgpu.tar.gz \
+            -C .local/gallery/lib
+          # Both in one directory, which is what the two hooks are pointed at
+          # below. They look for different files, so sharing a directory is
+          # enough and saves staging the same tree twice.
+          ls -la .local/gallery/lib
+
+      # The gallery is not a workspace member, so it carries its own overrides,
+      # the same as the device harness. Written here rather than committed:
+      # local_build pointing at a directory that does not exist is a build
+      # failure, so a committed one would break a fresh checkout.
+      - name: Point the app at them
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat >> examples/gallery/pubspec.yaml <<'YAML'
+
+          hooks:
+            user_defines:
+              onnxruntime_binaries:
+                local_build: ../../.local/gallery/lib
+              onnxruntime_genai_binaries:
+                local_build: ../../.local/gallery/lib
+              onnxruntime_ep_webgpu_binaries:
+                local_build: ../../.local/gallery/lib
+          YAML
+          tail -12 examples/gallery/pubspec.yaml
+
+      - name: Test
+        working-directory: examples/gallery
+        run: |
+          set -euo pipefail
+          flutter pub get
+          flutter test
+
+  compiles-for-web:
+    name: packages build for the web
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    concurrency:
+      group: compiles-for-web-${{ github.ref }}
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dart-lang/setup-dart@v1
+      - run: dart pub get
+
+      # Importing a package that reaches for dart:ffi fails a web build
+      # outright, so one such import makes the package unusable to anyone who
+      # also ships a web target. Grepping for dart:ffi does not find it: the
+      # reach is usually through a dependency, with none in the package itself.
+      # Compiling is the only check that sees that.
+      #
+      # Listed rather than derived. A package that is native only is a
+      # decision, and it should be made here rather than inferred from whether
+      # it happens to compile today.
+      - name: Every shared package compiles for the web
+        shell: bash
+        run: |
+          set -euo pipefail
+          shared=(
+            onnxruntime_dart
+            onnxruntime_genai
+            onnxruntime_ep_webgpu
+            onnxruntime_ep_cuda
+            onnxruntime_ep_qnn
+            onnxruntime_extensions
+          )
+          failed=()
+          for name in "${shared[@]}"; do
+            probe="packages/$name/_web_compile_check.dart"
+            printf "import 'package:%s/%s.dart' as p;\nvoid main() => print(p.hashCode);\n" \
+              "$name" "$name" > "$probe"
+            if ( cd "packages/$name" && dart compile js -o /dev/null \
+                 _web_compile_check.dart ) > "/tmp/$name.log" 2>&1; then
+              echo "  $name compiles for the web"
+            else
+              echo "::error::$name does not compile for the web"
+              sed -n '1,12p' "/tmp/$name.log"
+              failed+=("$name")
+            fi
+            rm -f "$probe"
+          done
+          if [ ${#failed[@]} -ne 0 ]; then
+            echo "::error::not web safe: ${failed[*]}"
+            exit 1
+          fi
 
   bindings-are-current:
     name: bindings match the submodule
@@ -192,15 +371,31 @@ jobs:
         run: |
           dart run tool/generate_bindings.dart
           dart run tool/generate_config_keys.dart
+      # GenAI generates the same way and has to be as reproducible: its
+      # wrappers come from the pinned header, so a submodule bump nobody
+      # regenerated against shows up here rather than at a call site.
+      - working-directory: packages/onnxruntime_genai
+        run: |
+          dart run ffigen --config ffigen.yaml
+          dart run tool/generate_bindings.dart
       - name: Generated code must be unchanged
         run: |
+          # lib/src/api/ as well as lib/src/bindings/, because that is where
+          # the GenAI wrappers and its unmapped.txt live. Covering unmapped.txt
+          # is the point: a function upstream adds that the generator cannot
+          # map disappears from the API silently otherwise, and this turns that
+          # into a failed build with the name in the diff.
           if ! git diff --exit-code --stat -- '*.g.dart' \
-                                              packages/*/lib/src/bindings/; then
+                                              packages/*/lib/src/bindings/ \
+                                              packages/*/lib/src/api/; then
             echo "::error::Committed generated code differs from a fresh run."
             echo "Run, in packages/onnxruntime_dart:"
             echo "  dart run ffigen --config ffigen.yaml"
             echo "  dart run tool/generate_bindings.dart"
             echo "  dart run tool/generate_config_keys.dart"
+            echo "and, in packages/onnxruntime_genai:"
+            echo "  dart run ffigen --config ffigen.yaml"
+            echo "  dart run tool/generate_bindings.dart"
             exit 1
           fi
 
@@ -210,7 +405,7 @@ jobs:
     needs: [mode, build-runtime]
     if: >-
       ${{ !cancelled()
-      && (inputs.only == '' || contains(inputs.only, 'web'))
+      && (needs.mode.outputs.only == '' || contains(needs.mode.outputs.only, 'web'))
       && (needs.mode.outputs.building != 'true'
           || needs.build-runtime.result == 'success') }}
     runs-on: ubuntu-24.04
@@ -275,8 +470,13 @@ jobs:
           // Written by the test-web-runtime job.
           library;
 
-          const webRuntimeLoader = './web_runtime/$loader';
-          const webRuntimeWasm = './web_runtime/$wasm';
+          // Deliberately without a leading './'. That is the form the asset
+          // packages publish, and a dynamic import treats a specifier with no
+          // './' as a bare one that only an import map resolves. Writing
+          // './' here tested a path no consumer uses, and the difference went
+          // unnoticed until an application tried it.
+          const webRuntimeLoader = 'web_runtime/$loader';
+          const webRuntimeWasm = 'web_runtime/$wasm';
           EOF
           cat packages/onnxruntime_dart/test/src/web_runtime_config.dart
 
@@ -306,7 +506,7 @@ jobs:
     needs: [static, mode]
     if: >-
       ${{ needs.mode.outputs.building == 'true'
-      && (inputs.only == '' || contains(inputs.only, 'runtime')) }}
+      && (needs.mode.outputs.only == '' || contains(needs.mode.outputs.only, 'runtime')) }}
     uses: ./.github/workflows/build-runtime.yml
     with:
       stream: base
@@ -318,7 +518,7 @@ jobs:
     needs: [static, mode]
     if: >-
       ${{ needs.mode.outputs.building == 'true'
-      && (inputs.only == '' || contains(inputs.only, 'full')) }}
+      && (needs.mode.outputs.only == '' || contains(needs.mode.outputs.only, 'full')) }}
     uses: ./.github/workflows/build-runtime.yml
     with:
       stream: full
@@ -330,7 +530,7 @@ jobs:
     needs: [static, mode]
     if: >-
       ${{ needs.mode.outputs.building == 'true'
-      && (inputs.only == '' || contains(inputs.only, 'webgpu')) }}
+      && (needs.mode.outputs.only == '' || contains(needs.mode.outputs.only, 'webgpu')) }}
     uses: ./.github/workflows/build-runtime.yml
     with:
       stream: webgpu
@@ -342,7 +542,7 @@ jobs:
     needs: [static, mode]
     if: >-
       ${{ needs.mode.outputs.building == 'true'
-      && (inputs.only == '' || contains(inputs.only, 'qnn')) }}
+      && (needs.mode.outputs.only == '' || contains(needs.mode.outputs.only, 'qnn')) }}
     uses: ./.github/workflows/build-ep-qnn.yml
     permissions:
       contents: write
@@ -352,7 +552,7 @@ jobs:
     needs: [static, mode]
     if: >-
       ${{ needs.mode.outputs.building == 'true'
-      && (inputs.only == '' || contains(inputs.only, 'extensions')) }}
+      && (needs.mode.outputs.only == '' || contains(needs.mode.outputs.only, 'extensions')) }}
     uses: ./.github/workflows/build-extensions.yml
     permissions:
       contents: write
@@ -364,6 +564,22 @@ jobs:
   # second, so it runs here every time. The expensive half is the build, which
   # is cached on the ORT commit and build flags, so a full rebuild and full
   # verification happen exactly when the submodule pin moves.
+  # Nothing is compiled: upstream publishes the GenAI library itself and we
+  # mirror it, the same arrangement the plugins have. Its own stream because it
+  # versions apart from the runtime and keeps working across runtime releases.
+  build-genai:
+    name: genai
+    needs: [static, mode]
+    if: >-
+      ${{ needs.mode.outputs.building == 'true'
+      && (needs.mode.outputs.only == '' || contains(needs.mode.outputs.only, 'genai')) }}
+    # The called workflow publishes, so the caller has to grant it. A reusable
+    # workflow cannot hold more than the job calling it was given, and without
+    # this the whole run fails to start rather than the job failing.
+    permissions:
+      contents: write
+    uses: ./.github/workflows/build-genai.yml
+
   # Nothing is compiled: ONNX Runtime publishes this plugin itself and we
   # mirror it. Separate from the runtime build because it shares nothing with
   # one, and finishes in minutes rather than hours.
@@ -372,7 +588,7 @@ jobs:
     needs: [static, mode]
     if: >-
       ${{ needs.mode.outputs.building == 'true'
-      && (inputs.only == '' || contains(inputs.only, 'cuda')) }}
+      && (needs.mode.outputs.only == '' || contains(needs.mode.outputs.only, 'cuda')) }}
     uses: ./.github/workflows/build-ep-cuda.yml
     permissions:
       contents: write
@@ -396,7 +612,7 @@ jobs:
     # artifacts and runs either way.
     if: >-
       ${{ !cancelled()
-      && (inputs.only == '' || contains(inputs.only, 'device'))
+      && (needs.mode.outputs.only == '' || contains(needs.mode.outputs.only, 'device'))
       && (needs.mode.outputs.building != 'true'
           || needs.build-runtime.result == 'success') }}
     runs-on: ${{ matrix.runner }}
@@ -489,8 +705,10 @@ jobs:
             user_defines:
               onnxruntime_binaries:
                 local_build: ../../.local/ort/device/lib
+              onnxruntime_ep_webgpu_binaries:
+                local_build: ../../.local/ort/device/lib
           YAML
-          tail -6 integration/harness/pubspec.yaml
+          tail -8 integration/harness/pubspec.yaml
 
       - name: Set up Java
         if: startsWith(matrix.name, 'android')
@@ -662,7 +880,7 @@ jobs:
     needs: [mode, build-runtime-full]
     if: >-
       ${{ !cancelled()
-      && (inputs.only == '' || contains(inputs.only, 'full'))
+      && (needs.mode.outputs.only == '' || contains(needs.mode.outputs.only, 'full'))
       && (needs.mode.outputs.building != 'true'
           || needs.build-runtime-full.result == 'success') }}
     runs-on: ubuntu-24.04
@@ -738,7 +956,7 @@ jobs:
     # because the binaries are coming from a release instead.
     if: >-
       ${{ !cancelled()
-      && (inputs.only == '' || contains(inputs.only, 'desktop'))
+      && (needs.mode.outputs.only == '' || contains(needs.mode.outputs.only, 'desktop'))
       && (needs.mode.outputs.building != 'true'
           || needs.build-runtime.result == 'success') }}
     runs-on: ${{ matrix.runner }}
@@ -989,8 +1207,22 @@ jobs:
       #
       # CUDA 13 is the only toolkit that exists for ARM at all, which is why
       # the matrix offers no cuda12 there.
-      - name: The CUDA preview libraries, for Windows on ARM
+      # Cached, because the download is the unreliable part. NVIDIA's preview
+      # host ends a 3.8 GB response partway through often enough to matter, and
+      # what the job actually needs out of it is about 490 MB. Keyed on the
+      # version, so a bump fetches again and nothing else does.
+      - name: Reuse the CUDA preview libraries if they were fetched before
         if: runner.os == 'Windows' && runner.arch == 'ARM64'
+        id: cuda-preview
+        uses: actions/cache@v4
+        with:
+          path: .local/cuda-lib
+          key: cuda-preview-13.4.0-windows-arm64
+
+      - name: The CUDA preview libraries, for Windows on ARM
+        if: >-
+          runner.os == 'Windows' && runner.arch == 'ARM64'
+          && steps.cuda-preview.outputs.cache-hit != 'true'
         shell: pwsh
         run: |
           function Get-Machine($path) {
@@ -1009,8 +1241,26 @@ jobs:
           # on it at once: "curl: (18) end of response with 3810773240 bytes
           # missing", before a single byte arrives. The cmdlet fetches the
           # whole 3.8 GB without complaint, so it is the one that works.
+          # Retried by hand, because the failure is a transport one and not a
+          # status: this host ends a 3.8 GB response partway through, which
+          # both curl and Invoke-WebRequest report and neither retries.
+          # -MaximumRetryCount covers HTTP statuses and does nothing here.
           $ProgressPreference = 'SilentlyContinue'
-          Invoke-WebRequest $url -OutFile cuda.exe
+          $downloaded = $false
+          foreach ($attempt in 1..5) {
+            try {
+              Remove-Item cuda.exe -ErrorAction SilentlyContinue
+              Invoke-WebRequest $url -OutFile cuda.exe
+              $downloaded = $true
+              break
+            } catch {
+              Write-Host "  attempt ${attempt}: $($_.Exception.Message)"
+              Start-Sleep -Seconds (10 * $attempt)
+            }
+          }
+          if (-not $downloaded) {
+            throw "could not download the CUDA preview after 5 attempts"
+          }
           Write-Host "  $([int]((Get-Item cuda.exe).Length/1MB)) MB"
 
           # The installer is a 7-Zip self-extractor, so the libraries can be
@@ -1066,6 +1316,35 @@ jobs:
           Remove-Item cuda.exe -Force
           Remove-Item $unpack -Recurse -Force
           Add-Content $env:GITHUB_ENV "CUDA_LIB_DIR=$into"
+
+      - name: Point at the CUDA libraries, however they got here
+        if: runner.os == 'Windows' && runner.arch == 'ARM64'
+        shell: pwsh
+        run: |
+          # Set here rather than in the step above, which does not run on a
+          # cache hit. A restored directory is as good as a downloaded one and
+          # the rest of the job should not be able to tell them apart.
+          $into = (Resolve-Path .local/cuda-lib).Path
+          $found = Get-ChildItem $into -Filter *.dll
+          if (-not $found) { throw "no CUDA libraries in $into" }
+          foreach ($f in $found) { Write-Host "  $($f.Name)" }
+          Add-Content $env:GITHUB_ENV "CUDA_LIB_DIR=$into"
+
+      # GenAI is mirrored rather than built, and published for fewer targets
+      # than the runtime: no macOS x64. A target it has no build for says so
+      # and carries on.
+      - uses: actions/download-artifact@v4
+        if: ${{ needs.mode.outputs.building == 'true' }}
+        with:
+          name: genai
+          path: .local/artifacts
+        continue-on-error: true
+
+      - name: Stage the GenAI library
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 .github/scripts/locate_genai.py "${{ matrix.artifact }}"
 
       - name: Point the suite at our build
         shell: bash
@@ -1177,3 +1456,14 @@ jobs:
             echo "::error::bindings_test skipped. Our build was not found."
             exit 1
           fi
+
+      # The GenAI suite, in its own package and so its own invocation. It skips
+      # with a named reason on a target upstream publishes no library for,
+      # which is macOS x64 and nothing else.
+      - name: Test GenAI
+        # Only where upstream has a build. Elsewhere the hook refuses, which is
+        # the right answer for an application and the wrong one for a job that
+        # should just not run these.
+        if: env.GENAI_SUPPORTED == 'true'
+        working-directory: packages/onnxruntime_genai
+        run: dart test --reporter expanded

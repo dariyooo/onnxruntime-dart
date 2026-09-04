@@ -32,6 +32,19 @@ extension OrtApiEpApi on OrtApi {
             env, registrationName.toNativeUtf8(allocator: arena).cast()));
       });
 
+  /// `GetEpDevices`
+  List<Pointer<OrtEpDevice>> getEpDevices(Pointer<OrtEnv> env) =>
+      withArena((arena) {
+        final out0 = arena<Pointer<Pointer<OrtEpDevice>>>();
+        final out1 = arena<Size>();
+        checkOrtStatus(this.GetEpDevices.asFunction<
+            Pointer<OrtStatus> Function(
+                Pointer<OrtEnv>,
+                Pointer<Pointer<Pointer<OrtEpDevice>>>,
+                Pointer<Size>)>()(env, out0, out1));
+        return List.generate(out1.value, (i) => out0.value[i]);
+      });
+
   /// `SessionGetEpDeviceForInputs`
   List<Pointer<OrtEpDevice>> sessionGetEpDeviceForInputs(
           Pointer<OrtSession> session, int numInputs) =>
@@ -169,6 +182,20 @@ extension OrtApiEpApi on OrtApi {
         return out0.value;
       });
 
+  /// `Session_GetEpGraphAssignmentInfo`
+  List<Pointer<OrtEpAssignedSubgraph>> session_GetEpGraphAssignmentInfo(
+          Pointer<OrtSession> session) =>
+      withArena((arena) {
+        final out0 = arena<Pointer<Pointer<OrtEpAssignedSubgraph>>>();
+        final out1 = arena<Size>();
+        checkOrtStatus(this.Session_GetEpGraphAssignmentInfo.asFunction<
+            Pointer<OrtStatus> Function(
+                Pointer<OrtSession>,
+                Pointer<Pointer<Pointer<OrtEpAssignedSubgraph>>>,
+                Pointer<Size>)>()(session, out0, out1));
+        return List.generate(out1.value, (i) => out0.value[i]);
+      });
+
   /// `EpAssignedSubgraph_GetEpName`
   String epAssignedSubgraph_GetEpName(
           Pointer<OrtEpAssignedSubgraph> epSubgraph) =>
@@ -178,6 +205,20 @@ extension OrtApiEpApi on OrtApi {
             Pointer<OrtStatus> Function(Pointer<OrtEpAssignedSubgraph>,
                 Pointer<Pointer<Char>>)>()(epSubgraph, out0));
         return out0.value.cast<Utf8>().toDartString();
+      });
+
+  /// `EpAssignedSubgraph_GetNodes`
+  List<Pointer<OrtEpAssignedNode>> epAssignedSubgraph_GetNodes(
+          Pointer<OrtEpAssignedSubgraph> epSubgraph) =>
+      withArena((arena) {
+        final out0 = arena<Pointer<Pointer<OrtEpAssignedNode>>>();
+        final out1 = arena<Size>();
+        checkOrtStatus(this.EpAssignedSubgraph_GetNodes.asFunction<
+            Pointer<OrtStatus> Function(
+                Pointer<OrtEpAssignedSubgraph>,
+                Pointer<Pointer<Pointer<OrtEpAssignedNode>>>,
+                Pointer<Size>)>()(epSubgraph, out0, out1));
+        return List.generate(out1.value, (i) => out0.value[i]);
       });
 
   /// `EpAssignedNode_GetName`

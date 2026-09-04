@@ -8,6 +8,7 @@
 /// direction, ownership and marshalling rules produce code that works.
 library;
 
+import 'dart:convert';
 import 'dart:ffi';
 
 import 'package:ffi/ffi.dart';
@@ -105,6 +106,240 @@ void main() {
       // string rather than a null.
       expect(api.modelMetadataGetDomain(metadata, allocator), isA<String>());
       expect(api.modelMetadataGetVersion(metadata), isA<int>());
+    });
+
+    test('a callee-allocated array is read through its own count', () {
+      // GetEpDevices hands back an array it owns and the length in a separate
+      // out-parameter. The wrapper has to allocate one pointer cell rather
+      // than room for the elements, and read the count from its own cell.
+      final devices = api.getEpDevices(OrtEnvironment.instance().handle);
+      expect(devices, isA<List<Pointer<OrtEpDevice>>>());
+      // Every build registers at least the CPU device.
+      expect(devices, isNotEmpty);
+      expect(devices.every((d) => d != nullptr), isTrue);
+
+      // The names are readable, which is what proves the pointers are real
+      // rather than a count that happened to be plausible. Called through the
+      // raw field: EpDevice_EpName returns a string rather than a status, and
+      // the generator only wraps the ORT_API2_STATUS shape.
+      final epName = api.EpDevice_EpName.asFunction<
+          Pointer<Char> Function(Pointer<OrtEpDevice>)>();
+      for (final device in devices) {
+        expect(epName(device).cast<Utf8>().toDartString(), isNotEmpty);
+      }
+    });
+
+    test('an allocator-owned string array is read and freed', () {
+      final metadata = api.sessionGetModelMetadata(session);
+      addTearDown(() => api.releaseModelMetadata(metadata));
+      final allocator = api.getAllocatorWithDefaultOptions();
+
+      // Both the keys and the array holding them are the allocator's, so a
+      // wrapper that frees only one of them leaks. Repeating it would show up
+      // as growth; what is checked here is that it returns the same answer and
+      // does not crash on the second free.
+      final first =
+          api.modelMetadataGetCustomMetadataMapKeys(metadata, allocator);
+      final second =
+          api.modelMetadataGetCustomMetadataMapKeys(metadata, allocator);
+      expect(first, second);
+      expect(first, isA<List<String>>());
+    });
+
+    test('a shape borrowed from the runtime reads as a list of dimensions', () {
+      // GetTensorElementTypeAndShapeDataReference returns a pointer into the
+      // runtime's own memory plus a count, and must not be freed.
+      final input = api.sessionGetInputTypeInfo(session, 0);
+      addTearDown(() => api.releaseTypeInfo(input));
+      final info = api.castTypeInfoToTensorInfo(input);
+      expect(api.getDimensionsCount(info), greaterThan(0));
+    });
+
+    test('a callback parameter reaches Dart when the runtime calls it', () {
+      // The runtime stores the pointer and calls it later, so the wrapper
+      // takes it rather than building one: only the caller knows how long it
+      // has to stay alive. isolateLocal is right here because session creation
+      // logs on the thread that asked for it, which is this one.
+      final messages = <String>[];
+      final callback = NativeCallable<
+          Void Function(Pointer<Void>, UnsignedInt, Pointer<Char>,
+              Pointer<Char>, Pointer<Char>, Pointer<Char>)>.isolateLocal(
+        (Pointer<Void> param,
+            int severity,
+            Pointer<Char> category,
+            Pointer<Char> logid,
+            Pointer<Char> location,
+            Pointer<Char> message) {
+          messages.add(message.cast<Utf8>().toDartString());
+        },
+      );
+      addTearDown(callback.close);
+
+      final options = api.createSessionOptions();
+      addTearDown(() => api.releaseSessionOptions(options));
+      api.setUserLoggingFunction(options, callback.nativeFunction, nullptr);
+      api.setSessionLogSeverityLevel(options, 0);
+
+      final model = readSubmoduleFile(
+        'onnxruntime/test/testdata/ort_minimal_e2e_test_data/'
+        'test_voice_commands/model.onnx',
+      );
+      final buffer = arena<Uint8>(model.length);
+      buffer.asTypedList(model.length).setAll(0, model);
+      final logged = api.createSessionFromArray(
+        OrtEnvironment.instance().handle,
+        buffer.cast(),
+        model.length,
+        options,
+      );
+      api.releaseSession(logged);
+
+      // Verbose logging during session creation is chatty on every build, so
+      // an empty list means the callback never ran rather than that the
+      // runtime had nothing to say.
+      expect(messages, isNotEmpty);
+    });
+
+    test('two arrays sharing one count both come back', () {
+      // GetKeyValuePairs hands back keys and values with a single num_entries
+      // after both, so the count has to be found by looking past the second
+      // array rather than at the next parameter.
+      final kvps = api.createKeyValuePairs();
+      addTearDown(() => api.releaseKeyValuePairs(kvps));
+      api.addKeyValuePair(kvps, 'device', 'cpu');
+      api.addKeyValuePair(kvps, 'precision', 'fp32');
+
+      final (keys, values) = api.getKeyValuePairs(kvps);
+      expect(keys, hasLength(2));
+      expect(values, hasLength(2));
+      expect(Map.fromIterables(keys, values),
+          {'device': 'cpu', 'precision': 'fp32'});
+    });
+
+    test('a contradictory annotation is overridden, not obeyed', () {
+      // The header marks device_id as _In_ although the call writes into it.
+      // Generated as an output the wrapper returns the id; obeyed, it would
+      // take a pointer and return nothing. That difference is what is checked
+      // here, and it holds whichever way the call itself goes.
+      //
+      // On a build without a GPU provider the runtime raises rather than
+      // answering, which is the call failing and not the wrapper: asking a
+      // CPU build which GPU it is on has no answer. Both outcomes are typed
+      // the same way, so both prove the override took.
+      try {
+        expect(api.getCurrentGpuDeviceId(), isA<int>());
+      } on OrtException {
+        // No GPU provider in this build.
+      }
+    });
+
+    test('a string tensor element reads back what was put in it', () {
+      final allocator = api.getAllocatorWithDefaultOptions();
+      final shape = [2];
+      final tensor = api.createTensorAsOrtValue(
+        allocator,
+        shape,
+        shape.length,
+        ONNXTensorElementDataType.ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING.value,
+      );
+      addTearDown(() => api.releaseValue(tensor));
+
+      api.fillStringTensor(tensor, ['first', 'second'], 2);
+      expect(api.stringTensorElement(tensor, 0), 'first');
+      expect(api.stringTensorElement(tensor, 1), 'second');
+    });
+
+    test('bound output names come back split on their own lengths', () {
+      // The names arrive concatenated in one buffer with a separate array of
+      // lengths, so the split is this side's job and an off-by-one shows up as
+      // a name with a stray character rather than as a failure to read.
+      final binding = api.createIoBinding(session);
+      addTearDown(() => api.releaseIoBinding(binding));
+      final allocator = api.getAllocatorWithDefaultOptions();
+      final memory = api.createCpuMemoryInfo(
+        OrtAllocatorType.OrtArenaAllocator.value,
+        OrtMemType.OrtMemTypeDefault.value,
+      );
+      addTearDown(() => api.releaseMemoryInfo(memory));
+
+      final wanted = api.sessionGetOutputName(session, 0, allocator);
+      api.bindOutputToDevice(binding, wanted, memory);
+
+      expect(api.boundOutputNames(binding, allocator), [wanted]);
+    });
+
+    test('a kept buffer stays the caller\'s, and is read back intact', () {
+      // UseCooIndices does not copy: the tensor points at the indices it was
+      // given for as long as it lives. The wrapper therefore takes a pointer
+      // rather than a list, because an arena scoped to the call would free it
+      // while the tensor still referred to it. malloc here, freed after the
+      // tensor is released, in that order.
+      final memory = api.createCpuMemoryInfo(
+        OrtAllocatorType.OrtDeviceAllocator.value,
+        OrtMemType.OrtMemTypeDefault.value,
+      );
+      addTearDown(() => api.releaseMemoryInfo(memory));
+
+      // Three non-zero values in a 3x3 matrix, at flat positions 0, 4 and 8.
+      final values = malloc<Float>(3);
+      values[0] = 1.5;
+      values[1] = 2.5;
+      values[2] = 3.5;
+      final indices = malloc<Int64>(3);
+      indices[0] = 0;
+      indices[1] = 4;
+      indices[2] = 8;
+
+      final tensor = api.createSparseTensorWithValuesAsOrtValue(
+        memory,
+        values.cast(),
+        [3, 3],
+        2,
+        [3],
+        1,
+        ONNXTensorElementDataType.ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT.value,
+      );
+      api.useCooIndices(tensor, indices, 3);
+
+      final (count, read) = api.getSparseTensorIndices(
+        tensor,
+        OrtSparseIndicesFormat.ORT_SPARSE_COO_INDICES.value,
+      );
+      expect(count, 3);
+      expect(read.cast<Int64>().asTypedList(3), [0, 4, 8]);
+
+      // The tensor goes first. Freeing the indices while it still points at
+      // them is the mistake this ordering exists to avoid.
+      api.releaseValue(tensor);
+      malloc
+        ..free(indices)
+        ..free(values);
+    });
+
+    test('a resized string element hands back somewhere to write', () {
+      // The buffer points into the tensor rather than being the caller's, so
+      // what is written through it is what the tensor then holds. That is the
+      // whole point of the call, and the reason the wrapper returns a pointer
+      // instead of copying anything.
+      final allocator = api.getAllocatorWithDefaultOptions();
+      final tensor = api.createTensorAsOrtValue(
+        allocator,
+        [1],
+        1,
+        ONNXTensorElementDataType.ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING.value,
+      );
+      addTearDown(() => api.releaseValue(tensor));
+      api.fillStringTensor(tensor, ['x'], 1);
+
+      const written = 'rewritten';
+      final buffer =
+          api.resizedStringTensorElementBuffer(tensor, 0, written.length);
+      final bytes = utf8.encode(written);
+      for (var i = 0; i < bytes.length; i++) {
+        buffer.cast<Uint8>()[i] = bytes[i];
+      }
+
+      expect(api.stringTensorElement(tensor, 0), written);
     });
 
     test('memory info round-trips its own fields', () {

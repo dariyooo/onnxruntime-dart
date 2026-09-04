@@ -82,11 +82,19 @@ Future<void> loadOrtWasm({
   if (_module != null) return;
   _refuseJspi(loaderUrl);
 
+  // Resolved against the document before importing. A dynamic import takes a
+  // module specifier, not a URL, and a specifier that does not begin with `/`,
+  // `./` or `../` is a bare one that only an import map can resolve. The asset
+  // packages hand out `assets/packages/...`, which is a correct path and an
+  // incorrect specifier, so importing it verbatim fails with "failed to
+  // resolve module specifier" and looks like a missing file.
+  final specifier = _absolute(loaderUrl);
+
   final JSObject namespace;
   try {
     // importModule is the SDK's dynamic import: `import` itself is a
     // keyword rather than a callable global, so it cannot be bound.
-    namespace = await importModule(loaderUrl.toJS).toDart;
+    namespace = await importModule(specifier.toJS).toDart;
   } on Object catch (error) {
     throw StateError('could not load $loaderUrl: $error');
   }
@@ -153,4 +161,22 @@ void _refuseJspi(String loaderUrl) {
     'instead: the same directory publishes ort-wasm-simd-threaded.asyncify.mjs '
     'beside the .jspi one.',
   );
+}
+
+/// [url] as an absolute one, against the document's base.
+///
+/// Leaves an absolute URL alone. Everything else is resolved the way the
+/// browser resolves an `src`, which is what a caller means by a relative path
+/// and is not what a bare module specifier means.
+String _absolute(String url) {
+  if (url.startsWith('http://') ||
+      url.startsWith('https://') ||
+      url.startsWith('/')) {
+    return url;
+  }
+  final base = (globalContext['document'] as JSObject?)
+      ?.getProperty<JSString?>('baseURI'.toJS)
+      ?.toDart;
+  if (base == null) return url.startsWith('.') ? url : './$url';
+  return Uri.parse(base).resolve(url).toString();
 }

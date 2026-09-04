@@ -34,12 +34,18 @@ String _identity(String name) => name;
 
 /// Part of the return value, read out of an out-parameter.
 final class OutputMapping extends Mapping {
-  const OutputMapping(this.dartType, this.read, {this.needsAllocator = false});
+  const OutputMapping(
+    this.dartType,
+    this.read, {
+    this.needsAllocator = false,
+    this.readArray,
+  });
 
   /// A scalar read back, typed from the ffigen signature.
   const OutputMapping.scalar()
       : dartType = null,
         needsAllocator = false,
+        readArray = null,
         read = _readValue;
 
   /// Null when the ffigen signature decides.
@@ -51,6 +57,14 @@ final class OutputMapping extends Mapping {
 
   /// Dart expression reading the result, given the allocated pointer name.
   final String Function(String pointer) read;
+
+  /// Reads the whole array at once, for an array the call allocated rather
+  /// than one it filled in place.
+  ///
+  /// Null for the ordinary case, where walking the buffer element by element
+  /// is all it takes. Set where the array has to be freed as well as read, so
+  /// that per-element reading would have nowhere to put the free.
+  final String Function(String pointer, String count)? readArray;
 
   /// Dart expression reading [count] results, for a parameter the call writes
   /// an array into.
@@ -122,9 +136,23 @@ Mapping _mapInput(String type, CParameter parameter) {
     }
   }
 
-  // Paths are ORTCHAR_T, which is UTF-16 on Windows.
+  // A callback crosses as the pointer ffigen typed for it. Building one, with
+  // NativeCallable, and keeping it alive for as long as the runtime holds it,
+  // is the caller's job: the runtime stores these and calls them later, so
+  // there is no scope here that could own the lifetime.
+  if (parameter.isFunctionPointer) {
+    return InputMapping(type, (n) => n);
+  }
+
+  // Paths are ORTCHAR_T, which is UTF-16 on Windows. An array of them needs
+  // that encoding per element, so the two spellings are separated here: a
+  // single star is one path, a double star is a list of them. Matching only on
+  // the name would hand `AddExternalInitializersFromFiles` a single pointer
+  // where it wants an array.
   if (type.contains('ORTCHAR_T')) {
-    return InputMapping('String', (n) => 'allocateOrtPath($n, arena)');
+    return type.replaceAll(RegExp(r'[^*]'), '').length > 1
+        ? InputMapping('List<String>', (n) => 'nativeOrtPaths($n, arena)')
+        : InputMapping('String', (n) => 'allocateOrtPath($n, arena)');
   }
   if (type == 'const char*') {
     return InputMapping(
@@ -132,17 +160,37 @@ Mapping _mapInput(String type, CParameter parameter) {
       (n) => '$n.toNativeUtf8(allocator: arena).cast()',
     );
   }
-  if (type == 'const char* const*') {
+  // An array of C strings, in any of the spellings the header uses:
+  // `const char* const*`, `char* const*`, `const char**`. A const anywhere is
+  // what marks it as one. Bare `char**` is left alone because it is an out
+  // parameter as often as an array, and ReleaseAvailableProviders takes one to
+  // free rather than to read.
+  if (RegExp(r'^(?:const\s+)?char\s*\*\s*const\s*\*$').hasMatch(type) ||
+      type == 'const char**') {
     return InputMapping('List<String>', (n) => 'nativeStrings($n, arena)');
   }
   // An enum crosses as its underlying integer: the function pointer takes the
   // raw value, and the typed enum sits above this boundary.
-  if (_scalars.contains(type) || parameter.isEnum) {
+  // `const int64_t` is `int64_t`. Const on a value parameter says nothing
+  // about the call, only that the callee will not reassign its own copy, so it
+  // is dropped here. On a pointer it does mean something, which is why this
+  // only strips it once the type is known to have no star.
+  final value = type.startsWith('const ') && !type.contains('*')
+      ? type.substring('const '.length)
+      : type;
+
+  if (_scalars.contains(value) || parameter.isEnum) {
     return const InputMapping.scalar();
   }
   // Integer arrays, always paired with a length parameter the caller passes.
   if (type == 'const int64_t*' || type == 'int64_t*') {
     return InputMapping('List<int>', (n) => 'nativeInt64s($n, arena)');
+  }
+  if (type == 'const int32_t*') {
+    return InputMapping('List<int>', (n) => 'nativeInt32s($n, arena)');
+  }
+  if (type == 'const int*') {
+    return InputMapping('List<int>', (n) => 'nativeInts($n, arena)');
   }
   if (type == 'const size_t*' || type == 'size_t*') {
     return InputMapping('List<int>', (n) => 'nativeSizes($n, arena)');
@@ -177,6 +225,11 @@ Mapping _mapOutput(String type, CParameter parameter) {
   // A trailing `const` qualifies the pointer, not what it points at, so it
   // makes no difference to how the value is read.
   final normalised = type.replaceFirst(RegExp(r'\s*const$'), '');
+  // Runtime-owned like `const char**`, but read with the platform's path
+  // encoding rather than as UTF-8.
+  if (normalised == 'const ORTCHAR_T**' || normalised == 'ORTCHAR_T**') {
+    return OutputMapping('String', (p) => 'readOrtPath($p.value)');
+  }
   if (normalised == 'const char**') {
     return OutputMapping(
       'String',
@@ -195,6 +248,51 @@ Mapping _mapOutput(String type, CParameter parameter) {
   if (type.endsWith('*') &&
       _scalars.contains(type.replaceFirst(RegExp(r'\s*\*$'), ''))) {
     return const OutputMapping.scalar();
+  }
+  // `_Outptr_ X** items, _Out_ size_t* count`: the call allocates the array
+  // and says how long it is, so the arena holds one pointer cell and the
+  // elements are read from what came back. Guarded on both marks, because the
+  // same spelling caller-allocated is a buffer to fill, and callee-allocated
+  // without a count is a single handle.
+  if (parameter.isCalleeAllocated && parameter.arrayLengthParameter != null) {
+    if (normalised == 'char***') {
+      return OutputMapping(
+        'String',
+        _readValue,
+        needsAllocator: true,
+        readArray: (p, n) => 'takeAllocatedStrings($p.value, $n, ALLOCATOR)',
+      );
+    }
+    // Runtime-owned, unlike `char***` which comes from an allocator: the
+    // strings belong to the object that was asked, so they are read and not
+    // freed. `GetKeyValuePairs` returns two of these.
+    if (RegExp(r'^const char\* const\*\*$').hasMatch(normalised)) {
+      return OutputMapping(
+        'String',
+        _readValue,
+        readArray: (p, n) =>
+            'List.generate($n, (i) => $p.value[i].cast<Utf8>().toDartString())',
+      );
+    }
+    final elements = RegExp(
+      r'^(?:const\s+)?(Ort\w+)\s*\*\s*(?:const\s*)?\*\s*\*$',
+    ).firstMatch(normalised);
+    if (elements != null) {
+      return OutputMapping(
+        'Pointer<${elements.group(1)}>',
+        _readValue,
+        readArray: (p, n) => 'List.generate($n, (i) => $p.value[i])',
+      );
+    }
+    // A shape or similar, borrowed from the runtime: read, never freed.
+    if (RegExp(r'^(?:const\s+)?(?:int64_t|size_t|int32_t|float)\*\*$')
+        .hasMatch(normalised)) {
+      return OutputMapping(
+        normalised.contains('float') ? 'double' : 'int',
+        _readValue,
+        readArray: (p, n) => 'List.generate($n, (i) => $p.value[i])',
+      );
+    }
   }
   final handle = _handleOut.firstMatch(type);
   if (handle != null) {

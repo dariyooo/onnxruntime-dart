@@ -273,6 +273,13 @@ extension OrtApiSessionApi on OrtApi {
                       Pointer<OrtTensorRTProviderOptionsV2>)>()(
           options, tensorrtOptions));
 
+  /// `SessionOptionsSetCustomCreateThreadFn`
+  void sessionOptionsSetCustomCreateThreadFn(Pointer<OrtSessionOptions> options,
+          OrtCustomCreateThreadFn ortCustomCreateThreadFn) =>
+      checkOrtStatus(this.SessionOptionsSetCustomCreateThreadFn.asFunction<
+          Pointer<OrtStatus> Function(Pointer<OrtSessionOptions>,
+              OrtCustomCreateThreadFn)>()(options, ortCustomCreateThreadFn));
+
   /// `SessionOptionsSetCustomThreadCreationOptions`
   void sessionOptionsSetCustomThreadCreationOptions(
           Pointer<OrtSessionOptions> options,
@@ -282,6 +289,13 @@ extension OrtApiSessionApi on OrtApi {
           .asFunction<
               Pointer<OrtStatus> Function(Pointer<OrtSessionOptions>,
                   Pointer<Void>)>()(options, ortCustomThreadCreationOptions));
+
+  /// `SessionOptionsSetCustomJoinThreadFn`
+  void sessionOptionsSetCustomJoinThreadFn(Pointer<OrtSessionOptions> options,
+          OrtCustomJoinThreadFn ortCustomJoinThreadFn) =>
+      checkOrtStatus(this.SessionOptionsSetCustomJoinThreadFn.asFunction<
+          Pointer<OrtStatus> Function(Pointer<OrtSessionOptions>,
+              OrtCustomJoinThreadFn)>()(options, ortCustomJoinThreadFn));
 
   /// `SessionOptionsAppendExecutionProvider_CUDA_V2`
   void sessionOptionsAppendExecutionProvider_CUDA_V2(
@@ -341,6 +355,43 @@ extension OrtApiSessionApi on OrtApi {
       checkOrtStatus(this.SessionOptionsAppendExecutionProvider_Dnnl.asFunction<
           Pointer<OrtStatus> Function(Pointer<OrtSessionOptions>,
               Pointer<OrtDnnlProviderOptions>)>()(options, dnnlOptions));
+
+  /// `RunAsync`
+  void runAsync(
+          Pointer<OrtSession> session,
+          Pointer<OrtRunOptions> runOptions,
+          List<String> inputNames,
+          List<Pointer<OrtValue>> input,
+          int inputLen,
+          List<String> outputNames,
+          int outputNamesLen,
+          List<Pointer<OrtValue>> output,
+          RunAsyncCallbackFn runAsyncCallback,
+          Pointer<Void> userData) =>
+      withArena((arena) {
+        checkOrtStatus(this.RunAsync.asFunction<
+                Pointer<OrtStatus> Function(
+                    Pointer<OrtSession>,
+                    Pointer<OrtRunOptions>,
+                    Pointer<Pointer<Char>>,
+                    Pointer<Pointer<OrtValue>>,
+                    int,
+                    Pointer<Pointer<Char>>,
+                    int,
+                    Pointer<Pointer<OrtValue>>,
+                    RunAsyncCallbackFn,
+                    Pointer<Void>)>()(
+            session,
+            runOptions,
+            nativeStrings(inputNames, arena),
+            nativePointers(input, arena),
+            inputLen,
+            nativeStrings(outputNames, arena),
+            outputNamesLen,
+            nativePointers(output, arena),
+            runAsyncCallback,
+            userData));
+      });
 
   /// `SessionOptionsAppendExecutionProvider_OpenVINO_V2`
   void sessionOptionsAppendExecutionProvider_OpenVINO_V2(
@@ -419,6 +470,17 @@ extension OrtApiSessionApi on OrtApi {
       checkOrtStatus(this.SessionOptionsSetEpSelectionPolicy.asFunction<
           Pointer<OrtStatus> Function(
               Pointer<OrtSessionOptions>, int)>()(sessionOptions, policy));
+
+  /// `SessionOptionsSetEpSelectionPolicyDelegate`
+  void sessionOptionsSetEpSelectionPolicyDelegate(
+          Pointer<OrtSessionOptions> sessionOptions,
+          EpSelectionDelegate delegate,
+          Pointer<Void> delegateState) =>
+      checkOrtStatus(this.SessionOptionsSetEpSelectionPolicyDelegate.asFunction<
+          Pointer<OrtStatus> Function(
+              Pointer<OrtSessionOptions>,
+              EpSelectionDelegate,
+              Pointer<Void>)>()(sessionOptions, delegate, delegateState));
 
   /// `RunOptionsEnableProfiling`
   void runOptionsEnableProfiling(

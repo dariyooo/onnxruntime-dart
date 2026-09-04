@@ -16,6 +16,7 @@ library;
 
 import 'dart:typed_data';
 
+import 'raw_interface.g.dart';
 import 'types.dart';
 
 /// The calls both backends can make.
@@ -23,7 +24,7 @@ import 'types.dart';
 /// Failures throw `OrtException`. The C API returns a status that has to be
 /// read and released, and the backend does that; nothing above this line sees
 /// a status code.
-abstract interface class OrtCalls {
+abstract interface class OrtCalls implements OrtRawCalls {
   /// Prepares the runtime. Safe to call more than once.
   void init({int loggingLevel});
 

@@ -92,11 +92,36 @@ String? _match(String? name) {
 /// extensions that collide with struct member names.
 String dartName(String name) => name[0].toLowerCase() + name.substring(1);
 
+/// One emitted wrapper, and the Dart signature it settled on.
+///
+/// The signature is handed back rather than derived a second time. The seam
+/// generator needs the same types, and two places computing them from the same
+/// headers is two places to drift: the ask-then-fill and callee-allocated
+/// paths do not produce the signature a naive reading of the parameters would.
+final class Wrapper {
+  const Wrapper({
+    required this.code,
+    required this.returns,
+    required this.parameters,
+  });
+
+  /// The generated method, doc comment and all.
+  final String code;
+
+  /// The Dart return type.
+  final String returns;
+
+  /// The Dart parameters, in order, as (type, name).
+  final List<(String, String)> parameters;
+}
+
 /// Emits the wrapper for [function], or null when it cannot be mapped.
 ///
 /// [signature] is the same function as ffigen typed it, which is what the
 /// emitted `asFunction` has to agree with.
-String? emit(CFunction function, Signature signature) {
+Wrapper? emit(CFunction function, Signature signature) {
+  final askThenFill = emitAskThenFill(function, signature);
+  if (askThenFill != null) return askThenFill;
   if (!isFullyMapped(function)) return null;
   if (signature.length != function.parameters.length) return null;
 
@@ -124,34 +149,54 @@ String? emit(CFunction function, Signature signature) {
     };
     final ffi = signature[function.parameters.indexOf(parameter)];
     final element =
-        declared ?? _callType(mapping is OutputMapping ? _pointee(ffi) : ffi);
+        declared ?? callType(mapping is OutputMapping ? pointee(ffi) : ffi);
     return mapping is OutputMapping && parameter.arrayLengthParameter != null
         ? 'List<$element>'
         : element;
   }
 
-  final returnType = switch (outputs.length) {
+  // An out-parameter that only carries the length of a callee-allocated array
+  // is allocated like any other but not returned: the list says the same thing,
+  // and returning both invites them to disagree.
+  final counts = {
+    for (final parameter in function.parameters)
+      if (parameter.isCalleeAllocated && parameter.arrayLengthParameter != null)
+        parameter.arrayLengthParameter!,
+  };
+  final returned = outputs.where((o) => !counts.contains(o.$1.name)).toList();
+
+  final returnType = switch (returned.length) {
     0 => 'void',
-    1 => typeOf(outputs.single.$1, outputs.single.$2),
-    _ => '(${outputs.map((o) => '${typeOf(o.$1, o.$2)} '
-        '${_dartParam(o.$1.name)}').join(', ')})',
+    1 => typeOf(returned.single.$1, returned.single.$2),
+    _ => '(${returned.map((o) => '${typeOf(o.$1, o.$2)} '
+        '${dartParam(o.$1.name)}').join(', ')})',
   };
 
-  final parameters = inputs
-      .map((i) => '${typeOf(i.$1, i.$2)} ${_dartParam(i.$1.name)}')
-      .join(', ');
+  final declared = [
+    for (final input in inputs)
+      (typeOf(input.$1, input.$2), dartParam(input.$1.name)),
+  ];
+  final parameters = declared.map((d) => '${d.$1} ${d.$2}').join(', ');
 
   // `asFunction` is typed with the Dart signature, so scalars cross as `int`
   // and `double` even though the field they come from is typed in FFI terms.
-  final callSignature = signature.map(_callType).join(', ');
+  // A callback keeps the typedef ffigen gave it, which is already a pointer
+  // and so is the same on both sides.
+  final callSignature = [
+    for (final (index, ffi) in signature.indexed)
+      function.parameters[index].isFunctionPointer ? ffi : callType(ffi),
+  ].join(', ');
 
   // An out-parameter is `Pointer<X>`, so `X` is what the arena allocates. An
   // out-array allocates as many as its length parameter says.
   final allocations = StringBuffer();
   for (final (index, (parameter, _)) in outputs.indexed) {
-    final cell = _pointee(signature[function.parameters.indexOf(parameter)]);
+    final cell = pointee(signature[function.parameters.indexOf(parameter)]);
     final length = parameter.arrayLengthParameter;
-    final count = length == null ? '' : _dartParam(length);
+    // A callee-allocated array needs one pointer cell whatever its length: the
+    // call fills that cell with an array it allocated itself.
+    final count =
+        length == null || parameter.isCalleeAllocated ? '' : dartParam(length);
     allocations.writeln('        final ${_out(index)} = arena<$cell>($count);');
   }
 
@@ -163,13 +208,13 @@ String? emit(CFunction function, Signature signature) {
     final mapping = map(p);
     return mapping is OutputMapping
         ? _out(outputIndex[p.name]!)
-        : (mapping as InputMapping).marshal(_dartParam(p.name));
+        : (mapping as InputMapping).marshal(dartParam(p.name));
   }).join(', ');
 
   // Nothing to free means no arena: a release takes a handle and returns, and
   // wrapping that in a scope allocates more than the call does.
   final needsArena = outputs.isNotEmpty ||
-      inputs.any((i) => i.$2.marshal(_dartParam(i.$1.name)).contains('arena'));
+      inputs.any((i) => i.$2.marshal(dartParam(i.$1.name)).contains('arena'));
 
   final call = 'this.${function.name}.asFunction<'
       '${function.returnsStatus ? 'Pointer<OrtStatus>' : 'void'} '
@@ -178,12 +223,16 @@ String? emit(CFunction function, Signature signature) {
 
   if (!needsArena) {
     final body = outputs.isEmpty ? statement : throw StateError(function.name);
-    return '${_doc(function.name)}'
-        '  $returnType ${dartName(function.name)}($parameters) => $body;\n';
+    return Wrapper(
+      code: '${docFor(function.name)}'
+          '  $returnType ${dartName(function.name)}($parameters) => $body;\n',
+      returns: returnType,
+      parameters: declared,
+    );
   }
 
   final buffer = StringBuffer()
-    ..write(_doc(function.name))
+    ..write(docFor(function.name))
     ..writeln('  $returnType ${dartName(function.name)}($parameters) =>')
     ..writeln('      withArena((arena) {')
     ..write(allocations)
@@ -192,14 +241,26 @@ String? emit(CFunction function, Signature signature) {
   // Which allocator this call was handed, for the reads that free with it.
   final allocator = function.parameters
       .where((p) => p.type.contains('OrtAllocator'))
-      .map((p) => _dartParam(p.name))
+      .map((p) => dartParam(p.name))
       .firstOrNull;
+
+  final outputSlot = {
+    for (final (index, (parameter, _)) in outputs.indexed)
+      parameter.name: index,
+  };
 
   String read(CParameter parameter, OutputMapping mapping, int index) {
     final length = parameter.arrayLengthParameter;
-    final text = length == null
+    // The length of a callee-allocated array is itself an out-parameter, so it
+    // is read from its own cell rather than named as a Dart argument.
+    final count = length == null
+        ? null
+        : parameter.isCalleeAllocated
+            ? '${_out(outputSlot[length]!)}.value'
+            : dartParam(length);
+    final text = count == null
         ? mapping.read(_out(index))
-        : mapping.readAll(_out(index), _dartParam(length));
+        : (mapping.readArray ?? mapping.readAll)(_out(index), count);
     if (!mapping.needsAllocator) return text;
     if (allocator == null) {
       throw StateError(
@@ -209,24 +270,31 @@ String? emit(CFunction function, Signature signature) {
     return text.replaceAll('ALLOCATOR', allocator);
   }
 
-  switch (outputs.length) {
+  switch (returned.length) {
     case 0:
       break;
     case 1:
-      final (parameter, mapping) = outputs.single;
-      buffer.writeln('        return ${read(parameter, mapping, 0)};');
+      final (parameter, mapping) = returned.single;
+      buffer.writeln(
+        '        return ${read(parameter, mapping, outputSlot[parameter.name]!)};',
+      );
     default:
-      final reads =
-          outputs.indexed.map((e) => read(e.$2.$1, e.$2.$2, e.$1)).join(', ');
+      final reads = returned
+          .map((o) => read(o.$1, o.$2, outputSlot[o.$1.name]!))
+          .join(', ');
       buffer.writeln('        return ($reads);');
   }
 
   buffer.writeln('      });');
-  return buffer.toString();
+  return Wrapper(
+    code: buffer.toString(),
+    returns: returnType,
+    parameters: declared,
+  );
 }
 
 /// Avoids colliding with Dart keywords and with our own locals.
-String _dartParam(String name) {
+String dartParam(String name) {
   const reserved = {'in', 'out', 'is', 'default', 'this', 'new', 'var'};
   final camel = name
       .split('_')
@@ -238,7 +306,7 @@ String _dartParam(String name) {
 }
 
 /// The wrapper's doc comment: the C name, and any warning it carries.
-String _doc(String name) {
+String docFor(String name) {
   final buffer = StringBuffer('  /// `$name`\n');
   if (retainedBuffers[name] case final warning?) {
     buffer.writeln('  ///');
@@ -274,7 +342,7 @@ String _out(int index) => 'out$index';
 /// Listed rather than inferred, and unknown types throw: a width guessed wrong
 /// here produces Dart that analyzes cleanly and fails to compile, so failing at
 /// generation time is the cheaper place to find out.
-String _callType(String ffiType) {
+String callType(String ffiType) {
   if (ffiType.startsWith('Pointer<')) return ffiType;
   return switch (ffiType) {
     'Int8' ||
@@ -308,9 +376,91 @@ String _callType(String ffiType) {
 }
 
 /// `X` from `Pointer<X>`.
-String _pointee(String type) {
+String pointee(String type) {
   if (!type.startsWith('Pointer<') || !type.endsWith('>')) {
     throw StateError('out-parameter is not a pointer: $type');
   }
   return type.substring('Pointer<'.length, type.length - 1);
+}
+
+/// The ask-then-fill pattern: call once for the size, once for the contents.
+///
+/// A run of functions ends `_Out_ T* out, _Inout_ size_t* size`, meaning the
+/// caller does not know how much to allocate and asks first. Passing null for
+/// the buffer makes the call report the size it wants and fail, which is not
+/// an error here, so that status is discarded rather than checked. The second
+/// call, with a buffer that size, is the one whose status matters.
+///
+/// Wrapped as a rule rather than by hand because the shape is identical across
+/// the KernelInfo accessors and the two attribute-array readers, and a
+/// hand-written wrapper each would be the same twelve lines rewritten.
+///
+/// For `char*` the size counts bytes and includes the terminator, so the
+/// result is read as a string. For `float*` and `int64_t*` it counts elements
+/// and the result is a list.
+Wrapper? emitAskThenFill(CFunction function, Signature signature) {
+  if (function.parameters.length < 2) return null;
+  if (signature.length != function.parameters.length) return null;
+
+  final size = function.parameters.last;
+  final out = function.parameters[function.parameters.length - 2];
+  if (size.direction != Direction.inout || size.type != 'size_t*') return null;
+  if (out.direction != Direction.output) return null;
+  if (out.arrayLengthParameter != null) return null;
+
+  final cell = pointee(signature[function.parameters.length - 2]);
+  const elements = '[for (var i = 0; i < size.value; i++) buffer[i]]';
+  final ({String type, String read})? result = switch (out.type) {
+    'char*' => (type: 'String', read: 'buffer.cast<Utf8>().toDartString()'),
+    'float*' => (type: 'List<double>', read: elements),
+    'int64_t*' => (type: 'List<int>', read: elements),
+    _ => null,
+  };
+  if (result == null) return null;
+  final returnType = result.type;
+  final read = result.read;
+
+  // Everything before the buffer has to marshal like any other input.
+  final leading =
+      function.parameters.take(function.parameters.length - 2).toList();
+  final marshalled = <String>[];
+  for (final parameter in leading) {
+    final mapping = map(parameter);
+    if (mapping is! InputMapping) return null;
+    marshalled.add(mapping.marshal(dartParam(parameter.name)));
+  }
+
+  final declared = [
+    for (final (index, parameter) in leading.indexed)
+      (
+        (map(parameter) as InputMapping).dartType ?? callType(signature[index]),
+        dartParam(parameter.name),
+      ),
+  ];
+  final parameters = declared.map((d) => '${d.$1} ${d.$2}').join(', ');
+  final callSignature = signature.map(callType).join(', ');
+  final arguments = marshalled.join(', ');
+
+  return Wrapper(
+    returns: returnType,
+    parameters: declared,
+    code: '${docFor(function.name)}'
+        '  $returnType ${dartName(function.name)}($parameters) =>\n'
+        '      withArena((arena) {\n'
+        '        final size = arena<Size>()..value = 0;\n'
+        '        final call = this.${function.name}.asFunction<\n'
+        '            Pointer<OrtStatus> Function($callSignature)>();\n'
+        '\n'
+        '        // Reports the size it wants and fails because there is no\n'
+        '        // buffer yet. Expected, so the status is released, not checked.\n'
+        '        final asked = call($arguments${arguments.isEmpty ? '' : ', '}nullptr, size);\n'
+        '        if (asked != nullptr) {\n'
+        '          ReleaseStatus.asFunction<void Function(Pointer<OrtStatus>)>()(asked);\n'
+        '        }\n'
+        '\n'
+        '        final buffer = arena<$cell>(size.value == 0 ? 1 : size.value);\n'
+        '        checkOrtStatus(call($arguments${arguments.isEmpty ? '' : ', '}buffer, size));\n'
+        '        return $read;\n'
+        '      });\n',
+  );
 }
