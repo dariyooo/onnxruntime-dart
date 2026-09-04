@@ -36,13 +36,26 @@ provider is offered only where the build has one.
 
 ## Next
 
+### Publishing to pub.dev
+
+Not started, and previously not planned. Sixteen packages is enough that
+releasing by hand is the obstacle rather than the decision. pub.dev supports
+automated publishing from Actions through OIDC, keyed on a tag pattern per
+package, which is the same granularity the release tags already have. What it
+needs is one configuration per package on pub.dev, and an order, because
+`onnxruntime_dart` cannot publish before `onnxruntime_hook`.
+
 ### Hosting it on GitHub Pages
 
-Not started. Pages cannot set COOP or COEP headers, and the threaded
-WebAssembly builds need cross-origin isolation, so this needs
-`coi-serviceworker` or an equivalent. The base package's web tests already run
-without those headers on purpose, so the constraint is understood rather than
-discovered late.
+Done. The gallery builds for the web and CI publishes it into `docs/` on `main`,
+which is where Pages serves from, after its tests pass.
+
+The cross-origin isolation problem turned out to be already solved rather than
+outstanding. Pages cannot set COOP or COEP headers, and the workers need
+`SharedArrayBuffer`, which needs isolation. But `usableThreads` in the
+WebAssembly loader reads `crossOriginIsolated` and answers one when the page is
+not, because asking for more without it does not degrade, it fails to start the
+runtime. So the page runs single threaded and needs no service worker.
 
 ## Not planned
 
@@ -50,4 +63,3 @@ discovered late.
   already here and no filesystem is needed, but GenAI's own build has no
   emscripten support, and carrying a fork of it is a standing cost for one
   platform.
-- **Publishing to pub.dev.** Releases are GitHub only, and are cut by tagging.

@@ -4,7 +4,6 @@
 /// reach them, which reads as a cycle even where the compiler allows it.
 library;
 
-import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:file_selector/file_selector.dart';
@@ -22,7 +21,9 @@ Future<Uint8List?> pickImage() async {
   );
   final file = await openFile(acceptedTypeGroups: const [kinds]);
   if (file == null) return null;
-  return File(file.path).readAsBytes();
+  // Through the XFile rather than its path. In a browser the path is a blob
+  // URL that no file API can open, and reading the XFile works on both.
+  return file.readAsBytes();
 }
 
 /// The providers this build actually has, as choices.

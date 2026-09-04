@@ -2,7 +2,6 @@
 library;
 
 import 'dart:async';
-import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -111,35 +110,34 @@ class _ModelPageState extends State<ModelPage> {
       _generated.clear();
     });
     try {
-      final directory = widget.store.directoryFor(widget.spec);
       final outcome = switch (widget.spec.kind) {
         ModelKind.classifier => await runClassifier(
             spec: widget.spec,
-            directory: directory,
+            store: widget.store,
             image: _image!,
             provider: _provider,
           ),
         ModelKind.detector => await runDetector(
             spec: widget.spec,
-            directory: directory,
+            store: widget.store,
             image: _image!,
             provider: _provider,
           ),
         ModelKind.transformer => await runTransformer(
             spec: widget.spec,
-            directory: directory,
+            store: widget.store,
             first: _first.text,
             second: _second.text,
             provider: _provider,
           ),
         ModelKind.recurrent => await runRecurrent(
             spec: widget.spec,
-            directory: directory,
+            store: widget.store,
             passage: _passage.text,
             question: _question.text,
             provider: _provider,
           ),
-        ModelKind.generative => await _generate(directory),
+        ModelKind.generative => await _generate(),
       };
       if (mounted) setState(() => _outcome = outcome);
     } catch (error) {
@@ -150,7 +148,18 @@ class _ModelPageState extends State<ModelPage> {
   }
 
   /// Generation is a stream, so it paints as it arrives rather than at the end.
-  Future<Outcome> _generate(Directory directory) async {
+  Future<Outcome> _generate() async {
+    // GenAI reads a model directory rather than bytes, so there has to be one.
+    // In a browser there is not, and the card says so before anyone spends two
+    // and a half gigabytes finding out.
+    final directory = widget.store.directoryOf(widget.spec);
+    if (directory == null) {
+      throw StateError(
+        'Phi-3 needs a model directory on disk, and a browser has none. GenAI '
+        'also has no WebAssembly build, so this model runs on native only.',
+      );
+    }
+
     final clock = Stopwatch()..start();
     await for (final token in generate(
       directory: directory,
