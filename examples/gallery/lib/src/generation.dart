@@ -13,7 +13,6 @@
 library;
 
 import 'dart:async';
-import 'dart:io';
 
 import 'package:onnxruntime_genai/onnxruntime_genai.dart';
 
@@ -36,12 +35,12 @@ class Generation {
 /// The handles are released in the order they depend on each other, and on
 /// every path: a generator outlives nothing, and the model outlives all of it.
 Stream<Token> generate({
-  required Directory directory,
+  required String directory,
   required String prompt,
   required int maximumTokens,
   void Function(Generation)? onReady,
 }) async* {
-  final model = Model(directory.path);
+  final model = Model(directory);
   try {
     onReady?.call(Generation(
       deviceType: model.getDeviceType(),

@@ -8,6 +8,7 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:onnxruntime_dart/onnxruntime_dart.dart';
+import 'package:onnxruntime_web_webgpu/onnxruntime_web_webgpu.dart';
 
 import 'src/catalogue.dart';
 import 'src/store.dart';
@@ -55,6 +56,12 @@ class _CataloguePageState extends State<CataloguePage> {
 
   Future<void> _open() async {
     try {
+      // One call for every platform. Native links the runtime in and ignores
+      // the web options; the web fetches the module named by them, which has
+      // to finish before anything else touches the runtime.
+      await openOnnxRuntime(
+        web: const WebRuntimeOptions(ortLoaderUrl, wasm: ortWasmUrl),
+      );
       final store = await ModelStore.open();
       // Reading the version is what actually loads the library, so a missing
       // or mismatched binary is reported here rather than on the first run.
@@ -245,7 +252,7 @@ class _FooterState extends State<_Footer> {
   @override
   void initState() {
     super.initState();
-    widget.store.bytesOnDisk().then((bytes) {
+    widget.store.bytesTotal().then((bytes) {
       if (mounted) setState(() => _bytes = bytes);
     });
   }
@@ -256,8 +263,13 @@ class _FooterState extends State<_Footer> {
         child: Text(
           _bytes == null
               ? ''
-              : 'Models are kept in ${widget.store.root.path}, '
-                  '${humanBytes(_bytes!)} so far.',
+              : widget.store.isPersistent
+                  ? 'Models are kept in ${widget.store.location}, '
+                      '${humanBytes(_bytes!)} so far.'
+                  : 'Models are held in ${widget.store.location}, '
+                      '${humanBytes(_bytes!)} so far. Reloading the page '
+                      'fetches them again: a browser has no directory to '
+                      'keep them in.',
           style: Theme.of(context).textTheme.bodySmall,
         ),
       );

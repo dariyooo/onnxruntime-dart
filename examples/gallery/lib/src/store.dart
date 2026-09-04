@@ -5,19 +5,21 @@
 /// a different length than the catalogue promised is a different file, and
 /// running it would mean demonstrating a model nobody described.
 ///
-/// Downloads go to a temporary name and are renamed on success, so an
-/// interrupted download cannot be mistaken for a finished one the next time
-/// the app starts.
+/// Where "kept" means depends on the platform, which is the one thing that
+/// genuinely differs. On a desktop or a phone it is a directory, and a model
+/// survives restarting the application. In a browser there is no directory to
+/// write to, so it is held for as long as the tab lives and fetched again
+/// after a reload. The app says which, rather than letting a reader assume the
+/// download was wasted or that it was saved.
 library;
 
 import 'dart:async';
-import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
-import 'package:path/path.dart' as p;
-import 'package:path_provider/path_provider.dart';
 
 import 'catalogue.dart';
+import 'store_open.dart';
 
 /// How far along a download is.
 class Progress {
@@ -37,61 +39,48 @@ class Progress {
   double get fraction => total == 0 ? 0 : received / total;
 }
 
-/// The on-disk copy of the models.
-class ModelStore {
-  ModelStore(this.root);
+/// The models this application has fetched.
+abstract class ModelStore {
+  /// Opens the store this platform can offer.
+  static Future<ModelStore> open() => openStore();
 
-  /// Opens the store under the platform's application support directory.
-  static Future<ModelStore> open() async {
-    final base = await getApplicationSupportDirectory();
-    final root = Directory(p.join(base.path, 'models'));
-    await root.create(recursive: true);
-    return ModelStore(root);
-  }
+  /// Where the models are being kept, in words, for the UI to show.
+  String get location;
 
-  final Directory root;
+  /// Whether a model kept here survives the application restarting.
+  bool get isPersistent;
 
-  /// Where [spec]'s files live once fetched.
-  Directory directoryFor(ModelSpec spec) =>
-      Directory(p.join(root.path, spec.id));
+  /// The bytes of one of [spec]'s files, which must have been fetched.
+  Future<Uint8List> read(ModelSpec spec, String name);
 
-  /// The main graph on disk, whether or not it is there yet.
-  File modelFile(ModelSpec spec) =>
-      File(p.join(directoryFor(spec).path, spec.model.name));
+  /// A filesystem path to [spec]'s directory, where there is one.
+  ///
+  /// Null in a browser, and that is not a temporary gap: GenAI takes a
+  /// directory rather than bytes, so a model that needs one cannot run there.
+  String? directoryOf(ModelSpec spec);
 
   /// Whether every file [spec] needs is present and the right length.
-  ///
-  /// Length rather than presence: a download killed partway leaves a file that
-  /// exists, and opening it fails somewhere less obvious than here.
-  Future<bool> isComplete(ModelSpec spec) async {
-    for (final file in spec.files) {
-      final onDisk = File(p.join(directoryFor(spec).path, file.name));
-      if (!onDisk.existsSync()) return false;
-      if (await onDisk.length() != file.bytes) return false;
-    }
-    return true;
-  }
+  Future<bool> isComplete(ModelSpec spec);
 
-  /// How much of [spec] is already on disk, so the app can say what is left.
-  Future<int> bytesHeld(ModelSpec spec) async {
-    var held = 0;
-    for (final file in spec.files) {
-      final onDisk = File(p.join(directoryFor(spec).path, file.name));
-      if (onDisk.existsSync() && await onDisk.length() == file.bytes) {
-        held += file.bytes;
-      }
-    }
-    return held;
-  }
+  /// How much of [spec] is already held, so the app can say what is left.
+  Future<int> bytesHeld(ModelSpec spec);
+
+  /// Everything held, together.
+  Future<int> bytesTotal();
+
+  /// Forgets [spec].
+  Future<void> evict(ModelSpec spec);
+
+  /// Records one fetched file. Called by [fetch].
+  Future<void> store(ModelSpec spec, RemoteFile file, Uint8List bytes);
 
   /// Fetches whatever [spec] is missing, reporting progress as it goes.
   ///
-  /// Files already present at the right length are left alone, so a download
-  /// interrupted after the third of eight files resumes at the fourth.
+  /// Files already held at the right length are left alone, so a download
+  /// interrupted after the third of eight files resumes at the fourth. The
+  /// checking and the streaming are the same everywhere, which is why they are
+  /// here rather than in each implementation.
   Stream<Progress> fetch(ModelSpec spec) async* {
-    final directory = directoryFor(spec);
-    await directory.create(recursive: true);
-
     final total = spec.bytes;
     var done = await bytesHeld(spec);
     yield Progress(received: done, total: total, file: spec.files.first.name);
@@ -99,14 +88,7 @@ class ModelStore {
     final client = http.Client();
     try {
       for (final file in spec.files) {
-        final target = File(p.join(directory.path, file.name));
-        if (target.existsSync() && await target.length() == file.bytes) {
-          continue;
-        }
-
-        // A partial file from a previous run would otherwise be appended to.
-        final partial = File('${target.path}.partial');
-        if (partial.existsSync()) await partial.delete();
+        if (await _held(spec, file)) continue;
 
         final request = http.Request('GET', Uri.parse(file.url));
         final response = await client.send(request);
@@ -117,33 +99,34 @@ class ModelStore {
           );
         }
 
-        final sink = partial.openWrite();
+        final chunks = <List<int>>[];
         var received = 0;
-        try {
-          await for (final chunk in response.stream) {
-            sink.add(chunk);
-            received += chunk.length;
-            yield Progress(
-              received: done + received,
-              total: total,
-              file: file.name,
-            );
-          }
-        } finally {
-          await sink.close();
-        }
-
-        final arrived = await partial.length();
-        if (arrived != file.bytes) {
-          await partial.delete();
-          throw StateError(
-            '${file.name} arrived $arrived bytes, and the catalogue says '
-            '${file.bytes}. That is a different file than the one described, '
-            'so it has been discarded rather than run.',
+        await for (final chunk in response.stream) {
+          chunks.add(chunk);
+          received += chunk.length;
+          yield Progress(
+            received: done + received,
+            total: total,
+            file: file.name,
           );
         }
 
-        await partial.rename(target.path);
+        if (received != file.bytes) {
+          throw StateError(
+            '${file.name} arrived $received bytes, and the catalogue says '
+            '${file.bytes}. That is a different file than the one described, '
+            'so it has been discarded rather than kept.',
+          );
+        }
+
+        final bytes = Uint8List(received);
+        var offset = 0;
+        for (final chunk in chunks) {
+          bytes.setRange(offset, offset + chunk.length, chunk);
+          offset += chunk.length;
+        }
+        await store(spec, file, bytes);
+
         done += file.bytes;
         yield Progress(received: done, total: total, file: file.name);
       }
@@ -152,20 +135,12 @@ class ModelStore {
     }
   }
 
-  /// Removes [spec] from disk.
-  Future<void> evict(ModelSpec spec) async {
-    final directory = directoryFor(spec);
-    if (directory.existsSync()) await directory.delete(recursive: true);
-  }
-
-  /// What every model held on disk costs, together.
-  Future<int> bytesOnDisk() async {
-    if (!root.existsSync()) return 0;
-    var total = 0;
-    await for (final entry in root.list(recursive: true)) {
-      if (entry is File) total += await entry.length();
+  Future<bool> _held(ModelSpec spec, RemoteFile file) async {
+    try {
+      return (await read(spec, file.name)).length == file.bytes;
+    } catch (_) {
+      return false;
     }
-    return total;
   }
 }
 

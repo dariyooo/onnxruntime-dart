@@ -7,6 +7,7 @@
 /// rather than from what was asked for.
 library;
 
+import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -16,6 +17,7 @@ import 'package:path/path.dart' as p;
 import 'catalogue.dart';
 import 'diagnostics.dart';
 import 'images.dart';
+import 'store.dart';
 import 'text.dart';
 
 /// What a run produced, ready to show.
@@ -53,20 +55,24 @@ class ProviderChoice {
 /// The profile is written next to the model rather than into the working
 /// directory, which on a phone is not somewhere writable.
 Future<(Session, List<String>)> _open(
-  File file,
+  ModelStore store,
+  ModelSpec spec,
   ProviderChoice provider,
-  Directory scratch,
 ) async {
   final requested = provider.name == null ? <String>[] : [provider.name!];
+  final directory = store.directoryOf(spec);
   final options = SessionOptions(
     providers: [
       for (final name in requested)
         (name: name, configuration: <String, String>{}),
     ],
-    profileFilePrefix: p.join(scratch.path, 'profile'),
+    // Only where there is somewhere to write one. In a browser there is no
+    // directory, and the diagnostics panel says the profile is missing rather
+    // than the app failing to open a session over it.
+    profileFilePrefix: directory == null ? null : p.join(directory, 'profile'),
   );
-  final session =
-      await Session.load(await file.readAsBytes(), options: options);
+  final model = await store.read(spec, spec.model.name);
+  final session = await Session.load(model, options: options);
   return (session, requested);
 }
 
@@ -89,9 +95,27 @@ Future<(Map<String, OrtTensor>, Duration)> _run(
 /// Closes the profile and reads it, which can only happen once per session.
 Future<RunReport> _report(
   Session session,
+  ModelStore store,
+  ModelSpec spec,
   Duration wallTime,
   List<String> requested,
 ) async {
+  // No directory means no profile, and no filesystem to look for one on. Said
+  // plainly rather than reported as an empty run: the panel distinguishes "the
+  // runtime named no providers" from "this platform cannot tell you".
+  if (store.directoryOf(spec) == null) {
+    return RunReport(
+      wallTime: wallTime,
+      requested: requested,
+      nodesByProvider: const {},
+      warnings: const [
+        'the profile that says which provider executed each node is written to '
+            'a file, and a browser has nowhere to write one. The run happened, '
+            'but who served it cannot be shown here.',
+      ],
+    );
+  }
+
   final profile = session.endProfiling();
   if (profile == null) {
     return RunReport(
@@ -115,15 +139,15 @@ Future<RunReport> _report(
 /// A classifier: a picture in, the likeliest classes out.
 Future<Outcome> runClassifier({
   required ModelSpec spec,
-  required Directory directory,
+  required ModelStore store,
   required Uint8List image,
   required ProviderChoice provider,
 }) async {
   final picture = await Picture.decode(image);
-  final labels = await File(p.join(directory.path, 'synset.txt')).readAsLines();
+  final labels = const LineSplitter()
+      .convert(utf8.decode(await store.read(spec, 'synset.txt')));
 
-  final (session, requested) = await _open(
-      File(p.join(directory.path, spec.model.name)), provider, directory);
+  final (session, requested) = await _open(store, spec, provider);
   try {
     final input = session.inputs.single;
     final tensor = OrtTensor.fromData(
@@ -133,7 +157,7 @@ Future<Outcome> runClassifier({
     );
     try {
       final (outputs, took) = await _run(session, {input.name: tensor});
-      final report = await _report(session, took, requested);
+      final report = await _report(session, store, spec, took, requested);
       try {
         final view = outputs.values.first.view;
         final scores = view.float32s.toList();
@@ -173,13 +197,12 @@ Future<Outcome> runClassifier({
 /// arrive with the right shapes and dtypes.
 Future<Outcome> runDetector({
   required ModelSpec spec,
-  required Directory directory,
+  required ModelStore store,
   required Uint8List image,
   required ProviderChoice provider,
 }) async {
   final picture = await Picture.decode(image);
-  final (session, requested) = await _open(
-      File(p.join(directory.path, spec.model.name)), provider, directory);
+  final (session, requested) = await _open(store, spec, provider);
   try {
     // Two inputs: the picture, and the size it came from. The second is why
     // the boxes come back in the original coordinates.
@@ -198,7 +221,7 @@ Future<Outcome> runDetector({
       final names = session.inputs.map((i) => i.name).toList();
       final (outputs, took) =
           await _run(session, {names.first: data, names.last: shape});
-      final report = await _report(session, took, requested);
+      final report = await _report(session, store, spec, took, requested);
       try {
         return Outcome(
           report: report,
@@ -228,16 +251,14 @@ Future<Outcome> runDetector({
 /// A transformer: two sentences in, how alike they are out.
 Future<Outcome> runTransformer({
   required ModelSpec spec,
-  required Directory directory,
+  required ModelStore store,
   required String first,
   required String second,
   required ProviderChoice provider,
 }) async {
-  final tokenizer = WordPiece.parse(
-    await File(p.join(directory.path, 'vocab.txt')).readAsString(),
-  );
-  final (session, requested) = await _open(
-      File(p.join(directory.path, spec.model.name)), provider, directory);
+  final tokenizer =
+      WordPiece.parse(utf8.decode(await store.read(spec, 'vocab.txt')));
+  final (session, requested) = await _open(store, spec, provider);
   try {
     final embeddings = <List<double>>[];
     // Both sentences go through the same session, so the time is the sum and
@@ -300,7 +321,7 @@ Future<Outcome> runTransformer({
       }
     }
 
-    final report = await _report(session, took, requested);
+    final report = await _report(session, store, spec, took, requested);
     final similarity = cosineSimilarity(embeddings.first, embeddings.last);
     return Outcome(
       report: report,
@@ -320,13 +341,12 @@ Future<Outcome> runTransformer({
 /// A recurrent model: a question and a passage in, the answer span out.
 Future<Outcome> runRecurrent({
   required ModelSpec spec,
-  required Directory directory,
+  required ModelStore store,
   required String passage,
   required String question,
   required ProviderChoice provider,
 }) async {
-  final (session, requested) = await _open(
-      File(p.join(directory.path, spec.model.name)), provider, directory);
+  final (session, requested) = await _open(store, spec, provider);
   try {
     // BiDAF takes each word twice: once whole, and once split into its first
     // sixteen characters. Both are string tensors, which almost nothing else
@@ -348,7 +368,7 @@ Future<Outcome> runRecurrent({
     };
     try {
       final (outputs, took) = await _run(session, feeds);
-      final report = await _report(session, took, requested);
+      final report = await _report(session, store, spec, took, requested);
       try {
         // Two outputs, the first and last word of the answer.
         final start = outputs['start_pos']?.view.int32s.first ?? 0;

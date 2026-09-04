@@ -8,12 +8,14 @@
 library;
 
 import 'dart:convert';
+import 'dart:typed_data';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:onnxruntime_gallery/src/catalogue.dart';
 import 'package:onnxruntime_gallery/src/diagnostics.dart';
 import 'package:onnxruntime_gallery/src/store.dart';
+import 'package:onnxruntime_gallery/src/store_web.dart';
 import 'package:onnxruntime_gallery/src/text.dart';
 
 void main() {
@@ -209,6 +211,69 @@ void main() {
     test('is zero rather than a crash for an empty or degenerate vector', () {
       expect(cosineSimilarity(const [], const []), 0);
       expect(cosineSimilarity([0, 0], [1, 1]), 0);
+    });
+  });
+
+  group('the in-memory store', () {
+    // The web store, tested on the VM because it names nothing web: that is
+    // what makes it the web half of the seam in the first place.
+    late MemoryModelStore store;
+    final spec = catalogue.first;
+
+    setUp(() => store = MemoryModelStore());
+
+    test('says a browser keeps nothing across a reload', () {
+      expect(store.isPersistent, isFalse);
+      expect(store.location, isNotEmpty);
+    });
+
+    test('offers no directory, which is what GenAI needs', () {
+      // Not an oversight to fix later. GenAI reads a model directory rather
+      // than bytes, so null here is what stops the card pretending.
+      expect(store.directoryOf(spec), isNull);
+    });
+
+    test('holds a file and reads it back', () async {
+      final file = spec.files.first;
+      final bytes = Uint8List(file.bytes);
+      await store.store(spec, file, bytes);
+
+      expect(await store.read(spec, file.name), same(bytes));
+      expect(await store.bytesHeld(spec), file.bytes);
+    });
+
+    test('is not complete until every file is held', () async {
+      expect(await store.isComplete(spec), isFalse);
+      for (final file in spec.files) {
+        await store.store(spec, file, Uint8List(file.bytes));
+      }
+      expect(await store.isComplete(spec), isTrue);
+      expect(await store.bytesTotal(), spec.bytes);
+    });
+
+    test('refuses a file that arrived the wrong length', () async {
+      // The length is the only check available: a truncated download produces
+      // bytes that decode as a model right up to where it stops.
+      final file = spec.files.first;
+      await store.store(spec, file, Uint8List(file.bytes - 1));
+      expect(await store.isComplete(spec), isFalse);
+      expect(await store.bytesHeld(spec), 0);
+    });
+
+    test('reading something never fetched says so', () {
+      expect(() => store.read(spec, 'not-fetched.onnx'), throwsStateError);
+    });
+
+    test('evicting forgets a model and nothing else', () async {
+      final other = catalogue[1];
+      await store.store(
+          spec, spec.files.first, Uint8List(spec.files.first.bytes));
+      await store.store(
+          other, other.files.first, Uint8List(other.files.first.bytes));
+
+      await store.evict(spec);
+      expect(await store.bytesHeld(spec), 0);
+      expect(await store.bytesHeld(other), other.files.first.bytes);
     });
   });
 }

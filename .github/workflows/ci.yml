@@ -20,6 +20,9 @@ on:
     # anything; run it deliberately with the inputs below when there is
     # something worth running. Merging to main then runs all of it.
     branches: [main]
+    # The gallery job commits its build into docs/ for Pages to serve. Without
+    # this that commit starts another run, which builds and commits again.
+    paths-ignore: ['docs/**']
     # The patterns releases actually use. `v*` matched none of them, so no tag
     # has ever started a run and publishing has been unreachable since the
     # publish jobs became tag-only. Each prefix names one component, which is
@@ -293,6 +296,60 @@ jobs:
           set -euo pipefail
           flutter pub get
           flutter test
+
+  pages:
+    name: example · publish to pages
+    # Only after its tests pass. The gallery is the thing being published, so
+    # publishing it untested would be publishing something nobody ran.
+    needs: [mode, example-app]
+    # Pages serves main branch /docs, so nothing else can update it. A run on a
+    # branch builds the app and stops, which still catches a broken web build.
+    if: ${{ github.ref == 'refs/heads/main' && github.event_name == 'push' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: write
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v5
+        with: { submodules: true }
+      - uses: subosito/flutter-action@v2
+        with: { channel: stable }
+
+      - name: Build the gallery for the web
+        working-directory: examples/gallery
+        run: |
+          set -euo pipefail
+          # Served from a project page, so every asset URL is prefixed. Getting
+          # this wrong produces a page that loads and then fetches nothing.
+          flutter pub get
+          flutter build web --base-href=/onnxruntime-dart/
+
+      - name: Put it where Pages looks
+        run: |
+          set -euo pipefail
+          rm -rf docs
+          mkdir -p docs
+          cp -r examples/gallery/build/web/. docs/
+          # Pages runs Jekyll otherwise, which drops files starting with an
+          # underscore, and Flutter ships several.
+          touch docs/.nojekyll
+          ls docs | head
+
+      - name: Commit it, if it changed
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git add docs
+          if git diff --cached --quiet; then
+            echo "the built gallery is unchanged"
+            exit 0
+          fi
+          git commit -m 'Publish the gallery to Pages'
+          git push
 
   bindings-are-current:
     name: bindings match the submodule
