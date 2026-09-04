@@ -33,15 +33,18 @@ Future<Uint8List?> pickImage() async {
 /// Two different questions on the two platforms, which is why this is not one
 /// call to `availableProviders`.
 ///
-/// Native compiles a provider in, so the runtime can list it and the list is
-/// the answer. The WebAssembly build does not: it reports only
-/// `CPUExecutionProvider` and `XnnpackExecutionProvider` however it was built,
-/// because WebGPU and WebNN are attached to a session when it is created
-/// rather than registered globally. Asking the runtime there would offer CPU
-/// and nothing else, on a build that has all three.
+/// Native loads a provider as a library, so the runtime can enumerate what it
+/// found and that list is the answer.
 ///
-/// So on the web the answer comes from which runtime was bundled, which is
-/// what `ortWebBuild` is for.
+/// The web is not the same question. Providers are compiled into the build
+/// rather than loaded, which is why there are three builds at all, but the
+/// WebAssembly C API exports no call to enumerate them. So the backend can
+/// only return what every build has, `CPUExecutionProvider` and
+/// `XnnpackExecutionProvider`, and cannot see which of the three was served.
+/// Asking it would offer CPU alone on a build carrying all three.
+///
+/// The only thing that knows is which package was depended on, which is what
+/// `ortWebBuild` records.
 List<ProviderChoice> providerChoices() {
   if (kIsWeb) {
     return [

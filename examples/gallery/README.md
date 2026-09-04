@@ -57,10 +57,10 @@ run: GenAI has no WebAssembly build, and it reads a model directory rather than
 bytes.
 
 Which providers are on offer is read from which runtime was bundled rather than
-from the runtime itself. Asked directly, a WebAssembly build reports only
-`CPUExecutionProvider` and `XnnpackExecutionProvider` however it was compiled,
-because WebGPU and WebNN are attached to a session as it is created rather than
-registered globally.
+from the runtime itself. The providers are compiled in, which is why there are
+three builds, but the WebAssembly C API exports no call to enumerate them, so
+asking reports only `CPUExecutionProvider` and `XnnpackExecutionProvider`
+whichever build is being served.
 
 ## Running it
 
