@@ -248,6 +248,35 @@ Future<void> main() async {
       expect(tensor.view.shape, [values.length]);
     });
 
+    test('a string tensor round-trips its values', () {
+      // Shared rather than native, which is how this was missed: a string
+      // tensor is an array of pointers to NUL terminated UTF-8 rather than a
+      // buffer, so it is the one element type whose marshalling differs per
+      // platform, and it was only ever tested on one of them.
+      const values = ['alpha', 'a longer one with spaces', 'β unicode', ''];
+      final tensor = OrtTensor.fromStrings(values, [values.length]);
+      addTearDown(tensor.release);
+
+      expect(tensor.strings, values);
+    });
+
+    test('a multidimensional string tensor reads back in order', () {
+      // Row major, the same as every other element type. `view` is not asked
+      // for: a string has no fixed width, so there is nothing to view, and it
+      // refuses rather than inventing one.
+      final tensor = OrtTensor.fromStrings(['a', 'b', 'c', 'd'], [2, 2]);
+      addTearDown(tensor.release);
+
+      expect(tensor.strings, ['a', 'b', 'c', 'd']);
+    });
+
+    test('a string tensor refuses a shape that does not fit its values', () {
+      expect(
+        () => OrtTensor.fromStrings(['only', 'two'], [3]),
+        throwsA(isA<ArgumentError>()),
+      );
+    });
+
     test('a tensor knows how many elements its shape implies', () {
       final tensor = OrtTensor.fromData(
         OrtElementType.float32,

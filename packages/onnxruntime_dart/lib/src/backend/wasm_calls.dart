@@ -20,7 +20,9 @@ import 'dart:typed_data';
 import 'package:meta/meta.dart';
 
 import '../annotations.dart';
+import '../bindings/config_keys.g.dart';
 import 'interface.dart';
+import 'provider_names.dart';
 import 'raw_wasm_calls.g.dart';
 import 'types.dart';
 import 'wasm/api.g.dart';
@@ -139,7 +141,9 @@ base class WasmCalls with GeneratedWasmRawCalls implements OrtCalls {
   @override
   void appendExecutionProvider(
           OrtPtr options, String name, Map<String, String> configuration) =>
-      pendingOptions(options).providers.add((name, configuration));
+      pendingOptions(options)
+          .providers
+          .add((webProviderName(name), configuration));
 
   @override
   void addSessionConfigEntry(OrtPtr options, String key, String value) =>
@@ -191,16 +195,34 @@ base class WasmCalls with GeneratedWasmRawCalls implements OrtCalls {
       'setOptimizedModelPath',
       'the WebAssembly build is compiled with FILESYSTEM=0');
 
+  /// Refused, having been measured rather than assumed.
+  ///
+  /// `OrtCreateSessionOptions` does take `enable_profiling`, and turning it on
+  /// succeeds. What it produces is the problem: `OrtEndProfiling` hands back a
+  /// file name, `_2026-09-04_16-49-43_588.json`, and the build is linked with
+  /// FILESYSTEM=0, so no such file exists and nothing can read it. Accepting
+  /// the call would cost the profiling overhead and give back a name for
+  /// nothing.
   @override
-  @NativeOnly('this WebAssembly build is linked with FILESYSTEM=0')
+  @NativeOnly('the profile is written to a file and this build has no '
+      'filesystem, so there is nothing to read back')
   void enableProfiling(OrtPtr options, String pathPrefix) => unsupportedOnWeb(
-      'enableProfiling', 'the WebAssembly build is compiled with FILESYSTEM=0');
+      'enableProfiling',
+      'the WebAssembly build writes the profile to a file and is linked with '
+          'FILESYSTEM=0, so the profile cannot be read back. Enabling it '
+          'succeeds and produces nothing.');
 
+  /// Set through the session config entry rather than a dedicated call.
+  ///
+  /// The WebAssembly build has no `SetDeterministicCompute`, but ONNX Runtime
+  /// documents `session.use_deterministic_compute` as "Equivalent to
+  /// OrtApi::SetDeterministicCompute", taking "0" or "1", and config entries
+  /// are one of the things this build does take. So the option is here, and
+  /// refusing it was reading the export list rather than the options.
   @override
-  @NativeOnly('the WebAssembly build exposes no deterministic compute flag')
   void setDeterministicCompute(OrtPtr options, {required bool deterministic}) =>
-      unsupportedOnWeb('setDeterministicCompute',
-          'the WebAssembly build exposes no such option');
+      pendingOptions(options).config[SessionConfig.useDeterministicCompute] =
+          deterministic ? '1' : '0';
 
   @override
   void setMemoryPattern(OrtPtr options, {required bool enabled}) =>
@@ -435,8 +457,41 @@ base class WasmCalls with GeneratedWasmRawCalls implements OrtCalls {
   @override
   @NativeOnly('the WebAssembly build exports no string tensor path')
   OrtPtr createStringTensor(List<String> values, List<int> shape) =>
-      unsupportedOnWeb('createStringTensor',
-          'the WebAssembly build exports no string tensor path');
+      withArena(module, (arena) {
+        final expected = shape.fold(1, (total, size) => total * size);
+        if (values.length != expected) {
+          throw ArgumentError.value(
+            values,
+            'values',
+            'has ${values.length} strings and the shape $shape needs $expected',
+          );
+        }
+
+        // A string tensor is an array of pointers to NUL terminated UTF-8, and
+        // its length is the size of that array rather than of the text. The
+        // runtime copies the strings as it builds the tensor, so the arena can
+        // free them when this returns.
+        final pointers = arena.strings(values);
+        final dimensions = arena.slots(shape.length);
+        for (var i = 0; i < shape.length; i++) {
+          module.setValue((dimensions + 4 * i).toJS, shape[i].toJS, 'i32'.toJS);
+        }
+
+        return OrtPtr(checkHandle(
+          module,
+          module
+              .ortCreateTensor(
+                OrtElementType.string.code.toJS,
+                pointers.toJS,
+                (_pointerSize * values.length).toJS,
+                dimensions.toJS,
+                shape.length.toJS,
+                _dataLocationCpu.toJS,
+              )
+              .toDartInt,
+          'OrtCreateTensor',
+        ));
+      });
 
   @override
   OrtTensorView tensorData(OrtPtr tensor) => withArena(module, (arena) {
@@ -468,10 +523,46 @@ base class WasmCalls with GeneratedWasmRawCalls implements OrtCalls {
       });
 
   @override
-  @NativeOnly('the WebAssembly build exports no string tensor path')
-  List<String> stringTensorData(OrtPtr tensor) => unsupportedOnWeb(
-      'stringTensorData',
-      'the WebAssembly build exports no string tensor path');
+  List<String> stringTensorData(OrtPtr tensor) => withArena(module, (arena) {
+        final slots = arena.slots(4);
+        check(
+          module,
+          module
+              .ortGetTensorData(tensor.address.toJS, slots.toJS,
+                  (slots + 4).toJS, (slots + 8).toJS, (slots + 12).toJS)
+              .toDartInt,
+          'OrtGetTensorData',
+        );
+
+        final data = module.readPointer(slots + 4);
+        final dimensions = module.readPointer(slots + 8);
+        final rank = module.readInt(slots + 12);
+        final count = [
+          for (var i = 0; i < rank; i++) module.readInt(dimensions + 4 * i),
+        ].fold(1, (total, size) => total * size);
+
+        // Packed contiguously and delimited by the next entry's pointer, not
+        // by a terminator, so each is read with a length. Without one every
+        // string returns itself and all the rest concatenated. The last has
+        // nothing after it and is read to its terminator.
+        final offsets = [
+          for (var i = 0; i < count; i++)
+            module.readPointer(data + _pointerSize * i),
+        ];
+        final values = [
+          for (var i = 0; i < count; i++)
+            i == count - 1
+                ? module.readString(offsets[i])
+                : module.readStringOfLength(
+                    offsets[i], offsets[i + 1] - offsets[i]),
+        ];
+
+        // Both buffers are the call's, not the tensor's: the header says the
+        // caller frees dims for every tensor and data for a string one.
+        module.ortFree(dimensions.toJS);
+        module.ortFree(data.toJS);
+        return values;
+      });
 
   @override
   void releaseTensor(OrtPtr tensor) =>
@@ -614,3 +705,9 @@ base class WasmCalls with GeneratedWasmRawCalls implements OrtCalls {
 extension on int {
   OrtPtr get asPtr => OrtPtr(this);
 }
+
+/// Bytes in a pointer, which the WebAssembly build is 32 bit.
+///
+/// A string tensor is an array of these, so the arithmetic that walks it has
+/// to agree with the module rather than with the host.
+const _pointerSize = 4;
