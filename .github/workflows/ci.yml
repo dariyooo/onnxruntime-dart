@@ -685,7 +685,7 @@ jobs:
       - uses: actions/download-artifact@v4
         if: ${{ needs.mode.outputs.building == 'true' }}
         with:
-          name: onnxruntime-${{ matrix.artifact || inputs.configuration || 'ios-sim-arm64' }}-webgpu
+          name: onnxruntime-${{ matrix.artifact }}-webgpu
           path: .local/artifacts
 
       - name: Unpack the provider
@@ -694,7 +694,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p .local/ort/device/lib
-          tar xzf ".local/artifacts/ep-webgpu/${{ matrix.artifact || inputs.configuration || 'ios-sim-arm64' }}-webgpu.tar.gz" \
+          tar xzf ".local/artifacts/ep-webgpu/${{ matrix.artifact }}-webgpu.tar.gz" \
             -C .local/ort/device/lib
           ls -la .local/ort/device/lib
 
@@ -748,7 +748,7 @@ jobs:
             echo "::error::on x86_64 outright, and macOS is the only arm64 host"
             echo "::error::Google ships an emulator for at all."
             echo "::error::Real coverage needs arm64 hardware CI does not"
-            echo "::error::have. See issue #1 for the measurements.""
+            echo "::error::have. See issue #1 for the measurements."
             exit 1
           fi
 
