@@ -97,6 +97,11 @@ jobs:
           # put 37 MB into this repository's history for something no browser
           # ever requests.
           rm -rf docs/canvaskit
+          # Flutter copies a package's assets verbatim, and the runtime package
+          # ships a .gitignore beside its assets that ignores *.wasm and *.mjs.
+          # Copied into docs/ it silently excludes the runtime from the commit,
+          # leaving a page that loads and then cannot find one.
+          find docs -name '.gitignore' -delete
           du -sh docs
           # Pages runs Jekyll otherwise, which drops files starting with an
           # underscore, and Flutter ships several.
