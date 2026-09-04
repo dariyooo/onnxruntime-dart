@@ -231,13 +231,14 @@ class PackageVersions(unittest.TestCase):
 
     def test_the_extensions_package_carries_the_extensions_version(self):
         self.assertEqual(
-            self._version("onnxruntime_extensions"), extensions_matrix.version()
+            self._version("onnxruntime_extensions_binaries"),
+            extensions_matrix.version(),
         )
 
     def test_each_provider_package_carries_its_plugin_version(self):
         for provider in ep_matrix.PROVIDERS:
             self.assertEqual(
-                self._version(f"onnxruntime_ep_{provider.name}"),
+                self._version(f"onnxruntime_ep_{provider.name}_binaries"),
                 provider.version,
                 provider.name,
             )
@@ -346,7 +347,7 @@ class ProviderTargets(unittest.TestCase):
         )
 
         pubspec = (
-            REPO_ROOT / "packages" / "onnxruntime_extensions" / "pubspec.yaml"
+            REPO_ROOT / "packages" / "onnxruntime_extensions_binaries" / "pubspec.yaml"
         ).read_text(encoding="utf-8")
         installed = re.search(
             r"^version:\s*(\S+)\s*$", pubspec, re.MULTILINE
@@ -396,7 +397,7 @@ class Providers(unittest.TestCase):
             pubspec = (
                 REPO_ROOT
                 / "packages"
-                / f"onnxruntime_ep_{provider.name}"
+                / f"onnxruntime_ep_{provider.name}_binaries"
                 / "pubspec.yaml"
             ).read_text(encoding="utf-8")
             installed = re.search(
@@ -787,7 +788,7 @@ class Extensions(unittest.TestCase):
         # the built library follows the file, so the file is what we publish.
         version = self.ext.version()
         pubspec = (
-            REPO_ROOT / "packages" / "onnxruntime_extensions" / "pubspec.yaml"
+            REPO_ROOT / "packages" / "onnxruntime_extensions_binaries" / "pubspec.yaml"
         ).read_text(encoding="utf-8")
         self.assertIn(f"version: {version}", pubspec)
 
@@ -899,7 +900,7 @@ class Pipelines(unittest.TestCase):
         import release_identity
 
         for provider in ep_matrix.PROVIDERS:
-            package = REPO_ROOT / "packages" / f"onnxruntime_ep_{provider.name}"
+            package = REPO_ROOT / "packages" / f"onnxruntime_ep_{provider.name}_binaries"
             if not package.is_dir():
                 continue
 
@@ -939,7 +940,7 @@ class Pipelines(unittest.TestCase):
         # artifact upstream, which test_a_provider_without_a_package_is_safe
         # covers.
         for provider in ep_matrix.PROVIDERS:
-            package = REPO_ROOT / "packages" / f"onnxruntime_ep_{provider.name}"
+            package = REPO_ROOT / "packages" / f"onnxruntime_ep_{provider.name}_binaries"
             self.assertTrue(
                 package.is_dir(), f"{provider.name} is published with no package"
             )
@@ -1222,6 +1223,258 @@ class PackagingRunsItsChecks(unittest.TestCase):
                 package_artifact.package(config)
         finally:
             package_artifact.REPO_ROOT, package_artifact.DIST = original
+
+
+class ApiAndBinariesAreSeparate(unittest.TestCase):
+    """A Dart API and the library it drives are versioned apart.
+
+    Every package that offers an API and also ships a binary is two packages:
+    the API, on a version of its own, and `<name>_binaries` on the binary's.
+    That is what lets an application move one without the other, and take the
+    API with no binary at all when it means to supply the library itself.
+
+    The pairing is not enforced by pub, which is why it is enforced here.
+    """
+
+    def _pubspec(self, package: str) -> str:
+        return (REPO_ROOT / "packages" / package / "pubspec.yaml").read_text(
+            encoding="utf-8"
+        )
+
+    def _api_packages(self) -> list[str]:
+        """Packages whose Dart names an asset in a sibling binaries package."""
+        found = []
+        for package in sorted((REPO_ROOT / "packages").iterdir()):
+            if not package.is_dir() or package.name.endswith("_binaries"):
+                continue
+            for dart in package.glob("lib/**/*.dart"):
+                if f"package:{package.name}_binaries/" in dart.read_text(
+                    encoding="utf-8"
+                ):
+                    found.append(package.name)
+                    break
+        return found
+
+    def test_each_api_package_has_a_binaries_package(self):
+        packages = self._api_packages()
+        self.assertGreater(len(packages), 0, "no API package was found to check")
+        for name in packages:
+            with self.subTest(package=name):
+                self.assertTrue(
+                    (REPO_ROOT / "packages" / f"{name}_binaries").is_dir(),
+                    f"{name} names an asset in {name}_binaries, which does not "
+                    f"exist",
+                )
+
+    def test_an_api_package_runs_no_hook(self):
+        # The hook installs the binary, so it belongs to the package that is
+        # the binary. An API package with a hook would install one whether the
+        # application wanted it or not.
+        for name in self._api_packages():
+            with self.subTest(package=name):
+                self.assertFalse(
+                    (REPO_ROOT / "packages" / name / "hook").exists(),
+                    f"{name} has a hook, which belongs in {name}_binaries",
+                )
+
+    def test_an_api_package_does_not_require_its_binaries(self):
+        """The binary stays optional, which is the point of the split.
+
+        Naming it as a real dependency would make every application take our
+        build of it, and there would be no way to supply one at run time
+        instead. A dev dependency is fine and is how these packages test
+        themselves: dev dependencies are not transitive, so nothing an
+        application depends on is affected by one.
+        """
+        import yaml
+
+        for name in self._api_packages():
+            with self.subTest(package=name):
+                spec = yaml.safe_load(self._pubspec(name))
+                self.assertNotIn(
+                    f"{name}_binaries",
+                    spec.get("dependencies") or {},
+                    f"{name} requires {name}_binaries, so an application "
+                    f"cannot supply its own library",
+                )
+
+    def test_an_api_version_names_the_binary_it_was_written_against(self):
+        for name in self._api_packages():
+            with self.subTest(package=name):
+                version = re.search(
+                    r"^version:\s*(\S+)\s*$", self._pubspec(name), re.MULTILINE
+                ).group(1)
+                self.assertIn(
+                    "+",
+                    version,
+                    f"{name} is {version}, which names no binary. Use "
+                    f"<own version>+<component>-<binary version>.",
+                )
+
+
+class WorkspaceReadme(unittest.TestCase):
+    """The package table says what the pubspecs say.
+
+    A table of versions is the first thing a reader trusts and the first thing
+    to go stale, because nothing breaks when it does.
+    """
+
+    def test_every_package_is_listed_at_its_version(self):
+        import yaml
+
+        readme = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
+        for package in sorted((REPO_ROOT / "packages").iterdir()):
+            if not package.is_dir():
+                continue
+            spec = yaml.safe_load((package / "pubspec.yaml").read_text(encoding="utf-8"))
+            with self.subTest(package=package.name):
+                self.assertIn(
+                    f"`{package.name}`",
+                    readme,
+                    f"{package.name} is not in the workspace README table",
+                )
+                self.assertIn(
+                    f"| {spec['version']} |",
+                    readme,
+                    f"{package.name} is listed at a version that is not "
+                    f"{spec['version']}",
+                )
+
+
+class ReusableWorkflowPermissions(unittest.TestCase):
+    """A caller grants what the workflow it calls asks for.
+
+    A reusable workflow cannot hold more permission than the job calling it was
+    given. Asking for more is not a job that fails, it is a run that never
+    starts, which reports as `startup_failure` with nothing else to read.
+    """
+
+    def test_a_caller_grants_what_the_called_workflow_needs(self):
+        import yaml
+
+        workflows = REPO_ROOT / ".github" / "workflows"
+        ci = yaml.safe_load((workflows / "ci.yml").read_text(encoding="utf-8"))
+
+        for name, job in ci["jobs"].items():
+            uses = str(job.get("uses", ""))
+            if not uses.startswith("./.github/workflows/"):
+                continue
+            called = yaml.safe_load(
+                (REPO_ROOT / uses.removeprefix("./")).read_text(encoding="utf-8")
+            )
+            wanted = {
+                permission
+                for inner in (called.get("jobs") or {}).values()
+                for permission, level in (inner.get("permissions") or {}).items()
+                if level == "write"
+            }
+            granted = {
+                permission
+                for permission, level in (job.get("permissions") or {}).items()
+                if level == "write"
+            }
+            with self.subTest(job=name):
+                self.assertTrue(
+                    wanted <= granted,
+                    f"{name} calls {uses} which needs "
+                    f"{sorted(wanted)} write, but the caller grants "
+                    f"{sorted(granted)}. The run will not start.",
+                )
+
+
+class GenAiTargets(unittest.TestCase):
+    """The hook offers exactly what the mirror publishes.
+
+    Two lists of the same thing, in Dart and in Python, and nothing makes them
+    agree except this. A hook that offers a target nothing publishes fails at
+    install time in somebody's build; one that omits a target we publish is a
+    binary nobody can reach.
+    """
+
+    def _hook_targets(self) -> list[str]:
+        import genai_matrix  # noqa: F401  (kept beside the other import)
+
+        source = (
+            REPO_ROOT / "packages" / "onnxruntime_hook" / "lib" / "src" /
+            "target.dart"
+        ).read_text(encoding="utf-8")
+        block = re.search(
+            r"class OrtGenAi.*?static const targets = \[(.*?)\];", source, re.S
+        )
+        self.assertIsNotNone(block, "OrtGenAi.targets is not where this expects")
+        return re.findall(r"'([^']+)'", block.group(1))
+
+    def test_the_hook_and_the_mirror_agree(self):
+        import genai_matrix
+
+        self.assertEqual(sorted(self._hook_targets()), sorted(genai_matrix.targets()))
+
+    def test_every_genai_target_is_one_the_runtime_has(self):
+        # GenAI runs on a session, so a target with no runtime beneath it is a
+        # library that installs and then finds nothing to call.
+        import genai_matrix
+
+        runtime = {config.id for config in m.CONFIGURATIONS}
+        for target in genai_matrix.targets():
+            with self.subTest(target=target):
+                self.assertIn(target, runtime)
+
+
+class InstallInstructions(unittest.TestCase):
+    """`pub add` lines name the binaries, not only the API.
+
+    The API packages deliberately do not depend on their binaries, so that an
+    application can supply its own. The cost of that is documentation which
+    says to add one package where two are needed, and following it gives an API
+    with nothing behind it.
+    """
+
+    def test_adding_an_api_package_also_adds_its_binaries(self):
+        readme = (
+            REPO_ROOT / "packages" / "onnxruntime_dart" / "README.md"
+        ).read_text(encoding="utf-8")
+
+        for line in readme.splitlines():
+            if not line.startswith("dart pub add "):
+                continue
+            named = line.removeprefix("dart pub add ").split()
+            for package in named:
+                if package.endswith("_binaries"):
+                    continue
+                if not (REPO_ROOT / "packages" / f"{package}_binaries").is_dir():
+                    continue
+                with self.subTest(line=line):
+                    self.assertIn(
+                        f"{package}_binaries",
+                        named,
+                        f"'{line}' adds {package} without its binaries, so "
+                        f"nothing is installed to call",
+                    )
+
+
+class ReleaseIdentityCoversGenAi(unittest.TestCase):
+    """GenAI's release tag comes from GenAI's version.
+
+    It versions from its own submodule, and `release_identity` knows the
+    runtime and the providers. Falling through to that named the GenAI release
+    after the runtime, which is a tag that would never exist.
+    """
+
+    def test_the_genai_tag_names_the_genai_version(self):
+        import genai_matrix
+
+        self.assertEqual(
+            genai_matrix.release_tag(), f"genai-v{genai_matrix.version()}"
+        )
+        runtime = (
+            REPO_ROOT / "third_party" / "onnxruntime" / "VERSION_NUMBER"
+        ).read_text(encoding="utf-8").strip()
+        self.assertNotIn(
+            runtime,
+            genai_matrix.release_tag(),
+            "the GenAI tag carries the runtime version, so it names a release "
+            "that will never be published",
+        )
 
 
 if __name__ == "__main__":

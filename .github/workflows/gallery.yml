@@ -1,0 +1,132 @@
+# The example application, on its own schedule.
+#
+# Separate from ci.yml because it depends on none of what that builds. The web
+# build links no native library at all: the runtime is fetched as an asset at
+# startup, so this needs Flutter and a published web runtime and nothing else.
+# Tying it to the binary pipeline meant an hour of unrelated building before a
+# change to a Dart file in the gallery could be seen.
+#
+# It publishes by uploading an artifact rather than committing the build into
+# the repository. Serving from docs/ was tried and does not work here: the
+# WebAssembly runtime is 42 MB, and a Pages build carrying it is rejected
+# outright while the same tree without it builds in under a minute. Uploading
+# also keeps 42 MB of build output out of the history, which is where it was
+# never wanted.
+name: gallery
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'examples/gallery/**'
+      - 'packages/**'
+      - '.github/workflows/gallery.yml'
+  pull_request:
+    paths:
+      - 'examples/gallery/**'
+      - 'packages/**'
+      - '.github/workflows/gallery.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gallery-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: build for the web
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: subosito/flutter-action@v2
+        with: { channel: stable }
+
+      # The runtime is an asset the application serves, and the asset package
+      # ships empty in the repository: the files are large, built elsewhere, and
+      # staged at release time. Without this the page loads and then cannot find
+      # a runtime.
+      - name: Stage the WebAssembly runtime
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag=$(python3 -c "
+          import sys; sys.path.insert(0, '.github/scripts')
+          import release_identity
+          print(release_identity.release_tag('runtime'))
+          ")
+          mkdir -p .local/webassets
+          # The publisher owns the naming rule, so it is asked rather than
+          # guessed: the build calls it web-wasm-webgpu-webnn and the release
+          # calls it base-web-wasm-webgpu-webnn.
+          asset=$(python3 .github/scripts/rename_release_assets.py \
+            --name web-wasm-webgpu-webnn runtime)
+          gh release download "$tag" --pattern "$asset" \
+            --dir .local/webassets --clobber
+          python3 .github/scripts/stage_web_assets.py web-wasm-webgpu-webnn \
+            --archive ".local/webassets/$asset"
+
+      - name: Build
+        working-directory: examples/gallery
+        run: |
+          set -euo pipefail
+          flutter pub get
+          # --wasm compiles Dart itself to WebAssembly. It emits a JavaScript
+          # build alongside, which browsers without WasmGC get, so it costs
+          # nothing to support.
+          #
+          # Served from a project page, so every asset URL is prefixed. Getting
+          # this wrong produces a page that loads and then fetches nothing.
+          flutter build web --wasm --base-href=/onnxruntime-dart/
+
+      # Flutter copies canvaskit locally as a fallback and then loads it from
+      # gstatic anyway, because canvasKitBaseUrl points there unless
+      # useLocalCanvasKit is set, which it is not. Uploading it would be 37 MB
+      # nothing ever requests.
+      - name: Drop what nothing fetches
+        run: rm -rf examples/gallery/build/web/canvaskit
+
+      # Refuse to publish a page that cannot start. Checked rather than
+      # assumed, because the two ways this broke both produced a complete
+      # looking upload and a blank screen.
+      - name: The page has what it needs to start
+        run: |
+          set -euo pipefail
+          cd examples/gallery/build/web
+          missing=()
+          for required in index.html flutter_bootstrap.js main.dart.js \
+            assets/packages/onnxruntime_web_webgpu_webnn/assets/ort-wasm-simd-threaded.asyncify.wasm
+          do
+            [ -s "$required" ] || missing+=("$required")
+          done
+          if [ ${#missing[@]} -ne 0 ]; then
+            echo "::error::the page would be missing: ${missing[*]}"
+            exit 1
+          fi
+          du -sh .
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: examples/gallery/build/web
+
+  publish:
+    name: publish to pages
+    # Only after the build, and only from main: a branch or a pull request
+    # builds the page and stops, which still catches a broken web build.
+    needs: build
+    if: ${{ github.ref == 'refs/heads/main' && github.event_name == 'push' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@v4
