@@ -66,6 +66,55 @@ void main() {
     });
   });
 
+  group('where the models come from', () {
+    // Offline on purpose: what is checked is which host each URL names, not
+    // that the network is up. The hosts are not interchangeable and the wrong
+    // one fails only in a browser, which is the slowest place to find out.
+    test('never github.com/.../raw/, which a browser cannot fetch', () {
+      // That path answers a cross-origin request with a 302 carrying an empty
+      // Access-Control-Allow-Origin. An empty value is invalid, so the browser
+      // refuses before following the redirect, and every download fails on the
+      // web while working on every other platform.
+      for (final spec in catalogue) {
+        for (final file in spec.files) {
+          expect(
+            file.url,
+            isNot(contains('github.com/onnx/models/raw/')),
+            reason: '${spec.id}/${file.name}',
+          );
+        }
+      }
+    });
+
+    test('model zoo files come from media, and plain files from raw', () {
+      // media serves what Git LFS holds and 404s for anything else;
+      // raw.githubusercontent serves the plain files and hands back a 132 byte
+      // pointer for the LFS ones. Which applies is a property of the file.
+      for (final spec in catalogue) {
+        for (final file in spec.files) {
+          if (!file.url.contains('githubusercontent')) continue;
+          final lfs = file.name.endsWith('.onnx');
+          expect(
+            file.url,
+            contains(lfs
+                ? 'media.githubusercontent.com'
+                : 'raw.githubusercontent.com'),
+            reason:
+                '${spec.id}/${file.name} is ${lfs ? '' : 'not '}stored in LFS',
+          );
+        }
+      }
+    });
+
+    test('everything is fetched over https', () {
+      for (final spec in catalogue) {
+        for (final file in spec.files) {
+          expect(file.url, startsWith('https://'), reason: file.name);
+        }
+      }
+    });
+  });
+
   group('sizes', () {
     test('read the way a person would write them', () {
       expect(humanBytes(512), '512 B');

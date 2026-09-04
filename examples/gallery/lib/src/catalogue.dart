@@ -80,7 +80,22 @@ class ModelSpec {
   RemoteFile get model => files.first;
 }
 
-const _zoo = 'https://github.com/onnx/models/raw/main/validated';
+// The models, which the zoo stores in Git LFS. Served from media, not from
+// github.com/.../raw/..., which answers a browser with a 302 carrying an empty
+// `Access-Control-Allow-Origin`. An empty value is invalid, so the request is
+// refused before the redirect is followed, and every download fails on the web
+// while working everywhere else.
+//
+// raw.githubusercontent.com is not the answer either: it serves the LFS
+// pointer rather than the file, so a download succeeds and produces 132 bytes.
+const _zoo =
+    'https://media.githubusercontent.com/media/onnx/models/main/validated';
+
+// Not stored in LFS, so it is not under media, which answers 404 for it. The
+// two hosts are not interchangeable and which one applies is a property of the
+// file rather than of the repository.
+const _zooPlain =
+    'https://raw.githubusercontent.com/onnx/models/main/validated';
 
 const _phi3 = 'https://huggingface.co/microsoft/Phi-3-mini-4k-instruct-onnx/'
     'resolve/main/cpu_and_mobile/cpu-int4-rtn-block-32-acc-level-4';
@@ -95,7 +110,7 @@ const _phi3Stem = 'phi3-mini-4k-instruct-cpu-int4-rtn-block-32-acc-level-4';
 /// Upstream as well: a label list that disagrees with the model turns a
 /// correct answer into a wrong one, so it comes from the same place.
 const _imagenetLabels = RemoteFile(
-  url: '$_zoo/vision/classification/synset.txt',
+  url: '$_zooPlain/vision/classification/synset.txt',
   name: 'synset.txt',
   bytes: 31675,
 );
