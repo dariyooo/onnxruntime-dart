@@ -866,15 +866,6 @@ class Pipelines(unittest.TestCase):
                 if not publishes:
                     continue
 
-                # Publishing a web page is not publishing a release. It has to
-                # happen on main, because that is the branch Pages serves from,
-                # and nothing installs from it: a wrong page is replaced by the
-                # next push rather than living in somebody's lockfile. Named
-                # rather than pattern matched, so adding one is a visible edit
-                # here and not a step that avoided the word "publish".
-                if (path.name, name) in {("gallery.yml", "web")}:
-                    continue
-
                 guard = str(job.get("if", "")) + "".join(
                     str(step.get("if", "")) for step in publishes
                 )
