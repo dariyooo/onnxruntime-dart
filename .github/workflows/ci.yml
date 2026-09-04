@@ -330,9 +330,12 @@ jobs:
           failed=()
           for name in "${shared[@]}"; do
             probe="packages/$name/_web_compile_check.dart"
-            printf "import 'package:%s/%s.dart' as p;\nvoid main() => print(p.hashCode);\n" \
+            # An unused import is a hint rather than an error, and it still
+            # pulls the package into the compilation, which is the point: the
+            # dart:ffi reach is usually through a dependency.
+            printf "// ignore: unused_import\nimport 'package:%s/%s.dart';\nvoid main() {}\n" \
               "$name" "$name" > "$probe"
-            if ( cd "packages/$name" && dart compile js -o /dev/null \
+            if ( cd "packages/$name" && dart compile js -o "$RUNNER_TEMP/$name.js" \
                  _web_compile_check.dart ) > "/tmp/$name.log" 2>&1; then
               echo "  $name compiles for the web"
             else
