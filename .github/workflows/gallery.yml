@@ -54,17 +54,22 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          tag=$(python3 -c "
-          import sys; sys.path.insert(0, '.github/scripts')
-          import release_identity
-          print(release_identity.release_tag('runtime'))
-          ")
+          # From the package rather than from the submodule. Asking
+          # release_identity would mean cloning ONNX Runtime for one version
+          # string, which is most of this job's runtime for a file that is
+          # already mirrored here: onnxruntime_binaries' version is the runtime
+          # version, and version_test.dart fails if the two ever disagree.
+          version=$(grep -m1 '^version:' \
+            packages/onnxruntime_binaries/pubspec.yaml | awk '{print $2}')
+          tag="runtime-v$version"
+          echo "staging the web runtime from $tag"
           mkdir -p .local/webassets
           # The publisher owns the naming rule, so it is asked rather than
           # guessed: the build calls it web-wasm-webgpu-webnn and the release
           # calls it base-web-wasm-webgpu-webnn.
           asset=$(python3 .github/scripts/rename_release_assets.py \
             --name web-wasm-webgpu-webnn runtime)
+          echo "asset $asset"
           gh release download "$tag" --pattern "$asset" \
             --dir .local/webassets --clobber
           python3 .github/scripts/stage_web_assets.py web-wasm-webgpu-webnn \
