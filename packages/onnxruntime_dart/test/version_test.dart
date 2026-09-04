@@ -122,12 +122,19 @@ void main() {
             .split(Platform.pathSeparator)
             .last
             .replaceFirst('onnxruntime_ep_', '');
-        final source = File('${package.path}/lib/onnxruntime_ep_$name.dart');
-        if (!source.existsSync()) continue;
-
-        final declared = RegExp(r"minimumRuntime = '([^']+)'")
-            .firstMatch(source.readAsStringSync())
-            ?.group(1);
+        // Searched across the package rather than read from one file. Each
+        // provider is a conditional export now, so the constant lives beside
+        // the halves rather than in the entry point, and where exactly is
+        // not this test's business.
+        String? declared;
+        for (final source in Directory('${package.path}/lib')
+            .listSync(recursive: true)
+            .whereType<File>()
+            .where((f) => f.path.endsWith('.dart'))) {
+          declared ??= RegExp(r"minimumRuntime = '([^']+)'")
+              .firstMatch(source.readAsStringSync())
+              ?.group(1);
+        }
         expect(declared, isNotNull, reason: '$name declares no minimumRuntime');
 
         final pinned = File(fromRoot(

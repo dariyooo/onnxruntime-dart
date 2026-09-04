@@ -1,34 +1,23 @@
 /// Operators ONNX Runtime does not ship: tokenizers, text, image and audio
 /// preprocessing that run inside the graph.
 ///
-/// This package installs the library and tells you where it is. The asset id
-/// below has to be a compile-time constant, which is why the lookup lives here
-/// rather than in onnxruntime_dart: only this package can name its own asset.
+/// Native installs the library and this tells you where it is. A web build has
+/// no loader for one, so [extensionsPath] answers null there and an
+/// application checks rather than branching on the platform.
 ///
 /// ```dart
+/// final path = extensionsPath();
 /// final session = Session.fromBytes(
 ///   bytes,
-///   options: SessionOptions(customOpsLibraries: [extensionsPath()!]),
+///   options: SessionOptions(customOpsLibraries: [if (path != null) path]),
 /// );
 /// ```
+///
+/// The split is a conditional export, resolved at compile time, so a web build
+/// never references `dart:ffi`. Importing this package used to break one
+/// outright.
 library;
 
-import 'dart:ffi';
-
-import 'package:onnxruntime_dart/native.dart';
-
-/// The library's file name without prefix or extension.
-const extensionsLibraryStem = 'ortextensions';
-
-@Native<Void Function()>(
-  symbol: 'RegisterCustomOps',
-  assetId: 'package:onnxruntime_extensions_binaries/extensions',
-)
-external void _entryPoint();
-
-/// Where the operator library was installed, or null if it was not.
-String? extensionsPath() => loadedLibraryPath(
-      () =>
-          Native.addressOf<NativeFunction<Void Function()>>(_entryPoint).cast(),
-      stem: extensionsLibraryStem,
-    );
+export 'src/identity.dart' show extensionsLibraryStem;
+export 'src/path_ffi.dart' if (dart.library.js_interop) 'src/path_web.dart'
+    show extensionsPath;
