@@ -149,13 +149,29 @@ base class WasmCalls with GeneratedWasmRawCalls implements OrtCalls {
   void addSessionConfigEntry(OrtPtr options, String key, String value) =>
       pendingOptions(options).config[key] = value;
 
+  /// Refused because there is nothing to load from, and no loader either.
+  ///
+  /// Custom operators reach ONNX Runtime one of two ways. Natively they are a
+  /// shared library, opened at run time, which this build has no loader for:
+  /// it is not built with Emscripten's dynamic linking, so there is no dlopen
+  /// to call. That is a build decision rather than something WebAssembly
+  /// forbids, and saying otherwise was overstating it.
+  ///
+  /// The other way is to compile them in, which is what a web build has to do.
+  /// ONNX Runtime takes `--use_extensions` for that and puts no WebAssembly
+  /// guard on it, so a variant carrying the operator library is buildable. The
+  /// builds published here are not: their arguments are `--use_xnnpack`,
+  /// `--use_webgpu` and `--use_webnn`. So the answer is not "impossible", it
+  /// is "not in the build you are serving".
   @override
-  @NativeOnly('WebAssembly has no dlopen; custom operators are compiled into '
-      'the build you serve')
+  @NativeOnly('the operators have to be compiled into the WebAssembly build, '
+      'and the published ones are not built with them')
   void addCustomOpsLibrary(OrtPtr options, String path) => unsupportedOnWeb(
       'addCustomOpsLibrary',
-      'WebAssembly has no dlopen. Custom operators have to be compiled into '
-          'the runtime you serve');
+      'custom operators are compiled into a WebAssembly build rather than '
+          'loaded, and the build being served was not compiled with them. '
+          'Building one with --use_extensions is possible; loading one at run '
+          'time is not, because this build has no dynamic linking.');
 
   @override
   void addFreeDimensionOverride(OrtPtr options, String name, int dimension) =>
