@@ -109,6 +109,26 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email 'github-actions[bot]@users.noreply.github.com'
           git add docs
+
+          # Refuse to publish a page that cannot start. Two ignore rules have
+          # silently emptied this directory: the repository's own `*.js`, which
+          # drops the bootstrap, and the runtime package's, which drops the
+          # wasm. Both produce a commit that looks fine and a blank page, so
+          # what matters is checked rather than assumed.
+          missing=()
+          for required in index.html flutter_bootstrap.js main.dart.js \
+            assets/packages/onnxruntime_web_webgpu_webnn/assets/ort-wasm-simd-threaded.asyncify.wasm
+          do
+            git diff --cached --name-only -- "docs/$required" | grep -q . \
+              || git ls-files --error-unmatch "docs/$required" >/dev/null 2>&1 \
+              || missing+=("$required")
+          done
+          if [ ${#missing[@]} -ne 0 ]; then
+            echo "::error::the published page would be missing: ${missing[*]}"
+            echo "::error::something is ignoring them; check .gitignore"
+            exit 1
+          fi
+
           if git diff --cached --quiet; then
             echo "the built gallery is unchanged"
             exit 0
