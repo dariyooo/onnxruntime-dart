@@ -64,3 +64,18 @@ const platformSupport = <String, ({bool native, bool web})>{
   'unregisterProviderLibrary': (native: true, web: false),
   'webGpuDevice': (native: false, web: true),
 };
+
+/// What the Asyncify backend refuses on top of the plain one.
+///
+/// There are two WebAssembly backends. The plain build cannot suspend, so
+/// every call returns a result. The Asyncify build can, and hands back a
+/// promise a synchronous signature has nowhere to put, so the calls that
+/// suspend are refused there and only there.
+///
+/// [platformSupport] has one flag for "web" and cannot express this, which is
+/// why it is listed separately rather than folded in: the WebGPU and WebNN
+/// builds are Asyncify, so this is what an accelerated page actually gets.
+const asyncifyRefuses = <String>[
+  'bindInput',
+  'runWithBinding',
+];

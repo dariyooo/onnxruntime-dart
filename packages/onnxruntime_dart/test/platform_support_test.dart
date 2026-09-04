@@ -81,4 +81,44 @@ void main() {
       );
     }
   });
+
+  group('the Asyncify backend', () {
+    // Checked separately because there are two WebAssembly backends and the
+    // table has one flag. This one is what the WebGPU and WebNN builds use, so
+    // it is what an accelerated page actually runs, and it was unchecked: the
+    // table said bindInput worked on the web, the plain backend agreed, and
+    // this one refused it with nothing noticing.
+    late String backend;
+    late Set<String> refused;
+
+    setUpAll(() {
+      backend = File(fromPackage('lib/src/backend/wasm/async_calls.dart'))
+          .readAsStringSync();
+      refused = {
+        for (final match in RegExp(
+          r'\s(\w+)\([^)]*\)[^;{]*=>\s*unsupportedOnWeb',
+          dotAll: true,
+        ).allMatches(backend))
+          match.group(1)!,
+      };
+    });
+
+    test('refuses exactly what it is listed as refusing', () {
+      expect(refused, unorderedEquals(asyncifyRefuses));
+    });
+
+    test('only refuses things the plain backend can do', () {
+      // A call the plain build cannot do either belongs in platformSupport,
+      // not here: this list is the difference between the two backends, and
+      // duplicating an entry would hide where the limit really is.
+      for (final name in asyncifyRefuses) {
+        expect(
+          platformSupport[name]?.web,
+          isTrue,
+          reason: '$name is refused by the plain backend too, so it belongs '
+              'in the support table rather than in asyncifyRefuses',
+        );
+      }
+    });
+  });
 }
