@@ -15,12 +15,40 @@ import 'dart:ffi';
 import '../bindings/api/api.g.dart';
 import '../bindings/api/support.dart';
 import '../bindings/ort_bindings.g.dart';
+import '../ffi/runtime.dart';
 import 'handles.g.dart';
 import 'raw_interface.g.dart';
 import 'types.dart';
 
 /// Every native-only call, forwarded.
 base mixin GeneratedFfiRawCalls implements OrtRawCalls {
+  OrtCompileApi get _compileApi => _table(
+        ortApiForStatus.GetCompileApi.asFunction<
+            Pointer<OrtCompileApi> Function()>()(),
+        'OrtCompileApi',
+      ).ref;
+
+  OrtModelEditorApi get _modelEditorApi => _table(
+        ortApiForStatus.GetModelEditorApi.asFunction<
+            Pointer<OrtModelEditorApi> Function()>()(),
+        'OrtModelEditorApi',
+      ).ref;
+
+  OrtInteropApi get _interopApi => _table(
+        ortApiForStatus.GetInteropApi.asFunction<
+            Pointer<OrtInteropApi> Function()>()(),
+        'OrtInteropApi',
+      ).ref;
+
+  /// Refuses a null table rather than dereferencing it.
+  Pointer<T> _table<T extends NativeType>(Pointer<T> table, String name) =>
+      table == nullptr
+          ? throw StateError(
+              'this build of ONNX Runtime has no $name. It is compiled in '
+              'rather than always present, so a smaller build can lack it.',
+            )
+          : table;
+
   @override
   void addCustomOpDomain(
           OrtSessionOptionsPtr options, OrtCustomOpDomainPtr customOpDomain) =>
@@ -66,6 +94,12 @@ base mixin GeneratedFfiRawCalls implements OrtRawCalls {
           dimValue);
 
   @override
+  void addGraphToModel(OrtModelPtr model, OrtGraphPtr graph) =>
+      _modelEditorApi.addGraphToModel(
+          Pointer<OrtModel>.fromAddress(model.address),
+          Pointer<OrtGraph>.fromAddress(graph.address));
+
+  @override
   void addInitializer(
           OrtSessionOptionsPtr options, String name, OrtValuePtr val) =>
       ortApiForStatus.addInitializer(
@@ -74,9 +108,33 @@ base mixin GeneratedFfiRawCalls implements OrtRawCalls {
           Pointer<OrtValue>.fromAddress(val.address));
 
   @override
+  void addInitializerToGraph(OrtGraphPtr graph, String name, OrtValuePtr tensor,
+          bool dataIsExternal) =>
+      _modelEditorApi.addInitializerToGraph(
+          Pointer<OrtGraph>.fromAddress(graph.address),
+          name,
+          Pointer<OrtValue>.fromAddress(tensor.address),
+          dataIsExternal);
+
+  @override
   void addKeyValuePair(OrtKeyValuePairsPtr kvps, String key, String value) =>
       ortApiForStatus.addKeyValuePair(
           Pointer<OrtKeyValuePairs>.fromAddress(kvps.address), key, value);
+
+  @override
+  void addNodeToGraph(OrtGraphPtr graph, OrtNodePtr node) =>
+      _modelEditorApi.addNodeToGraph(
+          Pointer<OrtGraph>.fromAddress(graph.address),
+          Pointer<OrtNode>.fromAddress(node.address));
+
+  @override
+  void addProperty(OrtCheckpointStatePtr checkpointState, String propertyName,
+          int propertyType, OrtPtr propertyValue) =>
+      trainingApi().ref.addProperty(
+          Pointer<OrtCheckpointState>.fromAddress(checkpointState.address),
+          propertyName,
+          propertyType,
+          Pointer<Void>.fromAddress(propertyValue.address));
 
   @override
   OrtPtr allocatorAlloc(OrtAllocatorPtr ortAllocator, int size) =>
@@ -106,12 +164,32 @@ base mixin GeneratedFfiRawCalls implements OrtRawCalls {
           .address);
 
   @override
+  void applyModelToModelEditorSession(
+          OrtSessionPtr session, OrtModelPtr model) =>
+      _modelEditorApi.applyModelToModelEditorSession(
+          Pointer<OrtSession>.fromAddress(session.address),
+          Pointer<OrtModel>.fromAddress(model.address));
+
+  @override
   void bindOutputToDevice(OrtIoBindingPtr bindingPtr, String name,
           OrtMemoryInfoPtr memInfoPtr) =>
       ortApiForStatus.bindOutputToDevice(
           Pointer<OrtIoBinding>.fromAddress(bindingPtr.address),
           name,
           Pointer<OrtMemoryInfo>.fromAddress(memInfoPtr.address));
+
+  @override
+  bool canImportMemory(
+          OrtExternalResourceImporterPtr importer, int handleType) =>
+      _interopApi.canImportMemory(
+          Pointer<OrtExternalResourceImporter>.fromAddress(importer.address),
+          handleType);
+
+  @override
+  bool canImportSemaphore(OrtExternalResourceImporterPtr importer, int type) =>
+      _interopApi.canImportSemaphore(
+          Pointer<OrtExternalResourceImporter>.fromAddress(importer.address),
+          type);
 
   @override
   OrtMapTypeInfoPtr castTypeInfoToMapTypeInfo(OrtTypeInfoPtr typeInfo) =>
@@ -158,10 +236,34 @@ base mixin GeneratedFfiRawCalls implements OrtRawCalls {
           Pointer<OrtMemoryInfo>.fromAddress(info2.address));
 
   @override
+  void compileModel(
+          OrtEnvPtr env, OrtModelCompilationOptionsPtr modelOptions) =>
+      _compileApi.compileModel(
+          Pointer<OrtEnv>.fromAddress(env.address),
+          Pointer<OrtModelCompilationOptions>.fromAddress(
+              modelOptions.address));
+
+  @override
+  void copyBufferToParameters(OrtTrainingSessionPtr sess,
+          OrtValuePtr parametersBuffer, bool trainableOnly) =>
+      trainingApi().ref.copyBufferToParameters(
+          Pointer<OrtTrainingSession>.fromAddress(sess.address),
+          Pointer<OrtValue>.fromAddress(parametersBuffer.address),
+          trainableOnly);
+
+  @override
   OrtKernelInfoPtr copyKernelInfo(OrtKernelInfoPtr info) =>
       OrtKernelInfoPtr(ortApiForStatus
           .copyKernelInfo(Pointer<OrtKernelInfo>.fromAddress(info.address))
           .address);
+
+  @override
+  void copyParametersToBuffer(OrtTrainingSessionPtr sess,
+          OrtValuePtr parametersBuffer, bool trainableOnly) =>
+      trainingApi().ref.copyParametersToBuffer(
+          Pointer<OrtTrainingSession>.fromAddress(sess.address),
+          Pointer<OrtValue>.fromAddress(parametersBuffer.address),
+          trainableOnly);
 
   @override
   void copyTensors(
@@ -309,6 +411,18 @@ base mixin GeneratedFfiRawCalls implements OrtRawCalls {
           .address);
 
   @override
+  OrtExternalResourceImporterPtr createExternalResourceImporterForDevice(
+          OrtEpDevicePtr epDevice) =>
+      OrtExternalResourceImporterPtr(_interopApi
+          .createExternalResourceImporterForDevice(
+              Pointer<OrtEpDevice>.fromAddress(epDevice.address))
+          .address);
+
+  @override
+  OrtGraphPtr createGraph() =>
+      OrtGraphPtr(_modelEditorApi.createGraph().address);
+
+  @override
   OrtIoBindingPtr createIoBinding(OrtSessionPtr session) =>
       OrtIoBindingPtr(ortApiForStatus
           .createIoBinding(Pointer<OrtSession>.fromAddress(session.address))
@@ -335,6 +449,14 @@ base mixin GeneratedFfiRawCalls implements OrtRawCalls {
           .address);
 
   @override
+  OrtTypeInfoPtr createMapTypeInfo(
+          int mapKeyType, OrtTypeInfoPtr mapValueType) =>
+      OrtTypeInfoPtr(_modelEditorApi
+          .createMapTypeInfo(mapKeyType,
+              Pointer<OrtTypeInfo>.fromAddress(mapValueType.address))
+          .address);
+
+  @override
   OrtMemoryInfoPtr createMemoryInfo(
           String name, int type, int id, int memType) =>
       OrtMemoryInfoPtr(
@@ -352,6 +474,73 @@ base mixin GeneratedFfiRawCalls implements OrtRawCalls {
       OrtMemoryInfoPtr(ortApiForStatus
           .createMemoryInfo_V2(name, deviceType, vendorId, deviceId, memType,
               alignment, allocatorType)
+          .address);
+
+  @override
+  OrtModelPtr createModel(List<String> domainNames, List<int> opsetVersions,
+          int opsetEntriesLen) =>
+      OrtModelPtr(_modelEditorApi
+          .createModel(domainNames, opsetVersions, opsetEntriesLen)
+          .address);
+
+  @override
+  OrtModelCompilationOptionsPtr createModelCompilationOptionsFromSessionOptions(
+          OrtEnvPtr env, OrtSessionOptionsPtr sessionOptions) =>
+      OrtModelCompilationOptionsPtr(_compileApi
+          .createModelCompilationOptionsFromSessionOptions(
+              Pointer<OrtEnv>.fromAddress(env.address),
+              Pointer<OrtSessionOptions>.fromAddress(sessionOptions.address))
+          .address);
+
+  @override
+  OrtSessionPtr createModelEditorSession(
+          OrtEnvPtr env, String modelPath, OrtSessionOptionsPtr options) =>
+      OrtSessionPtr(_modelEditorApi
+          .createModelEditorSession(
+              Pointer<OrtEnv>.fromAddress(env.address),
+              modelPath,
+              Pointer<OrtSessionOptions>.fromAddress(options.address))
+          .address);
+
+  @override
+  OrtSessionPtr createModelEditorSessionFromArray(
+          OrtEnvPtr env,
+          OrtPtr modelData,
+          int modelDataLength,
+          OrtSessionOptionsPtr options) =>
+      OrtSessionPtr(_modelEditorApi
+          .createModelEditorSessionFromArray(
+              Pointer<OrtEnv>.fromAddress(env.address),
+              Pointer<Void>.fromAddress(modelData.address),
+              modelDataLength,
+              Pointer<OrtSessionOptions>.fromAddress(options.address))
+          .address);
+
+  @override
+  OrtNodePtr createNode(
+          String operatorName,
+          String domainName,
+          String nodeName,
+          List<String> inputNames,
+          int inputNamesLen,
+          List<String> outputNames,
+          int outputNamesLen,
+          List<OrtOpAttrPtr> attributes,
+          int attribsLen) =>
+      OrtNodePtr(_modelEditorApi
+          .createNode(
+              operatorName,
+              domainName,
+              nodeName,
+              inputNames,
+              inputNamesLen,
+              outputNames,
+              outputNamesLen,
+              [
+                for (final h in attributes)
+                  Pointer<OrtOpAttr>.fromAddress(h.address)
+              ],
+              attribsLen)
           .address);
 
   @override
@@ -404,6 +593,13 @@ base mixin GeneratedFfiRawCalls implements OrtRawCalls {
           .address);
 
   @override
+  OrtTypeInfoPtr createOptionalTypeInfo(OrtTypeInfoPtr containedType) =>
+      OrtTypeInfoPtr(_modelEditorApi
+          .createOptionalTypeInfo(
+              Pointer<OrtTypeInfo>.fromAddress(containedType.address))
+          .address);
+
+  @override
   OrtPrepackedWeightsContainerPtr createPrepackedWeightsContainer() =>
       OrtPrepackedWeightsContainerPtr(
           ortApiForStatus.createPrepackedWeightsContainer().address);
@@ -412,6 +608,13 @@ base mixin GeneratedFfiRawCalls implements OrtRawCalls {
   OrtROCMProviderOptionsPtr createROCMProviderOptions() =>
       OrtROCMProviderOptionsPtr(
           ortApiForStatus.createROCMProviderOptions().address);
+
+  @override
+  OrtTypeInfoPtr createSequenceTypeInfo(OrtTypeInfoPtr sequenceType) =>
+      OrtTypeInfoPtr(_modelEditorApi
+          .createSequenceTypeInfo(
+              Pointer<OrtTypeInfo>.fromAddress(sequenceType.address))
+          .address);
 
   @override
   OrtSessionPtr createSessionFromArray(OrtEnvPtr env, OrtPtr modelData,
@@ -439,6 +642,16 @@ base mixin GeneratedFfiRawCalls implements OrtRawCalls {
               Pointer<OrtSessionOptions>.fromAddress(options.address),
               Pointer<OrtPrepackedWeightsContainer>.fromAddress(
                   prepackedWeightsContainer.address))
+          .address);
+
+  @override
+  OrtSessionPtr createSessionFromModel(
+          OrtEnvPtr env, OrtModelPtr model, OrtSessionOptionsPtr options) =>
+      OrtSessionPtr(_modelEditorApi
+          .createSessionFromModel(
+              Pointer<OrtEnv>.fromAddress(env.address),
+              Pointer<OrtModel>.fromAddress(model.address),
+              Pointer<OrtSessionOptions>.fromAddress(options.address))
           .address);
 
   @override
@@ -484,6 +697,15 @@ base mixin GeneratedFfiRawCalls implements OrtRawCalls {
           .address);
 
   @override
+  OrtTypeInfoPtr createSparseTensorTypeInfo(
+          OrtTensorTypeAndShapeInfoPtr tensorInfo) =>
+      OrtTypeInfoPtr(_modelEditorApi
+          .createSparseTensorTypeInfo(
+              Pointer<OrtTensorTypeAndShapeInfo>.fromAddress(
+                  tensorInfo.address))
+          .address);
+
+  @override
   OrtValuePtr createSparseTensorWithValuesAsOrtValue(
           OrtMemoryInfoPtr info,
           OrtPtr pData,
@@ -524,6 +746,20 @@ base mixin GeneratedFfiRawCalls implements OrtRawCalls {
           .address);
 
   @override
+  OrtValuePtr createTensorFromMemory(
+          OrtExternalResourceImporterPtr importer,
+          OrtExternalMemoryHandlePtr memHandle,
+          OrtExternalTensorDescriptorPtr tensorDesc) =>
+      OrtValuePtr(_interopApi
+          .createTensorFromMemory(
+              Pointer<OrtExternalResourceImporter>.fromAddress(
+                  importer.address),
+              Pointer<OrtExternalMemoryHandle>.fromAddress(memHandle.address),
+              Pointer<OrtExternalTensorDescriptor>.fromAddress(
+                  tensorDesc.address))
+          .address);
+
+  @override
   OrtTensorRTProviderOptionsV2Ptr createTensorRTProviderOptions() =>
       OrtTensorRTProviderOptionsV2Ptr(
           ortApiForStatus.createTensorRTProviderOptions().address);
@@ -532,6 +768,14 @@ base mixin GeneratedFfiRawCalls implements OrtRawCalls {
   OrtTensorTypeAndShapeInfoPtr createTensorTypeAndShapeInfo() =>
       OrtTensorTypeAndShapeInfoPtr(
           ortApiForStatus.createTensorTypeAndShapeInfo().address);
+
+  @override
+  OrtTypeInfoPtr createTensorTypeInfo(
+          OrtTensorTypeAndShapeInfoPtr tensorInfo) =>
+      OrtTypeInfoPtr(_modelEditorApi
+          .createTensorTypeInfo(Pointer<OrtTensorTypeAndShapeInfo>.fromAddress(
+              tensorInfo.address))
+          .address);
 
   @override
   OrtValuePtr createTensorWithDataAndDeleterAsOrtValue(
@@ -574,6 +818,50 @@ base mixin GeneratedFfiRawCalls implements OrtRawCalls {
       OrtThreadingOptionsPtr(ortApiForStatus.createThreadingOptions().address);
 
   @override
+  OrtTrainingSessionPtr createTrainingSession(
+          OrtEnvPtr env,
+          OrtSessionOptionsPtr options,
+          OrtCheckpointStatePtr checkpointState,
+          String trainModelPath,
+          String evalModelPath,
+          String optimizerModelPath) =>
+      OrtTrainingSessionPtr(trainingApi()
+          .ref
+          .createTrainingSession(
+              Pointer<OrtEnv>.fromAddress(env.address),
+              Pointer<OrtSessionOptions>.fromAddress(options.address),
+              Pointer<OrtCheckpointState>.fromAddress(checkpointState.address),
+              trainModelPath,
+              evalModelPath,
+              optimizerModelPath)
+          .address);
+
+  @override
+  OrtTrainingSessionPtr createTrainingSessionFromBuffer(
+          OrtEnvPtr env,
+          OrtSessionOptionsPtr options,
+          OrtCheckpointStatePtr checkpointState,
+          OrtPtr trainModelData,
+          int trainDataLength,
+          OrtPtr evalModelData,
+          int evalDataLength,
+          OrtPtr optimModelData,
+          int optimDataLength) =>
+      OrtTrainingSessionPtr(trainingApi()
+          .ref
+          .createTrainingSessionFromBuffer(
+              Pointer<OrtEnv>.fromAddress(env.address),
+              Pointer<OrtSessionOptions>.fromAddress(options.address),
+              Pointer<OrtCheckpointState>.fromAddress(checkpointState.address),
+              Pointer<Void>.fromAddress(trainModelData.address),
+              trainDataLength,
+              Pointer<Void>.fromAddress(evalModelData.address),
+              evalDataLength,
+              Pointer<Void>.fromAddress(optimModelData.address),
+              optimDataLength)
+          .address);
+
+  @override
   OrtValuePtr createValue(
           List<OrtValuePtr> in_, int numValues, int valueType) =>
       OrtValuePtr(ortApiForStatus.createValue(
@@ -582,11 +870,23 @@ base mixin GeneratedFfiRawCalls implements OrtRawCalls {
           valueType).address);
 
   @override
+  OrtValueInfoPtr createValueInfo(String name, OrtTypeInfoPtr typeInfo) =>
+      OrtValueInfoPtr(_modelEditorApi
+          .createValueInfo(
+              name, Pointer<OrtTypeInfo>.fromAddress(typeInfo.address))
+          .address);
+
+  @override
   void customOpDomain_Add(
           OrtCustomOpDomainPtr customOpDomain, OrtCustomOpPtr op) =>
       ortApiForStatus.customOpDomain_Add(
           Pointer<OrtCustomOpDomain>.fromAddress(customOpDomain.address),
           Pointer<OrtCustomOp>.fromAddress(op.address));
+
+  @override
+  void deinitGraphicsInteropForEpDevice(OrtEpDevicePtr epDevice) =>
+      _interopApi.deinitGraphicsInteropForEpDevice(
+          Pointer<OrtEpDevice>.fromAddress(epDevice.address));
 
   @override
   int deviceEpIncompatibilityDetails_GetErrorCode(
@@ -682,6 +982,34 @@ base mixin GeneratedFfiRawCalls implements OrtRawCalls {
       ];
 
   @override
+  void evalStep(
+          OrtTrainingSessionPtr sess,
+          OrtRunOptionsPtr runOptions,
+          int inputsLen,
+          List<OrtValuePtr> inputs,
+          int outputsLen,
+          List<OrtValuePtr> outputs) =>
+      trainingApi().ref.evalStep(
+          Pointer<OrtTrainingSession>.fromAddress(sess.address),
+          Pointer<OrtRunOptions>.fromAddress(runOptions.address),
+          inputsLen,
+          [for (final h in inputs) Pointer<OrtValue>.fromAddress(h.address)],
+          outputsLen,
+          [for (final h in outputs) Pointer<OrtValue>.fromAddress(h.address)]);
+
+  @override
+  void exportModelForInferencing(
+          OrtTrainingSessionPtr sess,
+          String inferenceModelPath,
+          int graphOutputsLen,
+          List<String> graphOutputNames) =>
+      trainingApi().ref.exportModelForInferencing(
+          Pointer<OrtTrainingSession>.fromAddress(sess.address),
+          inferenceModelPath,
+          graphOutputsLen,
+          graphOutputNames);
+
+  @override
   void fillSparseTensorBlockSparse(
           OrtValuePtr ortValue,
           OrtMemoryInfoPtr dataMemInfo,
@@ -750,6 +1078,17 @@ base mixin GeneratedFfiRawCalls implements OrtRawCalls {
   void fillStringTensorElement(OrtValuePtr value, String s, int index) =>
       ortApiForStatus.fillStringTensorElement(
           Pointer<OrtValue>.fromAddress(value.address), s, index);
+
+  @override
+  void finalizeModelEditorSession(
+          OrtSessionPtr session,
+          OrtSessionOptionsPtr options,
+          OrtPrepackedWeightsContainerPtr prepackedWeightsContainer) =>
+      _modelEditorApi.finalizeModelEditorSession(
+          Pointer<OrtSession>.fromAddress(session.address),
+          Pointer<OrtSessionOptions>.fromAddress(options.address),
+          Pointer<OrtPrepackedWeightsContainer>.fromAddress(
+              prepackedWeightsContainer.address));
 
   @override
   OrtAllocatorPtr getAllocatorWithDefaultOptions() =>
@@ -860,6 +1199,11 @@ base mixin GeneratedFfiRawCalls implements OrtRawCalls {
           Pointer<OrtKeyValuePairs>.fromAddress(kvps.address));
 
   @override
+  double getLearningRate(OrtTrainingSessionPtr sess) => trainingApi()
+      .ref
+      .getLearningRate(Pointer<OrtTrainingSession>.fromAddress(sess.address));
+
+  @override
   int getMapKeyType(OrtMapTypeInfoPtr mapTypeInfo) => ortApiForStatus
       .getMapKeyType(Pointer<OrtMapTypeInfo>.fromAddress(mapTypeInfo.address));
 
@@ -899,6 +1243,44 @@ base mixin GeneratedFfiRawCalls implements OrtRawCalls {
               Pointer<OrtOptionalTypeInfo>.fromAddress(
                   optionalTypeInfo.address))
           .address);
+
+  @override
+  OrtValuePtr getParameter(OrtCheckpointStatePtr checkpointState,
+          String parameterName, OrtAllocatorPtr allocator) =>
+      OrtValuePtr(trainingApi()
+          .ref
+          .getParameter(
+              Pointer<OrtCheckpointState>.fromAddress(checkpointState.address),
+              parameterName,
+              Pointer<OrtAllocator>.fromAddress(allocator.address))
+          .address);
+
+  @override
+  OrtTensorTypeAndShapeInfoPtr getParameterTypeAndShape(
+          OrtCheckpointStatePtr checkpointState, String parameterName) =>
+      OrtTensorTypeAndShapeInfoPtr(trainingApi()
+          .ref
+          .getParameterTypeAndShape(
+              Pointer<OrtCheckpointState>.fromAddress(checkpointState.address),
+              parameterName)
+          .address);
+
+  @override
+  int getParametersSize(OrtTrainingSessionPtr sess, bool trainableOnly) =>
+      trainingApi().ref.getParametersSize(
+          Pointer<OrtTrainingSession>.fromAddress(sess.address), trainableOnly);
+
+  @override
+  (int propertyType, OrtPtr propertyValue) getProperty(
+      OrtCheckpointStatePtr checkpointState,
+      String propertyName,
+      OrtAllocatorPtr allocator) {
+    final result = trainingApi().ref.getProperty(
+        Pointer<OrtCheckpointState>.fromAddress(checkpointState.address),
+        propertyName,
+        Pointer<OrtAllocator>.fromAddress(allocator.address));
+    return (result.$1, OrtPtr(result.$2.address));
+  }
 
   @override
   String getROCMProviderOptionsAsString(
@@ -1177,6 +1559,35 @@ base mixin GeneratedFfiRawCalls implements OrtRawCalls {
       ortApiForStatus.hasValue(Pointer<OrtValue>.fromAddress(value.address));
 
   @override
+  OrtExternalMemoryHandlePtr importMemory(
+          OrtExternalResourceImporterPtr importer,
+          OrtExternalMemoryDescriptorPtr desc) =>
+      OrtExternalMemoryHandlePtr(_interopApi
+          .importMemory(
+              Pointer<OrtExternalResourceImporter>.fromAddress(
+                  importer.address),
+              Pointer<OrtExternalMemoryDescriptor>.fromAddress(desc.address))
+          .address);
+
+  @override
+  OrtExternalSemaphoreHandlePtr importSemaphore(
+          OrtExternalResourceImporterPtr importer,
+          OrtExternalSemaphoreDescriptorPtr desc) =>
+      OrtExternalSemaphoreHandlePtr(_interopApi
+          .importSemaphore(
+              Pointer<OrtExternalResourceImporter>.fromAddress(
+                  importer.address),
+              Pointer<OrtExternalSemaphoreDescriptor>.fromAddress(desc.address))
+          .address);
+
+  @override
+  void initGraphicsInteropForEpDevice(
+          OrtEpDevicePtr epDevice, OrtGraphicsInteropConfigPtr config) =>
+      _interopApi.initGraphicsInteropForEpDevice(
+          Pointer<OrtEpDevice>.fromAddress(epDevice.address),
+          Pointer<OrtGraphicsInteropConfig>.fromAddress(config.address));
+
+  @override
   void invokeOp(
           OrtKernelContextPtr context,
           OrtOpPtr ortOp,
@@ -1414,6 +1825,25 @@ base mixin GeneratedFfiRawCalls implements OrtRawCalls {
           .address);
 
   @override
+  void lazyResetGrad(OrtTrainingSessionPtr session) => trainingApi()
+      .ref
+      .lazyResetGrad(Pointer<OrtTrainingSession>.fromAddress(session.address));
+
+  @override
+  OrtCheckpointStatePtr loadCheckpoint(String checkpointPath) =>
+      OrtCheckpointStatePtr(
+          trainingApi().ref.loadCheckpoint(checkpointPath).address);
+
+  @override
+  OrtCheckpointStatePtr loadCheckpointFromBuffer(
+          OrtPtr checkpointBuffer, int numBytes) =>
+      OrtCheckpointStatePtr(trainingApi()
+          .ref
+          .loadCheckpointFromBuffer(
+              Pointer<Void>.fromAddress(checkpointBuffer.address), numBytes)
+          .address);
+
+  @override
   int logger_GetLoggingSeverityLevel(OrtLoggerPtr logger) =>
       ortApiForStatus.logger_GetLoggingSeverityLevel(
           Pointer<OrtLogger>.fromAddress(logger.address));
@@ -1448,6 +1878,139 @@ base mixin GeneratedFfiRawCalls implements OrtRawCalls {
   @override
   int memoryInfoGetType(OrtMemoryInfoPtr ptr) => ortApiForStatus
       .memoryInfoGetType(Pointer<OrtMemoryInfo>.fromAddress(ptr.address));
+
+  @override
+  void modelCompilationOptions_SetEpContextBinaryInformation(
+          OrtModelCompilationOptionsPtr modelCompileOptions,
+          String outputDirectory,
+          String modelName) =>
+      _compileApi.modelCompilationOptions_SetEpContextBinaryInformation(
+          Pointer<OrtModelCompilationOptions>.fromAddress(
+              modelCompileOptions.address),
+          outputDirectory,
+          modelName);
+
+  @override
+  void modelCompilationOptions_SetEpContextEmbedMode(
+          OrtModelCompilationOptionsPtr modelCompileOptions,
+          bool embedEpContextInModel) =>
+      _compileApi.modelCompilationOptions_SetEpContextEmbedMode(
+          Pointer<OrtModelCompilationOptions>.fromAddress(
+              modelCompileOptions.address),
+          embedEpContextInModel);
+
+  @override
+  void modelCompilationOptions_SetFlags(
+          OrtModelCompilationOptionsPtr modelCompileOptions, int flags) =>
+      _compileApi.modelCompilationOptions_SetFlags(
+          Pointer<OrtModelCompilationOptions>.fromAddress(
+              modelCompileOptions.address),
+          flags);
+
+  @override
+  void modelCompilationOptions_SetGraphOptimizationLevel(
+          OrtModelCompilationOptionsPtr modelCompileOptions,
+          int graphOptimizationLevel) =>
+      _compileApi.modelCompilationOptions_SetGraphOptimizationLevel(
+          Pointer<OrtModelCompilationOptions>.fromAddress(
+              modelCompileOptions.address),
+          graphOptimizationLevel);
+
+  @override
+  void modelCompilationOptions_SetInputModel(
+          OrtModelCompilationOptionsPtr modelCompileOptions,
+          OrtModelPtr model) =>
+      _compileApi.modelCompilationOptions_SetInputModel(
+          Pointer<OrtModelCompilationOptions>.fromAddress(
+              modelCompileOptions.address),
+          Pointer<OrtModel>.fromAddress(model.address));
+
+  @override
+  void modelCompilationOptions_SetInputModelFromBuffer(
+          OrtModelCompilationOptionsPtr modelCompileOptions,
+          OrtPtr inputModelData,
+          int inputModelDataSize) =>
+      _compileApi.modelCompilationOptions_SetInputModelFromBuffer(
+          Pointer<OrtModelCompilationOptions>.fromAddress(
+              modelCompileOptions.address),
+          Pointer<Void>.fromAddress(inputModelData.address),
+          inputModelDataSize);
+
+  @override
+  void modelCompilationOptions_SetInputModelPath(
+          OrtModelCompilationOptionsPtr modelCompileOptions,
+          String inputModelPath) =>
+      _compileApi.modelCompilationOptions_SetInputModelPath(
+          Pointer<OrtModelCompilationOptions>.fromAddress(
+              modelCompileOptions.address),
+          inputModelPath);
+
+  @override
+  List<OrtPtr> modelCompilationOptions_SetOutputModelBuffer(
+          OrtModelCompilationOptionsPtr modelCompileOptions,
+          OrtAllocatorPtr allocator) =>
+      [
+        for (final p
+            in _compileApi.modelCompilationOptions_SetOutputModelBuffer(
+                Pointer<OrtModelCompilationOptions>.fromAddress(
+                    modelCompileOptions.address),
+                Pointer<OrtAllocator>.fromAddress(allocator.address)))
+          OrtPtr(p.address)
+      ];
+
+  @override
+  void modelCompilationOptions_SetOutputModelExternalInitializersFile(
+          OrtModelCompilationOptionsPtr modelCompileOptions,
+          String externalInitializersFilePath,
+          int externalInitializersSizeThreshold) =>
+      _compileApi
+          .modelCompilationOptions_SetOutputModelExternalInitializersFile(
+              Pointer<OrtModelCompilationOptions>.fromAddress(
+                  modelCompileOptions.address),
+              externalInitializersFilePath,
+              externalInitializersSizeThreshold);
+
+  @override
+  void modelCompilationOptions_SetOutputModelGetInitializerLocationFunc(
+          OrtModelCompilationOptionsPtr modelCompileOptions,
+          OrtPtr getInitializerLocationFunc,
+          OrtPtr state) =>
+      _compileApi
+          .modelCompilationOptions_SetOutputModelGetInitializerLocationFunc(
+              Pointer<OrtModelCompilationOptions>.fromAddress(
+                  modelCompileOptions.address),
+              Pointer<Never>.fromAddress(getInitializerLocationFunc.address)
+                  .cast(),
+              Pointer<Void>.fromAddress(state.address));
+
+  @override
+  void modelCompilationOptions_SetOutputModelPath(
+          OrtModelCompilationOptionsPtr modelCompileOptions,
+          String outputModelPath) =>
+      _compileApi.modelCompilationOptions_SetOutputModelPath(
+          Pointer<OrtModelCompilationOptions>.fromAddress(
+              modelCompileOptions.address),
+          outputModelPath);
+
+  @override
+  void modelCompilationOptions_SetOutputModelWriteFunc(
+          OrtModelCompilationOptionsPtr modelCompileOptions,
+          OrtPtr writeFunc,
+          OrtPtr state) =>
+      _compileApi.modelCompilationOptions_SetOutputModelWriteFunc(
+          Pointer<OrtModelCompilationOptions>.fromAddress(
+              modelCompileOptions.address),
+          Pointer<Never>.fromAddress(writeFunc.address).cast(),
+          Pointer<Void>.fromAddress(state.address));
+
+  @override
+  void modelCompilationOptions_SetWeightlessEnabled(
+          OrtModelCompilationOptionsPtr modelCompileOptions,
+          bool useWeightless) =>
+      _compileApi.modelCompilationOptions_SetWeightlessEnabled(
+          Pointer<OrtModelCompilationOptions>.fromAddress(
+              modelCompileOptions.address),
+          useWeightless);
 
   @override
   List<String> modelMetadataGetCustomMetadataMapKeys(
@@ -1614,6 +2177,12 @@ base mixin GeneratedFfiRawCalls implements OrtRawCalls {
       .opAttr_GetType(Pointer<OrtOpAttr>.fromAddress(attribute.address));
 
   @override
+  void optimizerStep(OrtTrainingSessionPtr sess, OrtRunOptionsPtr runOptions) =>
+      trainingApi().ref.optimizerStep(
+          Pointer<OrtTrainingSession>.fromAddress(sess.address),
+          Pointer<OrtRunOptions>.fromAddress(runOptions.address));
+
+  @override
   int readOpAttr(OrtOpAttrPtr opAttr, int type, OrtPtr data, int len) =>
       ortApiForStatus.readOpAttr(Pointer<OrtOpAttr>.fromAddress(opAttr.address),
           type, Pointer<Void>.fromAddress(data.address), len);
@@ -1653,6 +2222,15 @@ base mixin GeneratedFfiRawCalls implements OrtRawCalls {
           Pointer<OrtEnv>.fromAddress(env.address), registrationName, path);
 
   @override
+  void registerLinearLRScheduler(OrtTrainingSessionPtr sess,
+          int warmupStepCount, int totalStepCount, double initialLr) =>
+      trainingApi().ref.registerLinearLRScheduler(
+          Pointer<OrtTrainingSession>.fromAddress(sess.address),
+          warmupStepCount,
+          totalStepCount,
+          initialLr);
+
+  @override
   void releaseAllocator(OrtAllocatorPtr input) => ortApiForStatus
       .releaseAllocator(Pointer<OrtAllocator>.fromAddress(input.address));
 
@@ -1669,6 +2247,11 @@ base mixin GeneratedFfiRawCalls implements OrtRawCalls {
   void releaseCUDAProviderOptions(OrtCUDAProviderOptionsV2Ptr input) =>
       ortApiForStatus.releaseCUDAProviderOptions(
           Pointer<OrtCUDAProviderOptionsV2>.fromAddress(input.address));
+
+  @override
+  void releaseCheckpointState(OrtCheckpointStatePtr input) =>
+      trainingApi().ref.releaseCheckpointState(
+          Pointer<OrtCheckpointState>.fromAddress(input.address));
 
   @override
   void releaseCustomOpDomain(OrtCustomOpDomainPtr input) =>
@@ -1695,6 +2278,21 @@ base mixin GeneratedFfiRawCalls implements OrtRawCalls {
   void releaseExternalInitializerInfo(OrtExternalInitializerInfoPtr input) =>
       ortApiForStatus.releaseExternalInitializerInfo(
           Pointer<OrtExternalInitializerInfo>.fromAddress(input.address));
+
+  @override
+  void releaseExternalMemoryHandle(OrtExternalMemoryHandlePtr input) =>
+      _interopApi.releaseExternalMemoryHandle(
+          Pointer<OrtExternalMemoryHandle>.fromAddress(input.address));
+
+  @override
+  void releaseExternalResourceImporter(OrtExternalResourceImporterPtr input) =>
+      _interopApi.releaseExternalResourceImporter(
+          Pointer<OrtExternalResourceImporter>.fromAddress(input.address));
+
+  @override
+  void releaseExternalSemaphoreHandle(OrtExternalSemaphoreHandlePtr input) =>
+      _interopApi.releaseExternalSemaphoreHandle(
+          Pointer<OrtExternalSemaphoreHandle>.fromAddress(input.address));
 
   @override
   void releaseGraph(OrtGraphPtr input) => ortApiForStatus
@@ -1728,6 +2326,11 @@ base mixin GeneratedFfiRawCalls implements OrtRawCalls {
   @override
   void releaseModel(OrtModelPtr input) => ortApiForStatus
       .releaseModel(Pointer<OrtModel>.fromAddress(input.address));
+
+  @override
+  void releaseModelCompilationOptions(OrtModelCompilationOptionsPtr input) =>
+      _compileApi.releaseModelCompilationOptions(
+          Pointer<OrtModelCompilationOptions>.fromAddress(input.address));
 
   @override
   void releaseModelMetadata(OrtModelMetadataPtr input) =>
@@ -1788,6 +2391,11 @@ base mixin GeneratedFfiRawCalls implements OrtRawCalls {
   void releaseThreadingOptions(OrtThreadingOptionsPtr input) =>
       ortApiForStatus.releaseThreadingOptions(
           Pointer<OrtThreadingOptions>.fromAddress(input.address));
+
+  @override
+  void releaseTrainingSession(OrtTrainingSessionPtr input) =>
+      trainingApi().ref.releaseTrainingSession(
+          Pointer<OrtTrainingSession>.fromAddress(input.address));
 
   @override
   void releaseTypeInfo(OrtTypeInfoPtr input) => ortApiForStatus
@@ -1869,6 +2477,19 @@ base mixin GeneratedFfiRawCalls implements OrtRawCalls {
           Pointer<OrtRunOptions>.fromAddress(options.address));
 
   @override
+  void saveCheckpoint(OrtCheckpointStatePtr checkpointState,
+          String checkpointPath, bool includeOptimizerState) =>
+      trainingApi().ref.saveCheckpoint(
+          Pointer<OrtCheckpointState>.fromAddress(checkpointState.address),
+          checkpointPath,
+          includeOptimizerState);
+
+  @override
+  void schedulerStep(OrtTrainingSessionPtr sess) => trainingApi()
+      .ref
+      .schedulerStep(Pointer<OrtTrainingSession>.fromAddress(sess.address));
+
+  @override
   String sessionEndProfiling(
           OrtSessionPtr session, OrtAllocatorPtr allocator) =>
       ortApiForStatus.sessionEndProfiling(
@@ -1936,6 +2557,11 @@ base mixin GeneratedFfiRawCalls implements OrtRawCalls {
           .sessionGetModelMetadata(
               Pointer<OrtSession>.fromAddress(session.address))
           .address);
+
+  @override
+  int sessionGetOpsetForDomain(OrtSessionPtr session, String domain) =>
+      _modelEditorApi.sessionGetOpsetForDomain(
+          Pointer<OrtSession>.fromAddress(session.address), domain);
 
   @override
   int sessionGetOutputCount(OrtSessionPtr session) => ortApiForStatus
@@ -2256,9 +2882,35 @@ base mixin GeneratedFfiRawCalls implements OrtRawCalls {
           allowSpinning);
 
   @override
+  void setGraphInputs(
+          OrtGraphPtr graph, List<OrtValueInfoPtr> inputs, int inputsLen) =>
+      _modelEditorApi.setGraphInputs(
+          Pointer<OrtGraph>.fromAddress(graph.address),
+          [
+            for (final h in inputs) Pointer<OrtValueInfo>.fromAddress(h.address)
+          ],
+          inputsLen);
+
+  @override
+  void setGraphOutputs(
+          OrtGraphPtr graph, List<OrtValueInfoPtr> outputs, int outputsLen) =>
+      _modelEditorApi.setGraphOutputs(
+          Pointer<OrtGraph>.fromAddress(graph.address),
+          [
+            for (final h in outputs)
+              Pointer<OrtValueInfo>.fromAddress(h.address)
+          ],
+          outputsLen);
+
+  @override
   void setLanguageProjection(OrtEnvPtr ortEnv, int projection) =>
       ortApiForStatus.setLanguageProjection(
           Pointer<OrtEnv>.fromAddress(ortEnv.address), projection);
+
+  @override
+  void setLearningRate(OrtTrainingSessionPtr sess, double learningRate) =>
+      trainingApi().ref.setLearningRate(
+          Pointer<OrtTrainingSession>.fromAddress(sess.address), learningRate);
 
   @override
   void setOptimizedModelFilePath(
@@ -2273,6 +2925,9 @@ base mixin GeneratedFfiRawCalls implements OrtRawCalls {
       ortApiForStatus.setPerSessionThreadPoolCallbacks(
           Pointer<OrtEnv>.fromAddress(env.address),
           Pointer<OrtThreadPoolCallbacksConfig>.fromAddress(config.address));
+
+  @override
+  void setSeed(int seed) => trainingApi().ref.setSeed(seed);
 
   @override
   void setSessionExecutionMode(
@@ -2351,6 +3006,19 @@ base mixin GeneratedFfiRawCalls implements OrtRawCalls {
           Pointer<OrtTensorTypeAndShapeInfo>.fromAddress(info.address));
 
   @override
+  void signalSemaphore(
+          OrtExternalResourceImporterPtr importer,
+          OrtExternalSemaphoreHandlePtr semaphoreHandle,
+          OrtSyncStreamPtr stream,
+          int value) =>
+      _interopApi.signalSemaphore(
+          Pointer<OrtExternalResourceImporter>.fromAddress(importer.address),
+          Pointer<OrtExternalSemaphoreHandle>.fromAddress(
+              semaphoreHandle.address),
+          Pointer<OrtSyncStream>.fromAddress(stream.address),
+          value);
+
+  @override
   void synchronizeBoundInputs(OrtIoBindingPtr bindingPtr) =>
       ortApiForStatus.synchronizeBoundInputs(
           Pointer<OrtIoBinding>.fromAddress(bindingPtr.address));
@@ -2367,6 +3035,74 @@ base mixin GeneratedFfiRawCalls implements OrtRawCalls {
           .tensorAt(Pointer<OrtValue>.fromAddress(value.address),
               locationValues, locationValuesCount)
           .address);
+
+  @override
+  void trainStep(
+          OrtTrainingSessionPtr sess,
+          OrtRunOptionsPtr runOptions,
+          int inputsLen,
+          List<OrtValuePtr> inputs,
+          int outputsLen,
+          List<OrtValuePtr> outputs) =>
+      trainingApi().ref.trainStep(
+          Pointer<OrtTrainingSession>.fromAddress(sess.address),
+          Pointer<OrtRunOptions>.fromAddress(runOptions.address),
+          inputsLen,
+          [for (final h in inputs) Pointer<OrtValue>.fromAddress(h.address)],
+          outputsLen,
+          [for (final h in outputs) Pointer<OrtValue>.fromAddress(h.address)]);
+
+  @override
+  int trainingSessionGetEvalModelInputCount(OrtTrainingSessionPtr sess) =>
+      trainingApi().ref.trainingSessionGetEvalModelInputCount(
+          Pointer<OrtTrainingSession>.fromAddress(sess.address));
+
+  @override
+  String trainingSessionGetEvalModelInputName(
+          OrtTrainingSessionPtr sess, int index, OrtAllocatorPtr allocator) =>
+      trainingApi().ref.trainingSessionGetEvalModelInputName(
+          Pointer<OrtTrainingSession>.fromAddress(sess.address),
+          index,
+          Pointer<OrtAllocator>.fromAddress(allocator.address));
+
+  @override
+  int trainingSessionGetEvalModelOutputCount(OrtTrainingSessionPtr sess) =>
+      trainingApi().ref.trainingSessionGetEvalModelOutputCount(
+          Pointer<OrtTrainingSession>.fromAddress(sess.address));
+
+  @override
+  String trainingSessionGetEvalModelOutputName(
+          OrtTrainingSessionPtr sess, int index, OrtAllocatorPtr allocator) =>
+      trainingApi().ref.trainingSessionGetEvalModelOutputName(
+          Pointer<OrtTrainingSession>.fromAddress(sess.address),
+          index,
+          Pointer<OrtAllocator>.fromAddress(allocator.address));
+
+  @override
+  int trainingSessionGetTrainingModelInputCount(OrtTrainingSessionPtr sess) =>
+      trainingApi().ref.trainingSessionGetTrainingModelInputCount(
+          Pointer<OrtTrainingSession>.fromAddress(sess.address));
+
+  @override
+  String trainingSessionGetTrainingModelInputName(
+          OrtTrainingSessionPtr sess, int index, OrtAllocatorPtr allocator) =>
+      trainingApi().ref.trainingSessionGetTrainingModelInputName(
+          Pointer<OrtTrainingSession>.fromAddress(sess.address),
+          index,
+          Pointer<OrtAllocator>.fromAddress(allocator.address));
+
+  @override
+  int trainingSessionGetTrainingModelOutputCount(OrtTrainingSessionPtr sess) =>
+      trainingApi().ref.trainingSessionGetTrainingModelOutputCount(
+          Pointer<OrtTrainingSession>.fromAddress(sess.address));
+
+  @override
+  String trainingSessionGetTrainingModelOutputName(
+          OrtTrainingSessionPtr sess, int index, OrtAllocatorPtr allocator) =>
+      trainingApi().ref.trainingSessionGetTrainingModelOutputName(
+          Pointer<OrtTrainingSession>.fromAddress(sess.address),
+          index,
+          Pointer<OrtAllocator>.fromAddress(allocator.address));
 
   @override
   void unregisterAllocator(OrtEnvPtr env, OrtMemoryInfoPtr memInfo) =>
@@ -2428,6 +3164,14 @@ base mixin GeneratedFfiRawCalls implements OrtRawCalls {
   void updateEnvWithCustomLogLevel(OrtEnvPtr ortEnv, int logSeverityLevel) =>
       ortApiForStatus.updateEnvWithCustomLogLevel(
           Pointer<OrtEnv>.fromAddress(ortEnv.address), logSeverityLevel);
+
+  @override
+  void updateParameter(OrtCheckpointStatePtr checkpointState,
+          String parameterName, OrtValuePtr parameter) =>
+      trainingApi().ref.updateParameter(
+          Pointer<OrtCheckpointState>.fromAddress(checkpointState.address),
+          parameterName,
+          Pointer<OrtValue>.fromAddress(parameter.address));
 
   @override
   void updateROCMProviderOptions(
@@ -2524,4 +3268,17 @@ base mixin GeneratedFfiRawCalls implements OrtRawCalls {
   bool valueInfo_IsRequiredGraphInput(OrtValueInfoPtr valueInfo) =>
       ortApiForStatus.valueInfo_IsRequiredGraphInput(
           Pointer<OrtValueInfo>.fromAddress(valueInfo.address));
+
+  @override
+  void waitSemaphore(
+          OrtExternalResourceImporterPtr importer,
+          OrtExternalSemaphoreHandlePtr semaphoreHandle,
+          OrtSyncStreamPtr stream,
+          int value) =>
+      _interopApi.waitSemaphore(
+          Pointer<OrtExternalResourceImporter>.fromAddress(importer.address),
+          Pointer<OrtExternalSemaphoreHandle>.fromAddress(
+              semaphoreHandle.address),
+          Pointer<OrtSyncStream>.fromAddress(stream.address),
+          value);
 }

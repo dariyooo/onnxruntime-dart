@@ -119,7 +119,62 @@ List<String>? recordFields(String type) {
 bool crosses(String type) => type.contains('Pointer<');
 
 /// One raw operation: the seam name, and the wrapper it forwards to.
-typedef RawOperation = ({String name, String c, Wrapper wrapper});
+typedef RawOperation = ({
+  String name,
+  String c,
+  String owner,
+  Wrapper wrapper,
+});
+
+/// How to reach the struct a call lives on.
+///
+/// The C API is not one table. `OrtApi` is reached through the loader, and it
+/// carries accessors for four more: training, compilation, model editing and
+/// interop. A call on one of those has to go through its own accessor, which is
+/// why the owning struct travels with the operation.
+const _accessor = <String, String>{
+  'OrtApi': 'ortApiForStatus',
+  'OrtTrainingApi': 'trainingApi().ref',
+  'OrtCompileApi': '_compileApi',
+  'OrtModelEditorApi': '_modelEditorApi',
+  'OrtInteropApi': '_interopApi',
+};
+
+/// The getters the generated backend needs for the tables with no accessor of
+/// their own in `runtime.dart`.
+///
+/// Training already has one, with the availability check that belongs to it:
+/// only the `full` build compiles it in. These three are present whenever the
+/// library is, but the C API still returns null on a build without them, so a
+/// null is reported rather than dereferenced.
+const _accessorSource = r'''
+  OrtCompileApi get _compileApi => _table(
+        ortApiForStatus.GetCompileApi
+            .asFunction<Pointer<OrtCompileApi> Function()>()(),
+        'OrtCompileApi',
+      ).ref;
+
+  OrtModelEditorApi get _modelEditorApi => _table(
+        ortApiForStatus.GetModelEditorApi
+            .asFunction<Pointer<OrtModelEditorApi> Function()>()(),
+        'OrtModelEditorApi',
+      ).ref;
+
+  OrtInteropApi get _interopApi => _table(
+        ortApiForStatus.GetInteropApi
+            .asFunction<Pointer<OrtInteropApi> Function()>()(),
+        'OrtInteropApi',
+      ).ref;
+
+  /// Refuses a null table rather than dereferencing it.
+  Pointer<T> _table<T extends NativeType>(Pointer<T> table, String name) =>
+      table == nullptr
+          ? throw StateError(
+              'this build of ONNX Runtime has no $name. It is compiled in '
+              'rather than always present, so a smaller build can lack it.',
+            )
+          : table;
+''';
 
 /// What to tell someone who reached one of these on the web.
 const _whyText = "const _why = 'the WebAssembly build exports forty functions "
@@ -207,12 +262,14 @@ import 'dart:ffi';
 import '../bindings/api/api.g.dart';
 import '../bindings/api/support.dart';
 import '../bindings/ort_bindings.g.dart';
+import '../ffi/runtime.dart';
 import 'handles.g.dart';
 import 'raw_interface.g.dart';
 import 'types.dart';
 
 /// Every native-only call, forwarded.
 base mixin GeneratedFfiRawCalls implements OrtRawCalls {
+$_accessorSource
 ${operations.map((o) => _ffiMethod(o, callbacks)).join('\n')}}
 ''';
 
@@ -222,7 +279,8 @@ String _ffiMethod(RawOperation operation, Set<String> callbacks) {
       wrapper.parameters.map((p) => '${seamType(p.$1, callbacks)} ${p.$2}').join(', ');
   final arguments =
       wrapper.parameters.map((p) => toNative(p.$1, p.$2, callbacks)).join(', ');
-  final call = 'ortApiForStatus.${operation.name}($arguments)';
+  final table = _accessor[operation.owner] ?? 'ortApiForStatus';
+  final call = '$table.${operation.name}($arguments)';
   final returns = seamType(wrapper.returns, callbacks);
   final head = '  @override\n  $returns ${operation.name}($parameters)';
 
