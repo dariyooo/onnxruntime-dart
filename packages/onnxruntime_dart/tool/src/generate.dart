@@ -15,6 +15,7 @@ import 'emit.dart';
 import 'ffigen_api.dart';
 import 'paths.dart';
 import 'types.dart';
+import 'raw_seam.dart';
 import 'seam.dart';
 import 'wasm_api.dart';
 
@@ -61,7 +62,11 @@ Generated generate({
   File? wasmHeader,
   File? version,
 }) {
-  final apis = parseApis(header.readAsStringSync());
+  final headerText = header.readAsStringSync();
+  final apis = parseApis(headerText);
+  // Callback typedefs cross the seam as addresses: ffigen types them
+  // as `dart:ffi` typedefs, which do not exist on the web.
+  final callbacks = parseFunctionPointers(headerText);
   for (final extra in extraHeaders) {
     apis.addAll(parseApis(extra.readAsStringSync()));
   }
@@ -71,6 +76,7 @@ Generated generate({
   // that declares it and two structs can declare the same name.
   final byFile = <(String, String), List<String>>{};
   final skipped = <String>[];
+  final raw = <RawOperation>[];
 
   for (final api in apis.entries) {
     final members = signatures[api.key];
@@ -91,8 +97,31 @@ Generated generate({
         continue;
       }
       (byFile[(api.key, group)] ??= []).add(wrapper.code);
+      // OrtApi only. The sibling tables, OrtModelEditorApi and the rest,
+      // are reached through their own accessor rather than the one the
+      // generated forwards use, so putting them on the seam needs that
+      // routing first. They stay reachable through native.dart meanwhile.
+      if (api.key == 'OrtApi') {
+        raw.add((
+          name: dartName(function.name),
+          c: function.name,
+          wrapper: wrapper,
+        ));
+      }
     }
   }
+
+  // The hand-written seam takes precedence: an operation it already declares
+  // is the translated one, and generating a native-only twin of it would put
+  // two meanings on one name. Read from the file rather than listed, so adding
+  // a hand-written operation is enough and nothing here has to be told.
+  final translated = _declaredBy(File('lib/src/backend/interface.dart'));
+  final rawOnly = [
+    for (final operation in raw)
+      if (!translated.contains(operation.name) &&
+          !touchesInternalType(operation.wrapper))
+        operation,
+  ]..sort((a, b) => a.name.compareTo(b.name));
 
   final names = [
     for (final key in byFile.keys) '${fileName(key.$1, key.$2)}.g.dart',
@@ -113,6 +142,14 @@ Generated generate({
       if (wasmHeader != null)
         '../../backend/wasm/api.g.dart': _formatter
             .format(_wasmSource(parseWasmApi(wasmHeader.readAsStringSync()))),
+      '../../backend/handles.g.dart':
+          _formatter.format(handlesFile(handlesIn(rawOnly.map((o) => o.wrapper)))),
+      '../../backend/raw_interface.g.dart':
+          _formatter.format(rawInterfaceFile(rawOnly, callbacks)),
+      '../../backend/raw_ffi_calls.g.dart':
+          _formatter.format(rawFfiFile(rawOnly, callbacks)),
+      '../../backend/raw_wasm_calls.g.dart':
+          _formatter.format(rawWasmFile(rawOnly, callbacks)),
     },
     skipped: skipped,
     wrappers: byFile.values.fold(0, (n, methods) => n + methods.length),
@@ -288,3 +325,18 @@ import 'support.dart';
 extension $struct${_capital(group)}Api on $struct {
 ${methods.join('\n')}}
 ''';
+
+/// The operation names a backend interface already declares.
+///
+/// Parsed rather than listed. The hand-written seam is the authority on what
+/// it covers, and a list here would be a second place to keep in step.
+Set<String> _declaredBy(File interface) {
+  if (!interface.existsSync()) return const {};
+  return {
+    for (final match in RegExp(
+      r'^\s{2}(?:@\w+[^\n]*\n\s*)*[A-Za-z][\w<>,?\[\] ]*\s+(\w+)\(',
+      multiLine: true,
+    ).allMatches(interface.readAsStringSync()))
+      match.group(1)!,
+  };
+}

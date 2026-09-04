@@ -26,6 +26,9 @@ const _nativeOnly = [
   'lib/src/bindings/ort_bindings.g.dart',
   'lib/src/bindings/api/',
   'lib/src/backend/ffi_calls.dart',
+  // The generated native half of the seam. Its web twin,
+  // raw_wasm_calls.g.dart, is shared and must stay so.
+  'lib/src/backend/raw_ffi_calls.g.dart',
 ];
 
 bool _isNative(String path) => _nativeOnly.any(path.startsWith);
