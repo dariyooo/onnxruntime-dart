@@ -28,12 +28,6 @@ doc/api/
 .flutter-plugins
 .flutter-plugins-dependencies
 
-# The published gallery. Built output, but GitHub Pages serves this repository's
-# docs/ directory, so it is committed on purpose and must escape the patterns
-# above. Without this the *.js rule silently drops flutter_bootstrap.js and the
-# page loads to a blank screen, and the assets' own .gitignore drops the
-# runtime, both without git saying anything.
-!docs/**
 
 # Local working plan — deliberately NOT committed
 DESIGN.md
