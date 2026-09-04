@@ -36,6 +36,13 @@ on:
           Run part of it. Comma separated, any of: runtime, full, webgpu, qnn,
           cuda, extensions, genai, desktop, device, web, example. Empty runs
           everything.
+
+          A test area needs the areas it loads. "desktop" downloads the
+          runtime, webgpu, qnn, cuda and extensions and fails if one of them
+          was not built, deliberately: a binary published without anything
+          loading it is one nobody knows works. So test one of them with
+          "runtime,webgpu,qnn,cuda,extensions,genai,desktop" rather than
+          "desktop" on its own, or with from_release to skip building entirely.
         type: string
         default: ''
   schedule:
