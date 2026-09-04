@@ -86,6 +86,13 @@ jobs:
           rm -rf docs
           mkdir -p docs
           cp -r examples/gallery/build/web/. docs/
+          # Flutter copies canvaskit locally as a fallback and then loads it
+          # from gstatic anyway: canvasKitBaseUrl points there unless
+          # useLocalCanvasKit is set, which it is not. Keeping the copy would
+          # put 37 MB into this repository's history for something no browser
+          # ever requests.
+          rm -rf docs/canvaskit
+          du -sh docs
           # Pages runs Jekyll otherwise, which drops files starting with an
           # underscore, and Flutter ships several.
           touch docs/.nojekyll
