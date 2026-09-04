@@ -53,6 +53,8 @@ on:
           loading it is one nobody knows works. So test one of them with
           "runtime,webgpu,qnn,cuda,extensions,genai,desktop" rather than
           "desktop" on its own, or with from_release to skip building entirely.
+          "example" is the same: it loads the runtime, webgpu and genai, so run
+          it as "runtime,webgpu,genai,example".
         type: string
         default: ''
   schedule:
@@ -213,7 +215,7 @@ jobs:
 
   example-app:
     name: example · gallery
-    needs: [static, mode, build-runtime, build-genai]
+    needs: [static, mode, build-runtime, build-genai, build-ep-webgpu]
     # Only when this run built the libraries. The gallery depends on
     # onnxruntime_genai_binaries, whose hook downloads from a release that does
     # not exist until someone tags, so from_release has nothing to point it at.
@@ -245,7 +247,9 @@ jobs:
       # Its own pipeline and its own artifact, so the provider is not in the
       # runtime tarball. The app declares onnxruntime_ep_webgpu_binaries, whose
       # hook fails rather than falls back when pointed at a directory without
-      # the provider in it.
+      # the provider in it. build-ep-webgpu is in needs above for the same
+      # reason: without it this job starts as soon as the runtime is done and
+      # asks for an artifact the provider build has not uploaded yet.
       - uses: actions/download-artifact@v4
         with:
           name: onnxruntime-linux-x64-webgpu
@@ -951,7 +955,8 @@ jobs:
 
   test-against-our-build:
     name: test · ${{ matrix.name }} · our build
-    needs: [mode, build-runtime, build-ep-webgpu, build-extensions, build-ep-qnn, build-ep-cuda]
+    needs: [mode, build-runtime, build-ep-webgpu, build-extensions, build-ep-qnn,
+            build-ep-cuda, build-genai]
     # Runs even when part of the matrix failed: these six need only their own
     # native artifact, and gating them on every configuration means one web
     # variant that will not link hides whether the libraries we ship work at
