@@ -1,0 +1,100 @@
+# The example application, on its own schedule.
+#
+# Separate from ci.yml because it depends on none of what that builds. The web
+# build links no native library at all: the runtime is fetched as an asset at
+# startup, so this needs Flutter and a published web runtime and nothing else.
+# Tying it to the binary pipeline meant an hour of unrelated building before a
+# change to a Dart file in the gallery could be seen.
+#
+# It runs when the gallery changes, or when a package it depends on does, since
+# the point of the gallery is to exercise those.
+name: gallery
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'examples/gallery/**'
+      - 'packages/**'
+      - '.github/workflows/gallery.yml'
+  pull_request:
+    paths:
+      - 'examples/gallery/**'
+      - 'packages/**'
+      - '.github/workflows/gallery.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gallery-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  web:
+    name: build for the web
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+      - uses: subosito/flutter-action@v2
+        with: { channel: stable }
+
+      # The runtime is an asset the application serves, and the asset package
+      # ships empty in the repository: the files are large, built elsewhere, and
+      # staged at release time. Without this the page loads and then cannot find
+      # a runtime.
+      - name: Stage the WebAssembly runtime
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag=$(python3 -c "
+          import sys; sys.path.insert(0, '.github/scripts')
+          import release_identity
+          print(release_identity.release_tag('runtime'))
+          ")
+          mkdir -p .local/webassets
+          # The publisher owns the naming rule, so it is asked rather than
+          # guessed: the build calls it web-wasm-webgpu and the release calls
+          # it base-web-wasm-webgpu.
+          asset=$(python3 .github/scripts/rename_release_assets.py \
+            --name web-wasm-webgpu runtime)
+          gh release download "$tag" --pattern "$asset" \
+            --dir .local/webassets --clobber
+          python3 .github/scripts/stage_web_assets.py web-wasm-webgpu \
+            --archive ".local/webassets/$asset"
+
+      - name: Build
+        working-directory: examples/gallery
+        run: |
+          set -euo pipefail
+          flutter pub get
+          # Served from a project page, so every asset URL is prefixed. Getting
+          # this wrong produces a page that loads and then fetches nothing.
+          flutter build web --base-href=/onnxruntime-dart/
+
+      # Pages serves main branch /docs, so only a run on main can update it. A
+      # run on a branch stops here, which still catches a broken web build.
+      - name: Publish to Pages
+        if: ${{ github.ref == 'refs/heads/main' && github.event_name == 'push' }}
+        run: |
+          set -euo pipefail
+          rm -rf docs
+          mkdir -p docs
+          cp -r examples/gallery/build/web/. docs/
+          # Pages runs Jekyll otherwise, which drops files starting with an
+          # underscore, and Flutter ships several.
+          touch docs/.nojekyll
+          git config user.name 'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git add docs
+          if git diff --cached --quiet; then
+            echo "the built gallery is unchanged"
+            exit 0
+          fi
+          git commit -m 'Publish the gallery to Pages'
+          git push
