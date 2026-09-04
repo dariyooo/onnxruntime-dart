@@ -62,10 +62,10 @@ jobs:
           # guessed: the build calls it web-wasm-webgpu and the release calls
           # it base-web-wasm-webgpu.
           asset=$(python3 .github/scripts/rename_release_assets.py \
-            --name web-wasm-webgpu runtime)
+            --name web-wasm-webgpu-webnn runtime)
           gh release download "$tag" --pattern "$asset" \
             --dir .local/webassets --clobber
-          python3 .github/scripts/stage_web_assets.py web-wasm-webgpu \
+          python3 .github/scripts/stage_web_assets.py web-wasm-webgpu-webnn \
             --archive ".local/webassets/$asset"
 
       - name: Build

@@ -22,10 +22,12 @@ dependencies:
   onnxruntime_ep_webgpu_binaries:
     { path: ../../packages/onnxruntime_ep_webgpu_binaries }
   onnxruntime_genai: { path: ../../packages/onnxruntime_genai }
-  # The WebAssembly runtime, and where it is served from. Only the web build
-  # uses it, but the URLs are plain constants so importing it costs a native
-  # build nothing.
-  onnxruntime_web_webgpu: { path: ../../packages/onnxruntime_web_webgpu }
+  # The WebAssembly runtime, and where it is served from. The fullest of the
+  # three: XNNPACK, WebGPU and WebNN, so the provider panel has something to
+  # compare on the web rather than only CPU. Only the web build uses it, but
+  # the URLs are plain constants so importing it costs a native build nothing.
+  onnxruntime_web_webgpu_webnn:
+    { path: ../../packages/onnxruntime_web_webgpu_webnn }
   onnxruntime_genai_binaries:
     { path: ../../packages/onnxruntime_genai_binaries }
   file_selector: ^1.0.0
