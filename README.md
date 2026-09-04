@@ -64,3 +64,18 @@ it built, so no binary is published without something loading it first. Give the
 runs the same tests against what is already published instead. That is also
 what the weekly run does, so a release that stops installing is noticed without
 waiting for a push.
+
+Releasing is tagging, one component at a time. The tag names what it releases,
+and the pipeline runs that component alone:
+
+| tag | releases |
+| --- | --- |
+| `runtime-v1.29.0` | the runtime, base and full |
+| `ep-webgpu-v0.3.0` | the WebGPU provider |
+| `ep-cuda-v0.1.0` | the CUDA provider |
+| `ep-qnn-v2.5.0` | the QNN provider |
+| `extensions-v0.15.0` | the operator library |
+| `genai-v0.15.2` | the GenAI library |
+
+So a provider that gains a version is released by its own tag and nothing else
+is rebuilt. Pushing to a branch never publishes, whichever branch it is.
