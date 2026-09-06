@@ -61,7 +61,10 @@ jobs:
           # version, and version_test.dart fails if the two ever disagree.
           version=$(grep -m1 '^version:' \
             packages/onnxruntime_binaries/pubspec.yaml | awk '{print $2}')
-          tag="runtime-v$version"
+          # Build metadata dropped, the same as releaseTagFor does in the
+          # build hook. A `+1` there means the same runtime repackaged, so
+          # there is no runtime-v1.29.0+1 release to stage from.
+          tag="runtime-v${version%%+*}"
           echo "staging the web runtime from $tag"
           mkdir -p .local/webassets
           # The publisher owns the naming rule, so it is asked rather than
