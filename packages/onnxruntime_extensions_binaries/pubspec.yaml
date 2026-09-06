@@ -18,4 +18,4 @@ dependencies:
   # For loadedLibraryPath: this package declares its own asset and has to find
   # where it landed. The dependency points this way on purpose, so the base
   # package knows nothing about which packages exist.
-  onnxruntime_hook: ^1.29.0
+  onnxruntime_hook: ^0.1.0

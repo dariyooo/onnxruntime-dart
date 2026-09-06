@@ -57,6 +57,21 @@ Future<void> installRuntime(List<String> args) async {
   });
 }
 
+/// The release tag a package version installs from.
+///
+/// Build metadata is dropped, and that is the whole point of it. A `+1` on a
+/// binaries package means the same upstream binaries repackaged: a bad
+/// archive, a missing library, a hook that resolved wrong. pub.dev will not
+/// let a published version be replaced, so the fix ships as `1.29.0+1`, and
+/// it has to keep pointing at `runtime-v1.29.0`, because there is no second
+/// upstream release to point at.
+///
+/// Split rather than parsed. The version came out of a pubspec that pub has
+/// already validated, and a regex here would be a second opinion about
+/// something that is not in doubt.
+String releaseTagFor(String version, {String component = 'runtime'}) =>
+    '$component-v${version.split('+').first}';
+
 /// The release this package installs from, named for its own version.
 ///
 /// Every package here is versioned as the thing it contains, and the release it
@@ -77,7 +92,7 @@ String releaseTag(BuildInput input, {String component = 'runtime'}) {
       'way to tell which ONNX Runtime release to install.',
     );
   }
-  return '$component-v${match.group(1)}';
+  return releaseTagFor(match.group(1)!, component: component);
 }
 
 /// Finds the library: a local build if one was configured, then a previous
