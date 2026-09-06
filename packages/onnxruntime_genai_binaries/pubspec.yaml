@@ -16,7 +16,7 @@ resolution: workspace
 dependencies:
   code_assets: '>=1.0.0 <2.0.0'
   hooks: '>=1.0.0 <3.0.0'
-  onnxruntime_hook: ^1.29.0
+  onnxruntime_hook: ^0.1.0
   # GenAI looks up OrtGetApiBase in an ONNX Runtime that is already loaded
   # rather than linking one, so the runtime has to be installed alongside.
   onnxruntime_binaries: '>=1.24.4 <2.0.0'
