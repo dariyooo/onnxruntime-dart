@@ -53,6 +53,8 @@ on:
           loading it is one nobody knows works. So test one of them with
           "runtime,webgpu,qnn,cuda,extensions,genai,desktop" rather than
           "desktop" on its own, or with from_release to skip building entirely.
+          "example" is the same: it loads the runtime, webgpu and genai, so run
+          it as "runtime,webgpu,genai,example".
         type: string
         default: ''
   schedule:
@@ -213,7 +215,7 @@ jobs:
 
   example-app:
     name: example · gallery
-    needs: [static, mode, build-runtime, build-genai]
+    needs: [static, mode, build-runtime, build-genai, build-ep-webgpu]
     # Only when this run built the libraries. The gallery depends on
     # onnxruntime_genai_binaries, whose hook downloads from a release that does
     # not exist until someone tags, so from_release has nothing to point it at.
@@ -245,7 +247,9 @@ jobs:
       # Its own pipeline and its own artifact, so the provider is not in the
       # runtime tarball. The app declares onnxruntime_ep_webgpu_binaries, whose
       # hook fails rather than falls back when pointed at a directory without
-      # the provider in it.
+      # the provider in it. build-ep-webgpu is in needs above for the same
+      # reason: without it this job starts as soon as the runtime is done and
+      # asks for an artifact the provider build has not uploaded yet.
       - uses: actions/download-artifact@v4
         with:
           name: onnxruntime-linux-x64-webgpu
@@ -491,8 +495,44 @@ jobs:
           dart compile js test/src/worker_entry.dart \
             -o test/src/worker_entry.dart.js -m
 
-      - working-directory: packages/onnxruntime_dart
-        run: dart test -p chrome -c ${{ matrix.compiler }} --reporter expanded
+      # Captured rather than run bare, for the same reason the exclusive and
+      # bindings jobs capture theirs: every test that touches the runtime
+      # skips with a reason when the module fails to load, so a job that
+      # staged nothing passes green having proved nothing. This is the one
+      # web job and the guard was missing from it.
+      - name: Test
+        working-directory: packages/onnxruntime_dart
+        shell: bash
+        run: |
+          set -euo pipefail
+          out=$(dart test -p chrome -c ${{ matrix.compiler }} \
+            --reporter expanded 2>&1) && status=0 || status=$?
+          echo "$out"
+          [ "$status" -eq 0 ] || exit "$status"
+          # A herestring, not a pipe: `echo | grep -q` returns 141 under
+          # pipefail when grep matches early.
+          if grep -q 'no WebAssembly runtime here' <<< "$out"; then
+            echo "::error::the web runtime did not load, so every test that"
+            echo "::error::exercises it skipped. Reason reported:"
+            grep -m1 'no WebAssembly runtime here' <<< "$out" || true
+            exit 1
+          fi
+          # A floor on what ran, not a ceiling on what skipped: how many
+          # legitimately skip differs per build, six on the CPU-only one for
+          # the WebGPU and WebNN cases and three where a provider is present.
+          # What does not differ is that the suite is ~67 tests and only 18 of
+          # them avoid the runtime, so anything under 50 means the module did
+          # not load however that got reported.
+          passed=$(grep -oE '\+[0-9]+' <<< "$out" | tail -1 | tr -d '+')
+          passed=${passed:-0}
+          if [ "$passed" -lt 50 ]; then
+            echo "::error::only $passed tests passed, expected at least 50."
+            echo "::error::The runtime is most likely not being served, so"
+            echo "::error::everything that exercises it skipped."
+            grep -i 'skip:' <<< "$out" | sort -u || true
+            exit 1
+          fi
+          echo "  $passed passed, above the floor"
 
   # Stage 2a. Our binaries, built from the pinned submodule.
   #
@@ -681,7 +721,7 @@ jobs:
       - uses: actions/download-artifact@v4
         if: ${{ needs.mode.outputs.building == 'true' }}
         with:
-          name: onnxruntime-${{ matrix.artifact || inputs.configuration || 'ios-sim-arm64' }}-webgpu
+          name: onnxruntime-${{ matrix.artifact }}-webgpu
           path: .local/artifacts
 
       - name: Unpack the provider
@@ -690,7 +730,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p .local/ort/device/lib
-          tar xzf ".local/artifacts/ep-webgpu/${{ matrix.artifact || inputs.configuration || 'ios-sim-arm64' }}-webgpu.tar.gz" \
+          tar xzf ".local/artifacts/ep-webgpu/${{ matrix.artifact }}-webgpu.tar.gz" \
             -C .local/ort/device/lib
           ls -la .local/ort/device/lib
 
@@ -744,7 +784,7 @@ jobs:
             echo "::error::on x86_64 outright, and macOS is the only arm64 host"
             echo "::error::Google ships an emulator for at all."
             echo "::error::Real coverage needs arm64 hardware CI does not"
-            echo "::error::have. See issue #1 for the measurements.""
+            echo "::error::have. See issue #1 for the measurements."
             exit 1
           fi
 
@@ -951,7 +991,8 @@ jobs:
 
   test-against-our-build:
     name: test · ${{ matrix.name }} · our build
-    needs: [mode, build-runtime, build-ep-webgpu, build-extensions, build-ep-qnn, build-ep-cuda]
+    needs: [mode, build-runtime, build-ep-webgpu, build-extensions, build-ep-qnn,
+            build-ep-cuda, build-genai]
     # Runs even when part of the matrix failed: these six need only their own
     # native artifact, and gating them on every configuration means one web
     # variant that will not link hides whether the libraries we ship work at

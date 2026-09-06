@@ -5,7 +5,7 @@ description: >-
   onnxruntime_binaries, onnxruntime_binaries and onnxruntime_ep.
 # Versioned with the binaries it installs, so the release it downloads from is
 # named by the depending package's own version.
-version: 1.29.0
+version: 0.1.0
 repository: https://github.com/dariyooo/onnxruntime-dart
 issue_tracker: https://github.com/dariyooo/onnxruntime-dart/issues
 
