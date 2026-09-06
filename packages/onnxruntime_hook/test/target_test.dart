@@ -109,12 +109,34 @@ void main() {
 
     test('asset url points at the pinned release', () {
       final url = assetUrl(
-        releaseTag: 'runtime-v1.29.0+1',
+        releaseTag: 'runtime-v1.29.0',
         targetId: 'linux-x64',
       );
       expect(
-          url.toString(), endsWith('/runtime-v1.29.0+1/base-linux-x64.tar.gz'));
+          url.toString(), endsWith('/runtime-v1.29.0/base-linux-x64.tar.gz'));
       expect(url.scheme, 'https');
+    });
+
+    group('release tag from a package version', () {
+      test('a plain version names the release directly', () {
+        expect(releaseTagFor('1.29.0'), 'runtime-v1.29.0');
+      });
+
+      test('a repackaged version still points at the upstream release', () {
+        // The reason this exists. `1.29.0+1` is the same ONNX Runtime built
+        // once and packaged twice, so there is no `runtime-v1.29.0+1` release
+        // to download and asking for one would 404 every install.
+        expect(releaseTagFor('1.29.0+1'), 'runtime-v1.29.0');
+        expect(releaseTagFor('1.29.0+17'), 'runtime-v1.29.0');
+      });
+
+      test('each component names its own release', () {
+        expect(releaseTagFor('0.15.2+1', component: 'genai'), 'genai-v0.15.2');
+        expect(
+          releaseTagFor('0.3.0+2', component: 'ep-webgpu'),
+          'ep-webgpu-v0.3.0',
+        );
+      });
     });
   });
 
