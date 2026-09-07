@@ -1511,3 +1511,13 @@ jobs:
         if: env.GENAI_SUPPORTED == 'true'
         working-directory: packages/onnxruntime_genai
         run: dart test --reporter expanded
+
+      # Pure Dart and no runtime needed, so the `static` job already runs
+      # these on Linux. They run here too because what they cover is
+      # platform shaped: libraryFileName picks .so, .dylib or .dll, and
+      # releaseTag resolves a path through the consuming package's
+      # pubspec. Separators and case rules differ on Windows, and one
+      # runner cannot see that.
+      - name: Test the install hook on this platform
+        working-directory: packages/onnxruntime_hook
+        run: dart test --reporter expanded
