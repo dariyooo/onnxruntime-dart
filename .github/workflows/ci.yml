@@ -898,7 +898,11 @@ jobs:
         working-directory: integration/harness
         # Well inside the job's budget, so a hang here reports as this step
         # rather than as the whole job running out of time.
-        timeout-minutes: 25
+        # 25 was enough until the extensions and GenAI groups were added and
+        # the first simulator boot went over it. The job cap is 60, and this
+        # exists to fail a wedged simulator sooner than that rather than to
+        # bound a healthy run.
+        timeout-minutes: 40
         run: |
           set -euo pipefail
           simulator=$(python3 ../../.github/scripts/pick_simulator.py)
