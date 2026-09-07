@@ -216,18 +216,29 @@ class PackageVersions(unittest.TestCase):
         return re.search(r"^version:\s*(\S+)\s*$", pubspec, re.MULTILINE).group(1)
 
     def test_the_runtime_packages_carry_the_runtime_version(self):
+        """The packages that deliver the runtime are versioned as it.
+
+        onnxruntime_hook is deliberately absent. It ships no binary and
+        wraps no upstream API, it is our own install logic serving six
+        packages that track six different upstreams, so borrowing ONNX
+        Runtime's number for it would assert a pin it does not have.
+
+        Build metadata is dropped before comparing. A `+1` means the same
+        upstream repackaged, which is the only room pub.dev leaves once a
+        version is published, and it must not read as a version mismatch.
+        """
         upstream = (
             REPO_ROOT / "third_party" / "onnxruntime" / "VERSION_NUMBER"
         ).read_text(encoding="utf-8").strip()
 
         for package in (
             "onnxruntime_binaries",
-            "onnxruntime_hook",
             "onnxruntime_web",
             "onnxruntime_web_webgpu",
             "onnxruntime_web_webgpu_webnn",
         ):
-            self.assertEqual(self._version(package), upstream, package)
+            version = self._version(package).split("+")[0]
+            self.assertEqual(version, upstream, package)
 
     def test_the_extensions_package_carries_the_extensions_version(self):
         self.assertEqual(
