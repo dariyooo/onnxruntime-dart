@@ -23,6 +23,20 @@ dependencies:
   # provider undeclared and the device tests proving nothing.
   onnxruntime_ep_webgpu_binaries:
     { path: ../../packages/onnxruntime_ep_webgpu_binaries }
+  # Built for android and ios and never run on either until now. What the
+  # desktop jobs cannot show is that the runtime can dlopen a second library
+  # out of an APK or an embedded framework, which is the whole custom-ops path
+  # on device.
+  onnxruntime_extensions: { path: ../../packages/onnxruntime_extensions }
+  onnxruntime_extensions_binaries:
+    { path: ../../packages/onnxruntime_extensions_binaries }
+  # Upstream ships an .aar carrying every ABI and an xcframework, so both of
+  # these targets have a library. GenAI resolves OrtGetApiBase out of an ONNX
+  # Runtime that is already loaded, and whether that works when both came out
+  # of the same APK is what no desktop job answers.
+  onnxruntime_genai: { path: ../../packages/onnxruntime_genai }
+  onnxruntime_genai_binaries:
+    { path: ../../packages/onnxruntime_genai_binaries }
 
 dev_dependencies:
   flutter_test: { sdk: flutter }

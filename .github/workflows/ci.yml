@@ -649,7 +649,7 @@ jobs:
   # a code-signed framework. Neither resembles the desktop layout.
   test-on-device:
     name: test · ${{ matrix.name }} · device
-    needs: [mode, build-runtime, build-ep-webgpu]
+    needs: [mode, build-runtime, build-ep-webgpu, build-extensions, build-genai]
     # As above: a cancelled build leaves nothing to test against. The device
     # harness installs from releases through the build hook, so it needs no
     # artifacts and runs either way.
@@ -734,6 +734,41 @@ jobs:
             -C .local/ort/device/lib
           ls -la .local/ort/device/lib
 
+      # Its own pipeline, one artifact per target, so the archive sits at the
+      # root rather than in a folder of its own.
+      - uses: actions/download-artifact@v4
+        if: ${{ needs.mode.outputs.building == 'true' }}
+        with:
+          name: extensions-${{ matrix.artifact }}
+          path: .local/extensions
+
+      - name: Unpack the operator library
+        if: ${{ needs.mode.outputs.building == 'true' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          tar xzf ".local/extensions/extensions-${{ matrix.artifact }}.tar.gz" \
+            -C .local/ort/device/lib
+          ls -la .local/ort/device/lib
+
+      # Mirrored rather than built, and one artifact holds every target, so it
+      # lands in .local/artifacts and carries its own genai/ folder, the same
+      # as the desktop job takes it.
+      - uses: actions/download-artifact@v4
+        if: ${{ needs.mode.outputs.building == 'true' }}
+        with:
+          name: genai
+          path: .local/artifacts
+
+      - name: Unpack the GenAI library
+        if: ${{ needs.mode.outputs.building == 'true' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          tar xzf ".local/artifacts/genai/genai-${{ matrix.artifact }}.tar.gz" \
+            -C .local/ort/device/lib
+          ls -la .local/ort/device/lib
+
       # Only when testing what this run built. Otherwise the harness
       # resolves through its own build hooks from the published releases,
       # which is the path a user takes and the one worth exercising here.
@@ -749,6 +784,10 @@ jobs:
               onnxruntime_binaries:
                 local_build: ../../.local/ort/device/lib
               onnxruntime_ep_webgpu_binaries:
+                local_build: ../../.local/ort/device/lib
+              onnxruntime_extensions_binaries:
+                local_build: ../../.local/ort/device/lib
+              onnxruntime_genai_binaries:
                 local_build: ../../.local/ort/device/lib
           YAML
           tail -8 integration/harness/pubspec.yaml
