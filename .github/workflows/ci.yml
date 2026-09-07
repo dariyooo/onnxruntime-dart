@@ -667,7 +667,19 @@ jobs:
       matrix:
         include:
           # The emulator is x86_64, so that is the library it needs.
-          - { name: android-x64, runner: ubuntu-24.04, artifact: android-x86_64, arch: x86_64 }
+          - { name: android-x64, runner: ubuntu-24.04, artifact: android-x86_64,
+              arch: x86_64, api: 34, webgpu: true, genai: true }
+          # The only 32-bit coverage anywhere. Nothing else exercises a
+          # 32-bit pointer, which is where an FFI layer is most likely to be
+          # quietly wrong. API 30 because Google shipped no 32-bit x86 system
+          # image after it.
+          #
+          # No provider and no GenAI: ep_matrix leaves the 32-bit Android ABIs
+          # out on purpose, and upstream's GenAI .aar carries only arm64-v8a
+          # and x86_64. The harness is told, and asserts their absence rather
+          # than skipping past it.
+          - { name: android-x86, runner: ubuntu-24.04, artifact: android-x86,
+              arch: x86, api: 30, webgpu: false, genai: false }
           # macOS on Apple silicon, because the emulator requires the image
           # and the host to share an architecture. An x64 host does not run an
           # arm64 image slowly, it refuses: "Avd's CPU Architecture 'arm64' is
@@ -690,8 +702,10 @@ jobs:
           #
           # Issue #1 holds the measurements and the upstream links, so this
           # does not get investigated from scratch a second time.
-          - { name: android-arm64, runner: macos-26, artifact: android-arm64-v8a, arch: arm64-v8a }
-          - { name: ios, runner: macos-15, artifact: ios-sim-arm64 }
+          - { name: android-arm64, runner: macos-26, artifact: android-arm64-v8a,
+              arch: arm64-v8a, api: 34, webgpu: true, genai: true }
+          - { name: ios, runner: macos-15, artifact: ios-sim-arm64,
+              webgpu: true, genai: true }
     steps:
       - uses: actions/checkout@v5
         with: { submodules: true }
@@ -719,13 +733,13 @@ jobs:
       # The provider the harness registers. Its own pipeline, so its own
       # artifact.
       - uses: actions/download-artifact@v4
-        if: ${{ needs.mode.outputs.building == 'true' }}
+        if: ${{ needs.mode.outputs.building == 'true' && matrix.webgpu }}
         with:
           name: onnxruntime-${{ matrix.artifact }}-webgpu
           path: .local/artifacts
 
       - name: Unpack the provider
-        if: ${{ needs.mode.outputs.building == 'true' }}
+        if: ${{ needs.mode.outputs.building == 'true' && matrix.webgpu }}
         shell: bash
         run: |
           set -euo pipefail
@@ -755,13 +769,13 @@ jobs:
       # lands in .local/artifacts and carries its own genai/ folder, the same
       # as the desktop job takes it.
       - uses: actions/download-artifact@v4
-        if: ${{ needs.mode.outputs.building == 'true' }}
+        if: ${{ needs.mode.outputs.building == 'true' && matrix.genai }}
         with:
           name: genai
           path: .local/artifacts
 
       - name: Unpack the GenAI library
-        if: ${{ needs.mode.outputs.building == 'true' }}
+        if: ${{ needs.mode.outputs.building == 'true' && matrix.genai }}
         shell: bash
         run: |
           set -euo pipefail
@@ -783,13 +797,24 @@ jobs:
             user_defines:
               onnxruntime_binaries:
                 local_build: ../../.local/ort/device/lib
-              onnxruntime_ep_webgpu_binaries:
-                local_build: ../../.local/ort/device/lib
               onnxruntime_extensions_binaries:
                 local_build: ../../.local/ort/device/lib
+          YAML
+          # Named only where the library exists for this ABI. Pointing a hook
+          # at a directory without its library makes it warn and carry on,
+          # which would read as "not staged" rather than "has none".
+          if [ "${{ matrix.webgpu }}" = "true" ]; then
+            cat >> integration/harness/pubspec.yaml <<'YAML'
+              onnxruntime_ep_webgpu_binaries:
+                local_build: ../../.local/ort/device/lib
+          YAML
+          fi
+          if [ "${{ matrix.genai }}" = "true" ]; then
+            cat >> integration/harness/pubspec.yaml <<'YAML'
               onnxruntime_genai_binaries:
                 local_build: ../../.local/ort/device/lib
           YAML
+          fi
           tail -8 integration/harness/pubspec.yaml
 
       - name: Set up Java
@@ -855,7 +880,7 @@ jobs:
         if: startsWith(matrix.name, 'android')
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 34
+          api-level: ${{ matrix.api }}
           # From the matrix: an arm64-v8a image needs an arm64 host, which is
           # the only way the arm build gets run rather than only built.
           arch: ${{ matrix.arch }}
@@ -891,7 +916,9 @@ jobs:
             adb shell getprop ro.kernel.qemu.gles || true
             adb shell 'ls /vendor/lib64/hw/vulkan.* 2>/dev/null' || true
             adb shell 'cmd gpu vkjson 2>/dev/null | head -c 400' || true
-            flutter test integration_test --reporter expanded
+            flutter test integration_test --reporter expanded \
+              --dart-define=HAS_WEBGPU=${{ matrix.webgpu }} \
+              --dart-define=HAS_GENAI=${{ matrix.genai }}
 
       - name: Run on an iOS simulator
         if: matrix.name == 'ios'
@@ -921,7 +948,9 @@ jobs:
           # Verbose, so a stall names the phase it stalled in rather than
           # printing nothing at all.
           flutter test integration_test -d "$simulator" \
-            --reporter expanded --verbose
+            --reporter expanded --verbose \
+            --dart-define=HAS_WEBGPU=${{ matrix.webgpu }} \
+            --dart-define=HAS_GENAI=${{ matrix.genai }}
 
       # Whatever the simulator itself logged, which is the only place a crash
       # on launch shows up when the harness just waits.

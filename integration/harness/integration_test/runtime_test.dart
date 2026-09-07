@@ -22,6 +22,8 @@ import 'package:onnxruntime_dart/native.dart';
 import 'package:onnxruntime_ep_webgpu/onnxruntime_ep_webgpu.dart' as webgpu;
 import 'package:onnxruntime_dart/onnxruntime_dart.dart' hide runtimeVersion;
 
+import 'src/staged.dart';
+
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
@@ -60,6 +62,14 @@ void main() {
       expect(libraryPathOf(Pointer<Void>.fromAddress(1)), isNull);
     });
 
+    // ep_matrix leaves the 32-bit Android ABIs out of the WebGPU build on
+    // purpose, so on those rows the honest assertion is the opposite one:
+    // nothing was staged, and the package must say so rather than hand back a
+    // path to something else.
+    test('the WebGPU provider is absent on an ABI it is not built for', () {
+      expect(webgpu.providerPath(), isNull);
+    }, skip: hasWebGpu ? 'this ABI has a WebGPU build' : false);
+
     test('the WebGPU provider is installed, found and registered', () {
       // The whole point of the device jobs. Path recovery is the fragile part
       // of the provider design, and these are the two platforms where the
@@ -73,7 +83,7 @@ void main() {
       expect(path, contains(webgpu.providerLibraryStem));
 
       expect(webgpu.registerWebGpu(), isTrue);
-    });
+    }, skip: hasWebGpu ? false : 'no WebGPU build for this ABI');
 
     test('a model runs on the WebGPU provider', () async {
       // Loading is not running. A provider that registers but computes
@@ -123,7 +133,7 @@ void main() {
       });
 
       expect(outputs.values.single.view.float32s, hasLength(26));
-    });
+    }, skip: hasWebGpu ? false : 'no WebGPU build for this ABI');
 
     test('a library that is not installed reports nothing on device', () {
       // The check that makes the scheme safe, exercised where it is hardest:

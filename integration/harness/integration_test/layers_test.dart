@@ -22,6 +22,8 @@ import 'package:onnxruntime_extensions/onnxruntime_extensions.dart'
     as extensions;
 import 'package:onnxruntime_genai/onnxruntime_genai.dart';
 
+import 'src/staged.dart';
+
 /// A model with one Abs node, the same one the shared suite embeds.
 ///
 /// Held here rather than loaded from an asset: what these tests are about is
@@ -98,6 +100,14 @@ void main() {
   });
 
   group('GenAI on device', () {
+    // Asserted rather than skipped where upstream has no library for this
+    // ABI. The .aar carries arm64-v8a and x86_64 only, so on a 32-bit row the
+    // right answer is a clean refusal, and a handle that somehow worked would
+    // mean the wrong library got loaded.
+    test('is absent on an ABI upstream does not ship', () {
+      expect(Sequences.new, throwsA(anything));
+    }, skip: hasGenAi ? 'this ABI has a GenAI library' : false);
+
     // No model anywhere in here. GenAI resolves OrtGetApiBase out of an ONNX
     // Runtime that is already loaded, so simply constructing a handle proves
     // the library was found and its dependency satisfied, which is the part
@@ -123,5 +133,5 @@ void main() {
       // where a mishandled failure takes the process down with it.
       expect(() => Model('/no/such/model'), throwsA(isA<Exception>()));
     });
-  });
+  }, skip: hasGenAi ? false : 'upstream ships no GenAI library for this ABI');
 }
