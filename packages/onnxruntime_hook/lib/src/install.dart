@@ -426,6 +426,30 @@ Future<void> installGenAi(List<String> args) async {
         file: library.uri,
       ),
     );
+
+    // Declared as assets of their own, because a DT_NEEDED entry is not
+    // something the bundler follows: an undeclared neighbour is simply not
+    // packaged, and the failure surfaces on device as a dlopen error naming a
+    // library nobody asked for directly.
+    for (final companion in OrtGenAi.companions(code.targetOS)) {
+      final file = File.fromUri(library.uri.resolve(companion));
+      if (!file.existsSync()) {
+        throw StateError(
+          '${input.packageName}: $companion is missing beside '
+          '${library.path}. The GenAI library links it, so an application '
+          'built without it fails at the first call rather than at build '
+          'time.',
+        );
+      }
+      output.assets.code.add(
+        CodeAsset(
+          package: input.packageName,
+          name: companion.replaceAll(RegExp(r'^lib|\.so$'), ''),
+          linkMode: DynamicLoadingBundled(),
+          file: file.uri,
+        ),
+      );
+    }
   });
 }
 

@@ -10,6 +10,7 @@ import 'package:onnxruntime_hook/onnxruntime_hook.dart';
 import 'package:test/test.dart';
 
 void main() {
+  _companionTests();
   group('targetId', () {
     const cases = <(OS, Architecture, IOSSdk?), String>{
       (OS.android, Architecture.arm64, null): 'android-arm64-v8a',
@@ -184,6 +185,23 @@ void main() {
       // ort_matrix.py appends "-full" to build the full configuration id.
       expect(OrtVariant.base.suffix, '');
       expect(OrtVariant.full.suffix, '-full');
+    });
+  });
+}
+
+void _companionTests() {
+  group('GenAI companion libraries', () {
+    test('android needs libmat.so beside the library', () {
+      // Regression: the APK bundled only libonnxruntime-genai.so, and the
+      // device tests failed with `dlopen failed: library "libmat.so" not
+      // found`. A DT_NEEDED entry is not something the bundler follows.
+      expect(OrtGenAi.companions(OS.android), ['libmat.so']);
+    });
+
+    test('nothing else needs one', () {
+      for (final os in [OS.linux, OS.macOS, OS.windows, OS.iOS]) {
+        expect(OrtGenAi.companions(os), isEmpty, reason: '$os');
+      }
     });
   });
 }

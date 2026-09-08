@@ -17,6 +17,7 @@ export 'src/install.dart'
 export 'src/target.dart'
     show
         OrtExtensions,
+        OrtGenAi,
         OrtProvider,
         OrtVariant,
         UnsupportedTarget,
