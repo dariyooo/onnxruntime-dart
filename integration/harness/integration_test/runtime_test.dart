@@ -22,7 +22,7 @@ import 'package:onnxruntime_dart/native.dart';
 import 'package:onnxruntime_ep_webgpu/onnxruntime_ep_webgpu.dart' as webgpu;
 import 'package:onnxruntime_dart/onnxruntime_dart.dart' hide runtimeVersion;
 
-import 'src/staged.dart';
+import 'package:onnxruntime_harness/staged.dart';
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
