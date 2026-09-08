@@ -343,6 +343,20 @@ abstract final class OrtGenAi {
         OS.macOS || OS.iOS => 'lib$libraryStem.dylib',
         _ => 'lib$libraryStem.so',
       };
+
+  /// Libraries the GenAI library needs beside it, which nothing else ships.
+  ///
+  /// Android only. `libonnxruntime-genai.so` carries a DT_NEEDED on
+  /// `libmat.so`, which upstream puts in the same `.aar` and nowhere else. An
+  /// APK bundling only the first one builds and installs, then fails at the
+  /// first call with a dlopen error naming a library nobody asked for
+  /// directly. The archive carries both; both have to be declared or only one
+  /// is packaged.
+  ///
+  /// Invisible off device: on desktop the loader searches the directory the
+  /// library sits in and finds its neighbour without being told.
+  static List<String> companions(OS os) =>
+      os == OS.android ? const ['libmat.so'] : const [];
 }
 
 /// Asset name for the GenAI library on [targetId].
