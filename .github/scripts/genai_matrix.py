@@ -115,8 +115,13 @@ def library_for(target: str) -> str:
     if target in ANDROID:
         return "libonnxruntime-genai.so"
     if target in IOS:
-        # A framework binary, which has no extension at all.
-        return "onnxruntime-genai"
+        # Upstream's framework binary is bare, `onnxruntime-genai`, because the
+        # .framework directory around it carries the identity. fetch_genai
+        # renames it on the way into our tarball, which has no such directory,
+        # so this reports the name ours actually holds. Leaving it bare made
+        # the build hook resolve nothing and the failure only appeared on a
+        # device, at the first call.
+        return "libonnxruntime-genai.dylib"
     for platform, name in LIBRARY.items():
         if target.startswith(platform):
             return name

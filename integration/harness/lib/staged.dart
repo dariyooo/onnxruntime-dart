@@ -8,6 +8,11 @@
 ///
 /// Defaults are true so a local `flutter test` without the defines behaves as
 /// the fully equipped case rather than quietly checking nothing.
+///
+/// In `lib/`, not beside the tests: `flutter test integration_test` treats
+/// every file under that directory as a test, and a file holding only
+/// constants counts as a unit test, which it then refuses to run in the same
+/// invocation as the integration tests.
 library;
 
 const hasWebGpu = bool.fromEnvironment('HAS_WEBGPU', defaultValue: true);

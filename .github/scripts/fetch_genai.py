@@ -93,7 +93,15 @@ def extract_many(
         )
         if inside not in zf.namelist():
             raise SystemExit(f"{archive.name} holds no {inside}")
-        written = into / "onnxruntime-genai"
+        # Renamed to the convention every other target already uses. Inside an
+        # xcframework the binary is bare, `onnxruntime-genai` with no prefix
+        # and no extension, because the framework directory around it supplies
+        # the identity. Ours is a plain tarball with no directory to carry
+        # that, and the build hook resolves one file name per OS, so an
+        # unrenamed iOS archive silently resolves to nothing: the library is
+        # never declared as an asset, the app builds, and the first GenAI call
+        # fails with "No asset with id package:onnxruntime_genai_binaries/genai".
+        written = into / "libonnxruntime-genai.dylib"
         written.write_bytes(zf.read(inside))
         out.append(written)
         return out

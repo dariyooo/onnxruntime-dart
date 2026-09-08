@@ -22,7 +22,7 @@ import 'package:onnxruntime_extensions/onnxruntime_extensions.dart'
     as extensions;
 import 'package:onnxruntime_genai/onnxruntime_genai.dart';
 
-import 'src/staged.dart';
+import 'package:onnxruntime_harness/staged.dart';
 
 /// A model with one Abs node, the same one the shared suite embeds.
 ///
@@ -81,10 +81,12 @@ void main() {
       );
       addTearDown(session.release);
 
+      // [2, 4], which is what the model declares. It was [1, 2, 4] and the
+      // runtime rejected the rank rather than the values.
       final input = OrtTensor.fromData(
         OrtElementType.float32,
         Float32List.fromList([-1, 2, -3, 4, -5, 6, -7, 8]),
-        [1, 2, 4],
+        [2, 4],
       );
       addTearDown(input.release);
 
