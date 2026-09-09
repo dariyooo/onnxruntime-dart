@@ -112,12 +112,29 @@ run_one() {
   local target=$1
 
   echo "::group::build $target"
+  # One architecture, the simulator's own. `flutter test integration_test -d
+  # <udid>` built through buildXcodeProject with a deviceID, which makes Xcode
+  # target that device alone, so ARCHS was arm64 and the native asset hooks
+  # were asked for ios-sim-arm64 only. `flutter build ios --simulator` has no
+  # device to narrow it, so ARCHS becomes "arm64 x86_64" and the hooks are
+  # asked for a GenAI library that upstream does not publish for ios-sim-x86_64
+  # at all, which fails the build outright. Setting ARCHS restores exactly what
+  # the old step built. FLUTTER_XCODE_<setting> is flutter's own documented way
+  # to pass a build setting through to xcodebuild, and ARCHS is what reaches
+  # the hooks as the IosArchs define.
+  #
+  # From uname because a simulator runs the host's architecture, so this stays
+  # correct if these jobs ever move to an x86_64 macOS runner.
+  local archs
+  archs=$(uname -m)
+
   # Every failure below is checked by hand rather than left to `set -e`.
   # run_one is called from a conditional, and bash suppresses errexit for the
   # entire body of a function invoked that way, so an unchecked build failure
   # would fall through and test the previous target's bundle instead.
   local built=0
-  flutter build ios --simulator --debug --target="$target" \
+  FLUTTER_XCODE_ARCHS="$archs" FLUTTER_XCODE_ONLY_ACTIVE_ARCH=YES \
+    flutter build ios --simulator --debug --target="$target" \
     --dart-define=HAS_WEBGPU="$has_webgpu" \
     --dart-define=HAS_GENAI="$has_genai" || built=$?
   echo "::endgroup::"
