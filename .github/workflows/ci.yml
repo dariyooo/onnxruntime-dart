@@ -923,9 +923,13 @@ jobs:
             # "Integration tests and unit tests cannot be run in a single
             # invocation". iOS never hit this because it always passed a
             # device. One file hid it; layers_test.dart made it show.
-            device=$(adb devices | awk '/^emulator-/ {print $1; exit}')
-            echo "running on $device"
-            flutter test integration_test -d "$device" --reporter expanded \
+            # Substituted inline, not assigned first: this action runs each
+            # line of the script as its own `sh -c`, so a variable set on one
+            # line is gone by the next. The first attempt at this printed
+            # "running on " and passed -d "" to flutter.
+            flutter test integration_test \
+              -d "$(adb devices | awk '/^emulator-/ {print $1; exit}')" \
+              --reporter expanded \
               --dart-define=HAS_WEBGPU=${{ matrix.webgpu }} \
               --dart-define=HAS_GENAI=${{ matrix.genai }}
 
