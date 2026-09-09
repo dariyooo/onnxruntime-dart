@@ -320,9 +320,10 @@ run_one() {
   # the pid and a crash on startup and nothing else: the engine routes Dart's
   # output through os_log, so none of the test output is there. It was dumped
   # on its own once, in the belief that it held the diagnostics, and it held
-  # one line. The system log is where the Dart side actually prints, and with
-  # `flutter drive` reducing a pass to "All tests passed" it is the only
-  # remaining way to see which groups did anything at all.
+  # one line. The system log is where the Dart side actually prints, and that
+  # includes the expanded reporter's per-test lines, so dumping it gets back
+  # everything `flutter test --reporter expanded` used to show. Without it a
+  # green run says only "All tests passed" and a skipped group is invisible.
   echo "::group::the app's file descriptors, $target"
   cat "$work/app.txt"
   echo "::endgroup::"
