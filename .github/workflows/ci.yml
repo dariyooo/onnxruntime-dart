@@ -992,6 +992,18 @@ jobs:
                       OR eventMessage CONTAINS[c] "vm service"
                       OR eventMessage CONTAINS[c] "dyld"' | tail -60
 
+          # Asked on its own rather than left to the tail above. Run
+          # 34395525801 showed the broad predicate returns hundreds of rows and
+          # `tail -60` then keeps only the teardown, throwing away the one line
+          # anybody reading this wants. If this prints a URL then the app
+          # announced its VM service and flutter's log stream failed to carry
+          # it. If it prints nothing then the app never announced it.
+          echo "=== did the app ever announce a VM service? ==="
+          xcrun simctl spawn booted log show --last 45m --style compact \
+            --predicate 'eventMessage CONTAINS "Dart VM service"
+                      OR eventMessage CONTAINS "Observatory listening"' \
+            | tail -20
+
           echo "=== crash reports, which is where a failed dlopen lands ==="
           find ~/Library/Logs/DiagnosticReports -name '*.ips' -newermt '-60 minutes' \
             2>/dev/null | head -5 | while read -r report; do
