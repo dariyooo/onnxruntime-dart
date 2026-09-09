@@ -90,12 +90,25 @@ done
 
 work=$(mktemp -d)
 
-# Long enough to cover a cold first attach with room to spare, short enough
-# that a genuinely broken simulator fails loudly rather than sitting out the
-# step timeout. Both of these replace what used to be an unbounded wait.
+# These have to sum to less than the step's timeout-minutes, or the guillotine
+# lands before the diagnosis and we are back to a job that dies without saying
+# why, which is the entire thing being fixed. Keep that invariant if you change
+# either number.
+#
+# The arithmetic against a 20 minute cap. Attach is 30s times 3 attempts, the
+# announcement is 120s, and the driver in test_driver/integration_test.dart is
+# 300s, so one file can burn 8.5 minutes of bounded waiting. Building is the
+# unbounded part and is measured at 5 to 9 minutes for both files including
+# the hooks. 9 plus 8.5 is 17.5, which fits, but only because a failure that
+# is not the tests' fault stops the loop rather than letting the second file
+# spend another 8.5 minutes discovering the same thing.
+#
+# Measured healthy values, for scale: the log stream delivers in 2s and the
+# announcement arrives in 2 to 6s, so these are between twenty and fifty times
+# the observed need.
 attach_deadline=30
 attach_attempts=3
-announce_deadline=240
+announce_deadline=120
 
 stream_pid=
 
@@ -235,7 +248,7 @@ run_one() {
         "$attach_attempts attempts of ${attach_deadline}s. This is the"\
         "channel the VM service announcement arrives on, so there is no"\
         "point launching the app."
-      return 1
+      return 2
     fi
     echo "::warning::the log stream delivered nothing in ${attach_deadline}s,"\
       "discarding it and starting attempt $((attempt + 1))"
@@ -277,7 +290,7 @@ run_one() {
       cat "$work/stream.txt"
       kill "$app_pid" 2>/dev/null || true
       stop_stream
-      return 1
+      return 2
     fi
     sleep 2
     waited=$((waited + 2))
@@ -350,11 +363,26 @@ run_one() {
   return "$status"
 }
 
+# A test failure and a simulator that will not talk to us are different
+# things. The first is worth carrying on for, because knowing both files'
+# results is more useful than knowing one. The second is not: the second file
+# would spend the same minutes failing the same way, and those minutes are the
+# ones the step needs in order to report the first failure before its timeout.
+# run_one says which it was, 1 for the tests and 2 for the harness around them.
 failed=0
 for target in integration_test/*_test.dart; do
-  if ! run_one "$target"; then
-    echo "::error::$target failed"
-    failed=1
-  fi
+  status=0
+  run_one "$target" || status=$?
+  case "$status" in
+    0) ;;
+    1)
+      echo "::error::$target failed"
+      failed=1
+      ;;
+    *)
+      echo "::error::$target could not be run at all, so the rest are skipped"
+      exit 1
+      ;;
+  esac
 done
 exit "$failed"
