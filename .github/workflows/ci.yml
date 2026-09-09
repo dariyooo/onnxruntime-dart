@@ -923,11 +923,24 @@ jobs:
             # "Integration tests and unit tests cannot be run in a single
             # invocation". iOS never hit this because it always passed a
             # device. One file hid it; layers_test.dart made it show.
+            # What flutter is about to classify. `flutter test <dir>` walks
+            # the directory for *_test.dart and refuses if the paths do not
+            # all sit under <cwd>/integration_test, which cannot happen with
+            # the two files this repository has, so print the evidence.
+            pwd
+            find integration_test -name '*_test.dart' | sort
+            # Named explicitly rather than by directory: a directory argument
+            # is walked recursively, and anything it picks up beyond these two
+            # makes flutter refuse with "Integration tests and unit tests
+            # cannot be run in a single invocation". Naming them removes the
+            # walk, and the iOS step does the same thing by other means.
+            #
             # Substituted inline, not assigned first: this action runs each
             # line of the script as its own `sh -c`, so a variable set on one
-            # line is gone by the next. The first attempt at this printed
-            # "running on " and passed -d "" to flutter.
-            flutter test integration_test \
+            # line is gone by the next.
+            flutter test \
+              integration_test/runtime_test.dart \
+              integration_test/layers_test.dart \
               -d "$(adb devices | awk '/^emulator-/ {print $1; exit}')" \
               --reporter expanded \
               --dart-define=HAS_WEBGPU=${{ matrix.webgpu }} \
