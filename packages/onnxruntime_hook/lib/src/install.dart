@@ -177,17 +177,24 @@ Future<File> _download({
   await _verify(archive, url: url, package: package, client: null);
 
   into.parent.createSync(recursive: true);
-  await into.writeAsBytes(_extractLibrary(archive, fileName), flush: true);
 
-  // Beside the library, out of the same archive. A DT_NEEDED neighbour is not
-  // something the bundler follows, so it has to be a file on disk here before
-  // it can be declared as an asset. Missed the first time because local_build
-  // gets a directory that was untarred whole, which already had it, and only
-  // the download path takes a single file out and drops the rest.
+  // Companions first, the library last, and the order is the point. Several
+  // hook builds run concurrently against one shared cache directory, and the
+  // check that reuses a cache asks whether the library is there. Writing the
+  // library first opens a window where another build sees it, takes the cache,
+  // and then fails because the neighbour it needs has not been written yet.
+  // Writing it last makes its presence mean the whole set is present.
+  //
+  // A DT_NEEDED neighbour is not something the bundler follows, so it has to
+  // be a file on disk here before it can be declared as an asset. Missed the
+  // first time because local_build gets a directory that was untarred whole
+  // and already had it, while the download path takes one file out of the
+  // archive and drops the rest.
   for (final companion in companions) {
     await File.fromUri(into.uri.resolve(companion))
         .writeAsBytes(_extractLibrary(archive, companion), flush: true);
   }
+  await into.writeAsBytes(_extractLibrary(archive, fileName), flush: true);
   return into;
 }
 
