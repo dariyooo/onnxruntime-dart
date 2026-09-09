@@ -972,23 +972,28 @@ jobs:
       # that far. The previous predicate looked for "harness", which is the
       # bundle id; the executable is Runner, so it matched nothing and the
       # failure stayed silent.
+      #
+      # The window has to cover the whole step, not the last few minutes of
+      # it. A hang begins within a minute or two of the step starting and then
+      # sits there, so --last 10m ended long after the launch it was meant to
+      # explain and the Runner section came back with a header and no rows.
       - name: What the simulator logged
         if: failure() && matrix.name == 'ios'
         continue-on-error: true
         run: |
           echo "=== log for the Runner process ==="
-          xcrun simctl spawn booted log show --last 10m --style compact \
+          xcrun simctl spawn booted log show --last 45m --style compact \
             --predicate 'processImagePath CONTAINS "Runner"' | tail -80
 
           echo "=== anything mentioning onnxruntime, dart or the VM service ==="
-          xcrun simctl spawn booted log show --last 10m --style compact \
+          xcrun simctl spawn booted log show --last 45m --style compact \
             --predicate 'eventMessage CONTAINS[c] "onnxruntime"
                       OR eventMessage CONTAINS[c] "dart"
                       OR eventMessage CONTAINS[c] "vm service"
                       OR eventMessage CONTAINS[c] "dyld"' | tail -60
 
           echo "=== crash reports, which is where a failed dlopen lands ==="
-          find ~/Library/Logs/DiagnosticReports -name '*.ips' -newermt '-30 minutes' \
+          find ~/Library/Logs/DiagnosticReports -name '*.ips' -newermt '-60 minutes' \
             2>/dev/null | head -5 | while read -r report; do
             echo "--- $report"
             head -60 "$report"
