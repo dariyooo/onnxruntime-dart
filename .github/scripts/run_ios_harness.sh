@@ -214,8 +214,15 @@ run_one() {
   # and it is only unrecoverable if nobody looks.
   local attempt=1
   while :; do
+    # Everything the app logs, not just the announcement. On iOS the engine
+    # routes Dart's output through os_log, so this stream is the only place
+    # the harness's own prints exist at all: not on the pty, and not in
+    # flutter drive's output either. Narrowing it to the announcement is what
+    # made the first version of the GenAI check impossible to satisfy. The
+    # probe clause matches the `log show` process rather than the app, so it
+    # has to sit outside the process filter.
     xcrun simctl spawn "$simulator" log stream --style compact \
-      --predicate 'eventMessage CONTAINS "Dart VM service"
+      --predicate 'processImagePath ENDSWITH "Runner"
                 OR eventMessage CONTAINS "ortdartprobe"' \
       > "$work/stream.txt" 2>&1 &
     stream_pid=$!
@@ -284,7 +291,8 @@ run_one() {
     # it changes is visible in the log.
     echo "the app announced $uri after ${waited}s, in the system log"
   fi
-  stop_stream
+  # Deliberately left running. Everything the tests print arrives on it, and
+  # stopping here is what threw that away in the earlier version.
 
   # --use-existing-app takes the reuseApplication path, which connects to the
   # URI it is handed. No log is read and there is nothing left to race.
@@ -297,6 +305,7 @@ run_one() {
 
   kill "$app_pid" 2>/dev/null || true
   xcrun simctl terminate "$simulator" "$bundle" >/dev/null 2>&1 || true
+  stop_stream
 
   # Always, not only on failure. The driver protocol itemises failures but
   # reduces a pass to "All tests passed", so this is the only place the
@@ -306,8 +315,19 @@ run_one() {
   # interleaves a lot of its own framework chatter into the same pty, and
   # unfiltered because guessing which of it is noise is how real output gets
   # dropped.
-  echo "::group::what the app printed, $target"
+  # Both, labelled, because they carry different things and the difference is
+  # not obvious. The pty holds the app's file descriptors, which on iOS means
+  # the pid and a crash on startup and nothing else: the engine routes Dart's
+  # output through os_log, so none of the test output is there. It was dumped
+  # on its own once, in the belief that it held the diagnostics, and it held
+  # one line. The system log is where the Dart side actually prints, and with
+  # `flutter drive` reducing a pass to "All tests passed" it is the only
+  # remaining way to see which groups did anything at all.
+  echo "::group::the app's file descriptors, $target"
   cat "$work/app.txt"
+  echo "::endgroup::"
+  echo "::group::what the app logged, $target"
+  cat "$work/stream.txt"
   echo "::endgroup::"
 
   # A skipped group is not a passing group. The driver cannot tell us which
@@ -316,7 +336,7 @@ run_one() {
   # this, a group that silently stopped running would keep reporting green,
   # which is the one failure mode nobody would notice.
   if [ "$has_genai" = true ] && [ "$target" = integration_test/layers_test.dart ]; then
-    if grep -q "the GenAI group is running" "$work/app.txt"; then
+    if grep -q "the GenAI group is running" "$work/stream.txt"; then
       echo "the GenAI group ran"
     else
       echo "::error::a GenAI library was staged but the GenAI group never ran."\
