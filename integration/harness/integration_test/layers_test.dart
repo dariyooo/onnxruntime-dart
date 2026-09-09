@@ -102,6 +102,15 @@ void main() {
   });
 
   group('GenAI on device', () {
+    // Positive proof that this group ran, rather than the absence of a
+    // failure. `flutter drive`, which the iOS job uses, reduces a passing run
+    // to "All tests passed" and names no test, so a group that skipped and a
+    // group that passed look identical there. A `skip:` on a group stops its
+    // setUpAll too, so this line cannot be printed unless the body really
+    // executed, and CI fails the job when it staged a GenAI library and this
+    // does not appear. See .github/scripts/run_ios_harness.sh.
+    setUpAll(() => print('harness: the GenAI group is running'));
+
     // Asserted rather than skipped where upstream has no library for this
     // ABI. The .aar carries arm64-v8a and x86_64 only, so on a 32-bit row the
     // right answer is a clean refusal, and a handle that somehow worked would
