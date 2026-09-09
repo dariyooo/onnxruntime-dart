@@ -8,6 +8,7 @@
 library;
 
 import 'dart:convert';
+import 'dart:ffi' show Abi;
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -239,26 +240,45 @@ Future<void> _verify(
   );
 }
 
-/// What to do about an iOS simulator build that asked for both architectures.
+/// What to do about a build that asked for the x86_64 iOS simulator.
 ///
-/// A simulator build with no device to narrow it compiles for arm64 and
-/// x86_64 together, so the hooks are asked for a library per architecture.
-/// Upstream publishes a GenAI simulator library for arm64 only, and a
-/// universal simulator build genuinely needs one for each, so there is nothing
-/// this hook can substitute. Dropping the architecture quietly would produce
-/// an application that builds and then fails at its first GenAI call, which is
-/// worse than failing here.
+/// Two different situations produce the same request and they need opposite
+/// instructions, so this decides which one the reader is in rather than
+/// offering a flag that helps only half of them.
 ///
-/// So the answer is to build the simulator for its own architecture, which is
-/// what `flutter test -d <udid>` does implicitly by narrowing Xcode to one
-/// device, and what a build without a device has to be told.
+/// On Apple silicon it is almost always a universal simulator build. A
+/// simulator build with no device to narrow it compiles arm64 and x86_64
+/// together, so the hooks are asked for a library per architecture, and only
+/// the host's is ever run. Narrowing it is the fix.
+///
+/// On an Intel Mac x86_64 IS the simulator's architecture, so there is nothing
+/// to narrow and no flag that helps. Upstream publishes no GenAI library for
+/// it, and saying "narrow your architectures" there would send someone to
+/// build a slice their machine cannot run. That reader is the most stuck and
+/// the least able to work it out, so it says so plainly instead.
+///
+/// Nothing cleverer is available to the hook itself. It cannot invent a
+/// library, it cannot change ARCHS because the Xcode build's architecture list
+/// is already fixed by the time a build phase runs, and dropping the
+/// architecture quietly would turn a build error into an application that
+/// links, ships, and dies at its first GenAI call.
 String _simulatorArchAdvice(String target) {
   if (target != 'ios-sim-x86_64') return '';
+
+  if (Abi.current() == Abi.macosX64) {
+    return '\n'
+        '\n'
+        'x86_64 is this machine\'s own simulator architecture, so there is no '
+        'build setting that avoids this. GenAI is unavailable on the iOS '
+        'simulator on an Intel Mac. Use an Apple silicon Mac, or a physical '
+        'device, which upstream does publish for.';
+  }
+
   return '\n'
       '\n'
       'This usually means an iOS simulator build compiled for both '
-      'architectures at once. A simulator runs the host architecture, so '
-      'build for that one alone:\n'
+      'architectures at once. A simulator runs the host architecture, so only '
+      'that one is needed:\n'
       '\n'
       '  FLUTTER_XCODE_ARCHS=\$(uname -m) flutter build ios --simulator\n'
       '\n'
@@ -455,9 +475,10 @@ Future<void> installGenAi(List<String> args) async {
 
     if (!OrtGenAi.isAvailableOn(target)) {
       throw StateError(
-        '${input.packageName}: there is no GenAI library for $target. '
-        'Upstream publishes it for ${OrtGenAi.targets.join(', ')}.'
-        '${_simulatorArchAdvice(target)}',
+        '${input.packageName}: there is no GenAI library for $target.'
+        '${_simulatorArchAdvice(target)}\n'
+        '\n'
+        'Upstream publishes it for ${OrtGenAi.targets.join(', ')}.',
       );
     }
 
