@@ -936,14 +936,20 @@ jobs:
       - name: Run on an iOS simulator
         if: matrix.name == 'ios'
         working-directory: integration/harness
-        # A backstop now, not the bound. This used to be the only thing
-        # ending a hung VM service handshake, which is why it climbed from 25
-        # to 40 without ever being a fix. The launcher below bounds every wait
-        # it makes, so the worst case here is minutes rather than tens of
-        # them: a healthy run is 8 to 13, and the slowest failure the script
-        # can produce adds about four. 20 leaves room for a slow first
-        # simulator boot and still fails a genuinely wedged one cheaply.
-        timeout-minutes: 20
+        # A backstop now, not the bound. This was once the only thing ending a
+        # hung VM service handshake, which is why it climbed from 25 to 40
+        # without ever being a fix. The launcher below bounds every wait it
+        # makes, so this no longer has to.
+        #
+        # Back to 25, and this time sized against measurement rather than a
+        # round number. The healthy step took 5m42s, 7m12s, 12m08s and 12m52s
+        # across the runs that proved this out, and the slowest failure the
+        # script can produce adds 8.5 minutes of bounded waiting on top of
+        # that. The script's header carries the arithmetic: whatever this
+        # number becomes, those bounds have to sum to less than it, or the
+        # step is killed before it can say what went wrong, which is the
+        # failure this whole change exists to remove.
+        timeout-minutes: 25
         run: |
           set -euo pipefail
           simulator=$(python3 ../../.github/scripts/pick_simulator.py)
