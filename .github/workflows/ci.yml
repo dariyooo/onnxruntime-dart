@@ -929,34 +929,35 @@ jobs:
       - name: Run on an iOS simulator
         if: matrix.name == 'ios'
         working-directory: integration/harness
-        # Well inside the job's budget, so a hang here reports as this step
-        # rather than as the whole job running out of time.
-        # 25 was enough until the extensions and GenAI groups were added and
-        # the first simulator boot went over it. The job cap is 60, and this
-        # exists to fail a wedged simulator sooner than that rather than to
-        # bound a healthy run.
-        timeout-minutes: 40
+        # A backstop now, not the bound. This used to be the only thing
+        # ending a hung VM service handshake, which is why it climbed from 25
+        # to 40 without ever being a fix. The launcher below bounds every wait
+        # it makes, so the worst case here is minutes rather than tens of
+        # them: a healthy run is 8 to 13, and the slowest failure the script
+        # can produce adds about four. 20 leaves room for a slow first
+        # simulator boot and still fails a genuinely wedged one cheaply.
+        timeout-minutes: 20
         run: |
           set -euo pipefail
           simulator=$(python3 ../../.github/scripts/pick_simulator.py)
           echo "booting $simulator"
           # bootstatus waits for the boot to finish. Plain boot returns
-          # immediately and leaves flutter to race it.
+          # immediately and leaves the launcher to race it.
           xcrun simctl bootstatus "$simulator" -b
 
-          # The app builds and installs, then the harness waits for the Dart
-          # VM service to connect back. On a headless runner that handshake
-          # does not happen unless Simulator.app is actually running, which is
-          # how this job spent 39 silent minutes after "Xcode build done".
+          # The app builds and installs, then something has to wait for the
+          # Dart VM service to come up. On a headless runner that does not
+          # happen unless Simulator.app is actually running, which is how this
+          # job once spent 39 silent minutes after "Xcode build done".
           open -a Simulator --args -CurrentDeviceUDID "$simulator"
           xcrun simctl bootstatus "$simulator" -b
 
-          # Verbose, so a stall names the phase it stalled in rather than
-          # printing nothing at all.
-          flutter test integration_test -d "$simulator" \
-            --reporter expanded --verbose \
-            --dart-define=HAS_WEBGPU=${{ matrix.webgpu }} \
-            --dart-define=HAS_GENAI=${{ matrix.genai }}
+          # Not `flutter test integration_test`, which can only find the VM
+          # service by reading the simulator's system log and hangs without a
+          # timeout when unified logging loses the line. The script reads the
+          # URI off the app's own stdout instead. Its header has the numbers.
+          ../../.github/scripts/run_ios_harness.sh "$simulator" \
+            "${{ matrix.webgpu }}" "${{ matrix.genai }}"
 
       # Whatever the simulator itself logged, which is the only place a crash
       # on launch shows up when the harness just waits.
