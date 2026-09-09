@@ -916,7 +916,16 @@ jobs:
             adb shell getprop ro.kernel.qemu.gles || true
             adb shell 'ls /vendor/lib64/hw/vulkan.* 2>/dev/null' || true
             adb shell 'cmd gpu vkjson 2>/dev/null | head -c 400' || true
-            flutter test integration_test --reporter expanded \
+            # Named explicitly, the same as the iOS step does. Without -d,
+            # `flutter test integration_test` decides per file whether it is
+            # looking at an integration test or a unit test, and with more
+            # than one file in the directory it stopped agreeing with itself:
+            # "Integration tests and unit tests cannot be run in a single
+            # invocation". iOS never hit this because it always passed a
+            # device. One file hid it; layers_test.dart made it show.
+            device=$(adb devices | awk '/^emulator-/ {print $1; exit}')
+            echo "running on $device"
+            flutter test integration_test -d "$device" --reporter expanded \
               --dart-define=HAS_WEBGPU=${{ matrix.webgpu }} \
               --dart-define=HAS_GENAI=${{ matrix.genai }}
 
