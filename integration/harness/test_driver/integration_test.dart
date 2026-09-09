@@ -11,9 +11,12 @@
 // measurements are in .github/scripts/run_ios_harness.sh.
 //
 // The driver protocol reports failures individually but reduces a passing run
-// to "All tests passed", so the per-test lines that `--reporter expanded` used
-// to print are not recoverable here. The job prints the app's own stdout
-// instead, which is where the harness's diagnostics actually come from.
+// to "All tests passed", so nothing useful about a green run comes back
+// through here. The per-test lines are not lost though: the binding still
+// prints the expanded reporter's output inside the app, and on iOS that goes
+// to os_log, so the job captures it from the system log instead. That is why
+// the launcher holds a log stream open for the whole run rather than only
+// until it has the URI.
 //
 // Android is unaffected and still uses `flutter test integration_test`, so
 // this file is only ever loaded by the iOS job.
