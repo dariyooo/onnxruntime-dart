@@ -60,6 +60,24 @@ simulator=$1
 has_webgpu=$2
 has_genai=$3
 
+# Exactly "true" or "false", never anything else. These become
+# --dart-define values, and bool.fromEnvironment treats every value that is
+# not the string "true" as false. So an empty or misspelled argument would not
+# fail here, it would silently turn a group off and the run would pass without
+# it. That is the shape of the bug that hid on Android, and it is worth three
+# lines to make it impossible rather than unlikely.
+for flag in "$has_webgpu" "$has_genai"; do
+  case "$flag" in
+    true | false) ;;
+    *)
+      echo "::error::expected true or false, got '$flag'."\
+        "A --dart-define that is not exactly \"true\" reads as false and"\
+        "would skip a whole group silently."
+      exit 1
+      ;;
+  esac
+done
+
 work=$(mktemp -d)
 
 # Long enough to cover a cold first attach with room to spare, short enough
@@ -103,9 +121,15 @@ wait_for_stream() {
   echo "the log stream is delivering after ${waited}s"
 }
 
+# One file at a time, deliberately. Searching both at once would find the URI
+# without saying which channel produced it, and that is the one thing about
+# this fix worth knowing: the app's stdout is supposed to be doing the work,
+# and the system log is the channel that intermittently delivers nothing. If
+# the pty ever stops carrying it, the run has to say so rather than quietly
+# falling back onto the mechanism this whole script exists to route around.
 vm_service_uri() {
   sed -n 's/.*Dart VM service is listening on \(http:[^[:space:]]*\).*/\1/p' \
-    "$work/app.txt" "$work/stream.txt" 2>/dev/null | head -1
+    "$1" 2>/dev/null | head -1
 }
 
 run_one() {
@@ -198,9 +222,15 @@ run_one() {
   local app_pid=$!
 
   local uri=''
+  local from_pty=''
+  local from_log=''
   local waited=0
   while :; do
-    uri=$(vm_service_uri)
+    from_pty=$(vm_service_uri "$work/app.txt")
+    from_log=$(vm_service_uri "$work/stream.txt")
+    # The pty first where both have it, so the reported source is the one the
+    # fix depends on rather than whichever sed happened to reach first.
+    uri=${from_pty:-$from_log}
     [ -n "$uri" ] && break
     if [ "$waited" -ge "$announce_deadline" ]; then
       echo "::error::no Dart VM service announcement in ${announce_deadline}s"
@@ -215,7 +245,20 @@ run_one() {
     sleep 2
     waited=$((waited + 2))
   done
-  echo "the app announced $uri after ${waited}s"
+  if [ -n "$from_pty" ] && [ -n "$from_log" ]; then
+    echo "the app announced $uri after ${waited}s, on its stdout and in the log"
+  elif [ -n "$from_pty" ]; then
+    echo "the app announced $uri after ${waited}s, on its own stdout"
+  else
+    # Not fatal, because a URI is a URI and the tests can still run. But this
+    # is the fix riding the channel it was built to replace, so it must not
+    # pass silently: the next hang would then look like a regression out of
+    # nowhere rather than the known-lossy path being load bearing again.
+    echo "::warning::the app's stdout did not carry the announcement and only"\
+      "the system log did. That is the channel that intermittently delivers"\
+      "nothing, so this run got lucky rather than being safe."
+    echo "the app announced $uri after ${waited}s, in the system log only"
+  fi
   stop_stream
 
   # --use-existing-app takes the reuseApplication path, which connects to the
@@ -241,6 +284,22 @@ run_one() {
   echo "::group::what the app printed, $target"
   cat "$work/app.txt"
   echo "::endgroup::"
+
+  # A skipped group is not a passing group. The driver cannot tell us which
+  # tests ran, so the harness prints a marker from inside the GenAI group and
+  # this insists on seeing it whenever CI staged a GenAI library. Without
+  # this, a group that silently stopped running would keep reporting green,
+  # which is the one failure mode nobody would notice.
+  if [ "$has_genai" = true ] && [ "$target" = integration_test/layers_test.dart ]; then
+    if grep -q "the GenAI group is running" "$work/app.txt"; then
+      echo "the GenAI group ran"
+    else
+      echo "::error::a GenAI library was staged but the GenAI group never ran."\
+        "It skipped, or the app never got that far. Passing by skipping is"\
+        "not passing."
+      status=1
+    fi
+  fi
 
   return "$status"
 }
