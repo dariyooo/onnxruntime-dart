@@ -229,6 +229,19 @@ run_one() {
 
   kill "$app_pid" 2>/dev/null || true
   xcrun simctl terminate "$simulator" "$bundle" >/dev/null 2>&1 || true
+
+  # Always, not only on failure. The driver protocol itemises failures but
+  # reduces a pass to "All tests passed", so this is the only place the
+  # harness's own diagnostics survive: which library it resolved, which
+  # providers reported a device, which groups skipped and why. That is what
+  # `--reporter expanded` used to show. Grouped because the simulator
+  # interleaves a lot of its own framework chatter into the same pty, and
+  # unfiltered because guessing which of it is noise is how real output gets
+  # dropped.
+  echo "::group::what the app printed, $target"
+  cat "$work/app.txt"
+  echo "::endgroup::"
+
   return "$status"
 }
 
