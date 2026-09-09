@@ -61,7 +61,6 @@ has_webgpu=$2
 has_genai=$3
 
 work=$(mktemp -d)
-trap 'rm -rf "$work"' EXIT
 
 # Long enough to cover a cold first attach with room to spare, short enough
 # that a genuinely broken simulator fails loudly rather than sitting out the
@@ -78,6 +77,10 @@ stop_stream() {
     stream_pid=
   fi
 }
+
+# Set once stop_stream exists, so the handler cannot run before the function
+# it calls is defined. Nothing above here starts a background process.
+trap 'stop_stream; rm -rf "$work"' EXIT
 
 # Proves the log stream is attached and delivering, rather than assuming it
 # after a sleep. `log show` announces its own noninteractive run, quoting its
@@ -108,10 +111,19 @@ run_one() {
   local target=$1
 
   echo "::group::build $target"
+  # Every failure below is checked by hand rather than left to `set -e`.
+  # run_one is called from a conditional, and bash suppresses errexit for the
+  # entire body of a function invoked that way, so an unchecked build failure
+  # would fall through and test the previous target's bundle instead.
+  local built=0
   flutter build ios --simulator --debug --target="$target" \
     --dart-define=HAS_WEBGPU="$has_webgpu" \
-    --dart-define=HAS_GENAI="$has_genai"
+    --dart-define=HAS_GENAI="$has_genai" || built=$?
   echo "::endgroup::"
+  if [ "$built" -ne 0 ]; then
+    echo "::error::building $target failed"
+    return 1
+  fi
 
   # buildXcodeProject copies the bundle out of Xcode's Debug-iphonesimulator
   # into build/ios/iphonesimulator, which is the same path IOSApp
@@ -135,7 +147,10 @@ run_one() {
   echo "running $target as $bundle"
 
   xcrun simctl terminate "$simulator" "$bundle" >/dev/null 2>&1 || true
-  xcrun simctl install "$simulator" "$app"
+  if ! xcrun simctl install "$simulator" "$app"; then
+    echo "::error::installing $app failed"
+    return 1
+  fi
 
   : > "$work/stream.txt"
   : > "$work/app.txt"
@@ -147,7 +162,10 @@ run_one() {
               OR eventMessage CONTAINS "ortdartprobe"' \
     > "$work/stream.txt" 2>&1 &
   stream_pid=$!
-  wait_for_stream
+  if ! wait_for_stream; then
+    stop_stream
+    return 1
+  fi
 
   # Channel two, the app's own stdout, which no daemon sits in front of. Two
   # channels because either alone would be a single point of failure, and the
