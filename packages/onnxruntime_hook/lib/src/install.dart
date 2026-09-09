@@ -142,6 +142,7 @@ Future<File> _download({
   required String fileName,
   required String target,
   required String package,
+  List<String> companions = const [],
 }) async {
   final client = HttpClient()..connectionTimeout = _timeout;
   final Uint8List archive;
@@ -177,6 +178,16 @@ Future<File> _download({
 
   into.parent.createSync(recursive: true);
   await into.writeAsBytes(_extractLibrary(archive, fileName), flush: true);
+
+  // Beside the library, out of the same archive. A DT_NEEDED neighbour is not
+  // something the bundler follows, so it has to be a file on disk here before
+  // it can be declared as an asset. Missed the first time because local_build
+  // gets a directory that was untarred whole, which already had it, and only
+  // the download path takes a single file out and drops the rest.
+  for (final companion in companions) {
+    await File.fromUri(into.uri.resolve(companion))
+        .writeAsBytes(_extractLibrary(archive, companion), flush: true);
+  }
   return into;
 }
 
@@ -475,7 +486,15 @@ Future<File?> _resolveGenAi(
   final cached = File.fromUri(
     input.outputDirectoryShared.resolve('$tag/$target/$fileName'),
   );
-  if (cached.existsSync()) return cached;
+  // The companions have to be there too, not just the library. A cache
+  // written before they were extracted holds the library alone, and taking it
+  // would reintroduce the missing-neighbour failure on every later build.
+  final companions = OrtGenAi.companions(os);
+  final cacheIsComplete = cached.existsSync() &&
+      companions.every(
+        (name) => File.fromUri(cached.uri.resolve(name)).existsSync(),
+      );
+  if (cacheIsComplete) return cached;
 
   return _download(
     url: genAiAssetUrl(releaseTag: tag, targetId: target),
@@ -483,6 +502,7 @@ Future<File?> _resolveGenAi(
     fileName: fileName,
     target: target,
     package: input.packageName,
+    companions: companions,
   );
 }
 
