@@ -669,17 +669,27 @@ jobs:
           # The emulator is x86_64, so that is the library it needs.
           - { name: android-x64, runner: ubuntu-24.04, artifact: android-x86_64,
               arch: x86_64, api: 34, webgpu: true, genai: true }
-          # The only 32-bit coverage anywhere. Nothing else exercises a
-          # 32-bit pointer, which is where an FFI layer is most likely to be
-          # quietly wrong. API 30 because Google shipped no 32-bit x86 system
-          # image after it.
+          # No 32-bit row, and there is no way to add one. An android-x86
+          # row was tried and measured: the emulator boots, adb lists it, and
+          # flutter then refuses it outright with "No supported devices found
+          # with name or id matching 'emulator-5554'", having printed
+          # "sdk gphone x86 (mobile) - emulator-5554 - unsupported - Android 11
+          # (API 30) (unsupported) (emulator)". Flutter ships armeabi-v7a,
+          # arm64-v8a and x86_64 for Android and dropped x86, so no Flutter
+          # application runs on that image at all.
           #
-          # No provider and no GenAI: ep_matrix leaves the 32-bit Android ABIs
-          # out on purpose, and upstream's GenAI .aar carries only arm64-v8a
-          # and x86_64. The harness is told, and asserts their absence rather
-          # than skipping past it.
-          - { name: android-x86, runner: ubuntu-24.04, artifact: android-x86,
-              arch: x86, api: 30, webgpu: false, genai: false }
+          # armeabi-v7a is no more reachable. Google's newest armeabi-v7a
+          # system image is API 25, and QEMU2 will not run an ARM image on an
+          # x86_64 host, which is the same architecture-matching rule that
+          # sends the arm64 row to a macOS runner below.
+          #
+          # So 32-bit Android has no achievable device coverage, and keeps
+          # packaging-level coverage only: the ELF header and DT_NEEDED checks
+          # that run at build time. staged.dart and the absence tests stay as
+          # they are, both because they still earn their place on android-x64
+          # and ios and because they are how a 32-bit row would light up if
+          # the tooling ever allows one.
+          #
           # macOS on Apple silicon, because the emulator requires the image
           # and the host to share an architecture. An x64 host does not run an
           # arm64 image slowly, it refuses: "Avd's CPU Architecture 'arm64' is
