@@ -36,15 +36,25 @@
 # So this is not a component to be tuned, it is a component that intermittently
 # stops working, and the sound response is to stop depending on it.
 #
-# What this does instead. It reads the URI from the app's own stdout, over a
-# pty this script owns, where no daemon sits between the app and the reader and
-# there is nothing to lose the line. It keeps the system log as a second,
-# independent channel, attached and proven to be delivering before the app
-# starts rather than after. Then it hands the URI to
-# `flutter drive --use-existing-app`, which connects to the URI it is given and
-# reads no log at all.
+# What this does instead, and be clear about what it does NOT do. The
+# announcement still travels over unified logging. It was measured: `simctl
+# launch --console-pty` carries the app's stdout, but the Flutter iOS engine
+# routes the Dart VM's output through os_log rather than the process's file
+# descriptors, so the pty yields exactly one line, the pid, and never the
+# announcement. That channel is kept because it costs nothing and the run
+# reports which channel actually supplied the URI, but it is not what makes
+# this work.
 #
-# Both waits are bounded and say what they were waiting for. Whatever else
+# What makes this work is that the stream is verified and, if it is not
+# delivering, thrown away and started again. The measured failure is a
+# `log stream` subprocess that starts, stays alive, reports no error and
+# delivers nothing for the entire run. flutter cannot see that, because it
+# starts the stream and the app at the same instant and then waits forever on
+# a channel it never confirmed. This proves the channel is carrying messages
+# before the app exists, and re-establishes it if it is not, which turns the
+# one failure mode that was observed into something recoverable.
+#
+# Every wait is bounded and says what it was waiting for. Whatever else
 # happens here, it will not be silence.
 #
 # What it deliberately does not change. The app is still built by
@@ -83,7 +93,8 @@ work=$(mktemp -d)
 # Long enough to cover a cold first attach with room to spare, short enough
 # that a genuinely broken simulator fails loudly rather than sitting out the
 # step timeout. Both of these replace what used to be an unbounded wait.
-attach_deadline=60
+attach_deadline=30
+attach_attempts=3
 announce_deadline=240
 
 stream_pid=
@@ -109,8 +120,6 @@ wait_for_stream() {
   local waited=0
   until grep -q ortdartprobe "$work/stream.txt" 2>/dev/null; do
     if [ "$waited" -ge "$attach_deadline" ]; then
-      echo "::warning::the simulator log stream delivered nothing in"\
-        "${attach_deadline}s, carrying on with the app's stdout alone"
       return 1
     fi
     xcrun simctl spawn "$simulator" log show --last 1s --style compact \
@@ -197,21 +206,42 @@ run_one() {
   : > "$work/stream.txt"
   : > "$work/app.txt"
 
-  # Channel one, the system log, the same source flutter uses, kept only as a
-  # second opinion. Unlike flutter's, it is attached and proven to be
-  # delivering before the app starts rather than at the same instant.
-  xcrun simctl spawn "$simulator" log stream --style compact \
-    --predicate 'eventMessage CONTAINS "Dart VM service"
-              OR eventMessage CONTAINS "ortdartprobe"' \
-    > "$work/stream.txt" 2>&1 &
-  stream_pid=$!
-  # Not fatal. This is the channel that was losing the announcement in the
-  # first place, so it is the backup here, not the thing being relied on. If
-  # it will not deliver, the app's own stdout below is the one that matters.
-  wait_for_stream || true
+  # The system log, the same source flutter uses, and on iOS the only one that
+  # actually carries the announcement. The difference from flutter is entirely
+  # in the next few lines: this one is confirmed to be delivering before the
+  # app is allowed to start, and a stream that will not deliver is discarded
+  # and replaced rather than waited on. A dead stream is the measured failure,
+  # and it is only unrecoverable if nobody looks.
+  local attempt=1
+  while :; do
+    xcrun simctl spawn "$simulator" log stream --style compact \
+      --predicate 'eventMessage CONTAINS "Dart VM service"
+                OR eventMessage CONTAINS "ortdartprobe"' \
+      > "$work/stream.txt" 2>&1 &
+    stream_pid=$!
+    if wait_for_stream; then
+      break
+    fi
+    stop_stream
+    if [ "$attempt" -ge "$attach_attempts" ]; then
+      echo "::error::the simulator log stream delivered nothing in"\
+        "$attach_attempts attempts of ${attach_deadline}s. This is the"\
+        "channel the VM service announcement arrives on, so there is no"\
+        "point launching the app."
+      return 1
+    fi
+    echo "::warning::the log stream delivered nothing in ${attach_deadline}s,"\
+      "discarding it and starting attempt $((attempt + 1))"
+    : > "$work/stream.txt"
+    attempt=$((attempt + 1))
+  done
 
-  # Channel two, and the one this fix rests on: the app's own stdout, over a
-  # pty this script owns, with no daemon between the app and the reader.
+  # The app's own stdout. Measured to carry only the pid on iOS, because the
+  # engine logs through os_log rather than the process's descriptors, so this
+  # is a second opinion rather than a safety net. Kept anyway: it costs one
+  # background process, it is where a crash on launch would show up, and if a
+  # future engine ever does put the announcement on stdout the run will say so
+  # rather than nobody noticing.
   #
   # The launch arguments are the ones flutter passes, minus
   # --disable-vm-service-publication, which suppresses the mDNS advertisement
@@ -250,14 +280,9 @@ run_one() {
   elif [ -n "$from_pty" ]; then
     echo "the app announced $uri after ${waited}s, on its own stdout"
   else
-    # Not fatal, because a URI is a URI and the tests can still run. But this
-    # is the fix riding the channel it was built to replace, so it must not
-    # pass silently: the next hang would then look like a regression out of
-    # nowhere rather than the known-lossy path being load bearing again.
-    echo "::warning::the app's stdout did not carry the announcement and only"\
-      "the system log did. That is the channel that intermittently delivers"\
-      "nothing, so this run got lucky rather than being safe."
-    echo "the app announced $uri after ${waited}s, in the system log only"
+    # The expected case on iOS, and stated rather than assumed so that the day
+    # it changes is visible in the log.
+    echo "the app announced $uri after ${waited}s, in the system log"
   fi
   stop_stream
 
