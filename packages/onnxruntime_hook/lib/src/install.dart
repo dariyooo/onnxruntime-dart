@@ -239,6 +239,33 @@ Future<void> _verify(
   );
 }
 
+/// What to do about an iOS simulator build that asked for both architectures.
+///
+/// A simulator build with no device to narrow it compiles for arm64 and
+/// x86_64 together, so the hooks are asked for a library per architecture.
+/// Upstream publishes a GenAI simulator library for arm64 only, and a
+/// universal simulator build genuinely needs one for each, so there is nothing
+/// this hook can substitute. Dropping the architecture quietly would produce
+/// an application that builds and then fails at its first GenAI call, which is
+/// worse than failing here.
+///
+/// So the answer is to build the simulator for its own architecture, which is
+/// what `flutter test -d <udid>` does implicitly by narrowing Xcode to one
+/// device, and what a build without a device has to be told.
+String _simulatorArchAdvice(String target) {
+  if (target != 'ios-sim-x86_64') return '';
+  return '\n'
+      '\n'
+      'This usually means an iOS simulator build compiled for both '
+      'architectures at once. A simulator runs the host architecture, so '
+      'build for that one alone:\n'
+      '\n'
+      '  FLUTTER_XCODE_ARCHS=\$(uname -m) flutter build ios --simulator\n'
+      '\n'
+      'Running through a device, as `flutter test -d <udid>` and '
+      '`flutter run` do, narrows it for you and does not hit this.';
+}
+
 /// Pulls [fileName] out of a gzipped tar archive.
 Uint8List _extractLibrary(Uint8List archive, String fileName) {
   const blockSize = 512;
@@ -429,7 +456,8 @@ Future<void> installGenAi(List<String> args) async {
     if (!OrtGenAi.isAvailableOn(target)) {
       throw StateError(
         '${input.packageName}: there is no GenAI library for $target. '
-        'Upstream publishes it for ${OrtGenAi.targets.join(', ')}.',
+        'Upstream publishes it for ${OrtGenAi.targets.join(', ')}.'
+        '${_simulatorArchAdvice(target)}',
       );
     }
 
