@@ -10,6 +10,7 @@ import 'package:onnxruntime_hook/onnxruntime_hook.dart';
 import 'package:test/test.dart';
 
 void main() {
+  _simulatorAdviceTests();
   _companionTests();
   group('targetId', () {
     const cases = <(OS, Architecture, IOSSdk?), String>{
@@ -202,6 +203,19 @@ void _companionTests() {
       for (final os in [OS.linux, OS.macOS, OS.windows, OS.iOS]) {
         expect(OrtGenAi.companions(os), isEmpty, reason: '$os');
       }
+    });
+  });
+}
+
+void _simulatorAdviceTests() {
+  group('the unsupported-target message', () {
+    test('ios-sim-x86_64 is a real case a user hits, not just CI', () {
+      // Found by CI: `flutter build ios --simulator` with no device compiles
+      // for arm64 and x86_64 together, so the hooks are asked for a target
+      // upstream does not publish. Anyone building our package for the
+      // simulator the same way hits it, so the message has to say what to do.
+      expect(OrtGenAi.isAvailableOn('ios-sim-x86_64'), isFalse);
+      expect(OrtGenAi.isAvailableOn('ios-sim-arm64'), isTrue);
     });
   });
 }
