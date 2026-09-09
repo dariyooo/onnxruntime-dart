@@ -95,13 +95,23 @@ work=$(mktemp -d)
 # why, which is the entire thing being fixed. Keep that invariant if you change
 # either number.
 #
-# The arithmetic against a 20 minute cap. Attach is 30s times 3 attempts, the
-# announcement is 120s, and the driver in test_driver/integration_test.dart is
-# 300s, so one file can burn 8.5 minutes of bounded waiting. Building is the
-# unbounded part and is measured at 5 to 9 minutes for both files including
-# the hooks. 9 plus 8.5 is 17.5, which fits, but only because a failure that
-# is not the tests' fault stops the loop rather than letting the second file
-# spend another 8.5 minutes discovering the same thing.
+# The arithmetic against the step's 25 minute cap. Attach is 30s times 3
+# attempts, the announcement is 120s, and the driver in
+# test_driver/integration_test.dart is 300s, so one file can burn 8.5 minutes
+# of bounded waiting. The unbounded part is the simulator boot, the two
+# builds and the hooks, measured across healthy runs at 5m42s, 7m12s, 12m08s
+# and 12m52s, so call it 13. 13 plus 8.5 is 21.5, which fits under 25, and
+# only fits because a failure that is not the tests' fault stops the loop
+# rather than letting the second file spend another 8.5 minutes discovering
+# the same thing.
+#
+# Note what dominates: the Xcode builds varied from 24.7s to 196.6s for the
+# same work on the same image, so the cap is sized against runner contention
+# rather than against anything this script controls. If it ever starts biting,
+# raise the cap and keep this sum underneath it. Do not reach for the bounds,
+# because they are already twenty to fifty times the observed need and cutting
+# them buys minutes off a case that does not happen while making the case that
+# does happen fail sooner than it should.
 #
 # Measured healthy values, for scale: the log stream delivers in 2s and the
 # announcement arrives in 2 to 6s, so these are between twenty and fifty times
