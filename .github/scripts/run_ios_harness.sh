@@ -65,7 +65,7 @@ work=$(mktemp -d)
 # Long enough to cover a cold first attach with room to spare, short enough
 # that a genuinely broken simulator fails loudly rather than sitting out the
 # step timeout. Both of these replace what used to be an unbounded wait.
-attach_deadline=90
+attach_deadline=60
 announce_deadline=240
 
 stream_pid=
@@ -91,7 +91,8 @@ wait_for_stream() {
   local waited=0
   until grep -q ortdartprobe "$work/stream.txt" 2>/dev/null; do
     if [ "$waited" -ge "$attach_deadline" ]; then
-      echo "::error::the simulator log stream delivered nothing in ${attach_deadline}s"
+      echo "::warning::the simulator log stream delivered nothing in"\
+        "${attach_deadline}s, carrying on with the app's stdout alone"
       return 1
     fi
     xcrun simctl spawn "$simulator" log show --last 1s --style compact \
@@ -155,21 +156,21 @@ run_one() {
   : > "$work/stream.txt"
   : > "$work/app.txt"
 
-  # Channel one, the system log, the same source flutter uses. The difference
-  # is entirely that this is attached and proven live before the app starts.
+  # Channel one, the system log, the same source flutter uses, kept only as a
+  # second opinion. Unlike flutter's, it is attached and proven to be
+  # delivering before the app starts rather than at the same instant.
   xcrun simctl spawn "$simulator" log stream --style compact \
     --predicate 'eventMessage CONTAINS "Dart VM service"
               OR eventMessage CONTAINS "ortdartprobe"' \
     > "$work/stream.txt" 2>&1 &
   stream_pid=$!
-  if ! wait_for_stream; then
-    stop_stream
-    return 1
-  fi
+  # Not fatal. This is the channel that was losing the announcement in the
+  # first place, so it is the backup here, not the thing being relied on. If
+  # it will not deliver, the app's own stdout below is the one that matters.
+  wait_for_stream || true
 
-  # Channel two, the app's own stdout, which no daemon sits in front of. Two
-  # channels because either alone would be a single point of failure, and the
-  # whole defect being fixed here is a single point of failure.
+  # Channel two, and the one this fix rests on: the app's own stdout, over a
+  # pty this script owns, with no daemon between the app and the reader.
   #
   # The launch arguments are the ones flutter passes, minus
   # --disable-vm-service-publication, which suppresses the mDNS advertisement
