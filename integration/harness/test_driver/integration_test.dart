@@ -24,6 +24,6 @@ import 'package:integration_test/integration_test_driver.dart';
 
 // Five rather than the twenty minute default. The whole point of the iOS job's
 // launcher is that nothing waits without a bound, and a driver that outlives
-// the tests by ten minutes would put one back. A healthy file finishes in
+// the tests by fifteen minutes would put one back. A healthy file finishes in
 // under a minute.
 Future<void> main() => integrationDriver(timeout: const Duration(minutes: 5));
