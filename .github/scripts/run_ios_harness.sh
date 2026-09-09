@@ -106,13 +106,27 @@ vm_service_uri() {
 
 run_one() {
   local target=$1
-  local app=build/ios/iphonesimulator/Runner.app
 
   echo "::group::build $target"
   flutter build ios --simulator --debug --target="$target" \
     --dart-define=HAS_WEBGPU="$has_webgpu" \
     --dart-define=HAS_GENAI="$has_genai"
   echo "::endgroup::"
+
+  # buildXcodeProject copies the bundle out of Xcode's Debug-iphonesimulator
+  # into build/ios/iphonesimulator, which is the same path IOSApp
+  # .simulatorBundlePath resolves to and the same one flutter installs from.
+  # Globbed rather than named, so a renamed product is a clear failure here
+  # instead of a confusing one later.
+  local app
+  app=$(echo build/ios/iphonesimulator/*.app)
+  if [ ! -d "$app" ]; then
+    echo "::error::no app bundle in build/ios/iphonesimulator after the build"
+    ls -la build/ios || true
+    return 1
+  fi
+  echo "built $app"
+  find "$app/Frameworks" -maxdepth 1 -name '*.framework' 2>/dev/null | sed 's/^/  bundled: /'
 
   # From the bundle rather than hardcoded, for the same reason flutter reads it
   # from there: it is the one value that cannot disagree with what was built.
