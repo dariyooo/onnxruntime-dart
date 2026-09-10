@@ -144,6 +144,25 @@ vm_service_uri() {
     "$1" 2>/dev/null | head -1
 }
 
+# The same announcement, taken out of the log archive rather than off a live
+# stream. This is the one that cannot lose it.
+#
+# `log stream` is a push channel: it only carries what is emitted after it has
+# attached, which takes a couple of seconds, and it does not replay backlog. A
+# warm app announces in well under that, so restarting the stream and
+# relaunching opens exactly the window this script was written to close, and
+# measurement caught it doing so. `log show` is a pull query over what has
+# already been recorded, so a late reader still finds an early message. It
+# costs a subprocess per poll, which is why it is only asked every few
+# seconds, and it is worth every bit of that.
+vm_service_uri_from_archive() {
+  xcrun simctl spawn "$simulator" log show --last 5m --style compact \
+    --predicate 'eventMessage CONTAINS "Dart VM service is listening on"' \
+    2>/dev/null \
+    | sed -n 's/.*Dart VM service is listening on \(http:[^[:space:]]*\).*/\1/p' \
+    | tail -1
+}
+
 run_one() {
   local target=$1
 
@@ -263,6 +282,7 @@ run_one() {
   local uri=''
   local from_pty=''
   local from_log=''
+  local from_archive=''
   local waited=0
   local app_pid=''
   local launch=1
@@ -280,12 +300,19 @@ run_one() {
 
     waited=0
     uri=''
+    from_archive=''
     while [ "$waited" -lt "$announce_deadline" ]; do
       from_pty=$(vm_service_uri "$work/app.txt")
       from_log=$(vm_service_uri "$work/stream.txt")
-      # The pty first where both have it, so the reported source is named
+      # The archive last, because it costs a subprocess, and only every six
+      # seconds for the same reason. It is also the one that always works, so
+      # the ordering here is about cost rather than confidence.
+      if [ -z "$from_pty$from_log" ] && [ $((waited % 6)) -eq 0 ]; then
+        from_archive=$(vm_service_uri_from_archive)
+      fi
+      # The pty first where several have it, so the reported source is named
       # rather than being whichever sed happened to reach first.
-      uri=${from_pty:-$from_log}
+      uri=${from_pty:-${from_log:-$from_archive}}
       [ -n "$uri" ] && break
       sleep 2
       waited=$((waited + 2))
@@ -317,6 +344,11 @@ run_one() {
     echo "the app announced $uri after ${waited}s, on its stdout and in the log"
   elif [ -n "$from_pty" ]; then
     echo "the app announced $uri after ${waited}s, on its own stdout"
+  elif [ -z "$from_log" ] && [ -n "$from_archive" ]; then
+    # The live stream missed it and the archive had it, which is the case a
+    # push channel cannot cover and is why the archive is consulted at all.
+    echo "the app announced $uri after ${waited}s, found in the log archive"\
+      "after the live stream missed it"
   else
     # The expected case on iOS, and stated rather than assumed so that the day
     # it changes is visible in the log.
