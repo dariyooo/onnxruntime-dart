@@ -415,7 +415,17 @@ run_one() {
   # this, a group that silently stopped running would keep reporting green,
   # which is the one failure mode nobody would notice.
   if [ "$has_genai" = true ] && [ "$target" = integration_test/layers_test.dart ]; then
-    if grep -q "the GenAI group is running" "$work/stream.txt"; then
+    # The archive as well as the live stream, for the same reason the
+    # announcement is looked for in both: the marker is a Dart print, so on
+    # iOS it goes to os_log, and a stream that failed to attach in time simply
+    # does not have it. Checking only the stream turned a run where the group
+    # demonstrably ran into "it never ran", which is a false accusation rather
+    # than a missed one, and it is exactly what a dead stream produces.
+    if grep -q "the GenAI group is running" "$work/stream.txt" \
+      || xcrun simctl spawn "$simulator" log show --start "$launch_started" \
+           --style compact \
+           --predicate 'eventMessage CONTAINS "the GenAI group is running"' \
+           2>/dev/null | grep -q "the GenAI group is running"; then
       echo "the GenAI group ran"
     else
       echo "::error::a GenAI library was staged but the GenAI group never ran."\
