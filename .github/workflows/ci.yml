@@ -41,6 +41,15 @@ on:
           everything and tests what it built.
         type: string
         default: ''
+      fault_dead_stream:
+        description: >-
+          Test the iOS log stream recovery. A number N makes the first N
+          launches use a log predicate that matches no app event, so the
+          announcement never arrives and the recovery runs. 1 exercises it and
+          must still pass. 2 exhausts the launches and must fail fast with a
+          named error rather than hanging. Empty in normal runs.
+        type: string
+        default: ''
       only:
         description: >-
           Run part of it. Comma separated, any of: runtime, full, webgpu, qnn,
@@ -943,6 +952,14 @@ jobs:
         # step is killed before it can say what went wrong, which is the
         # failure this whole change exists to remove.
         timeout-minutes: 25
+        env:
+          # Normally empty. Set to a number by a manual dispatch to make that
+          # many log stream attempts use a predicate that cannot match, which
+          # is what a dead stream looks like from the script's side. That is
+          # the one failure this whole step exists to survive, and it has not
+          # occurred naturally since the step started proving the stream, so
+          # without this the recovery would ship untested.
+          ORT_FAULT_DEAD_STREAM: ${{ inputs.fault_dead_stream || '' }}
         run: |
           set -euo pipefail
           simulator=$(python3 ../../.github/scripts/pick_simulator.py)
