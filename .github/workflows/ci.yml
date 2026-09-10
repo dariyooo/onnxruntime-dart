@@ -44,9 +44,10 @@ on:
       fault_dead_stream:
         description: >-
           Test the iOS log stream recovery. A number N makes the first N
-          attempts use a predicate that cannot match, so the restart path runs.
-          1 exercises it and still passes. 3 exhausts the attempts and must
-          fail with a named error rather than hanging. Empty in normal runs.
+          launches use a log predicate that matches no app event, so the
+          announcement never arrives and the recovery runs. 1 exercises it and
+          must still pass. 2 exhausts the launches and must fail fast with a
+          named error rather than hanging. Empty in normal runs.
         type: string
         default: ''
       only:
