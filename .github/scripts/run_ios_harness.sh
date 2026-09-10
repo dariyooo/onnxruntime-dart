@@ -155,8 +155,15 @@ vm_service_uri() {
 # already been recorded, so a late reader still finds an early message. It
 # costs a subprocess per poll, which is why it is only asked every few
 # seconds, and it is worth every bit of that.
+# $1 is the timestamp the current launch began, and it is not optional. A
+# window like --last 5m also covers the PREVIOUS launch, so the query happily
+# returns an announcement from the test file before this one, and the driver
+# then connects to a VM service that has already exited. That is not
+# hypothetical: it is what happened, both files reported the same URI and the
+# second one failed against a dead port. Anchoring to the launch is what makes
+# a pull query safe to use.
 vm_service_uri_from_archive() {
-  xcrun simctl spawn "$simulator" log show --last 5m --style compact \
+  xcrun simctl spawn "$simulator" log show --start "$1" --style compact \
     --predicate 'eventMessage CONTAINS "Dart VM service is listening on"' \
     2>/dev/null \
     | sed -n 's/.*Dart VM service is listening on \(http:[^[:space:]]*\).*/\1/p' \
@@ -293,6 +300,11 @@ run_one() {
     # The launch arguments are the ones flutter passes, minus
     # --disable-vm-service-publication, which suppresses the mDNS
     # advertisement that would otherwise be a third way to find the service.
+    # Local time, and captured before the launch rather than after, so the
+    # archive query below cannot reach back into the previous launch.
+    local launch_started
+    launch_started=$(date '+%Y-%m-%d %H:%M:%S')
+
     xcrun simctl launch --console-pty "$simulator" "$bundle" \
       --enable-dart-profiling --enable-checked-mode --verify-entry-points \
       > "$work/app.txt" 2>&1 &
@@ -308,7 +320,7 @@ run_one() {
       # seconds for the same reason. It is also the one that always works, so
       # the ordering here is about cost rather than confidence.
       if [ -z "$from_pty$from_log" ] && [ $((waited % 6)) -eq 0 ]; then
-        from_archive=$(vm_service_uri_from_archive)
+        from_archive=$(vm_service_uri_from_archive "$launch_started")
       fi
       # The pty first where several have it, so the reported source is named
       # rather than being whichever sed happened to reach first.
