@@ -139,9 +139,18 @@ trap 'stop_stream; rm -rf "$work"' EXIT
 # arguments, so asking it for a marker string makes the marker appear as a log
 # message that the stream we just started has to carry. Nothing is delivered
 # until the stream is really attached, which is the property being tested.
+#
+# The filter echo has to be excluded or this proves nothing. `log stream`
+# opens by printing "Filtering the log data using ..." with the predicate
+# quoted back, and the predicate contains the marker, so a plain grep matches
+# the stream's own header before it has carried a single event. That is how
+# this was written, and it meant the check passed instantly on a stream that
+# went on to deliver nothing at all. Found by faking a dead stream and
+# watching the probe pass anyway.
 wait_for_stream() {
   local waited=0
-  until grep -q ortdartprobe "$work/stream.txt" 2>/dev/null; do
+  until grep ortdartprobe "$work/stream.txt" 2>/dev/null \
+    | grep -qv 'Filtering the log data'; do
     if [ "$waited" -ge "$attach_deadline" ]; then
       return 1
     fi
@@ -256,7 +265,7 @@ run_one() {
     if [ "$attempt" -le "${ORT_FAULT_DEAD_STREAM:-0}" ]; then
       echo "::warning::ORT_FAULT_DEAD_STREAM is set, so attempt $attempt uses"\
         "a predicate that cannot match. This is a test of the restart path."
-      predicate='eventMessage CONTAINS "ortdartprobe-that-never-appears"'
+      predicate='eventMessage CONTAINS "ortdartnevermatch"'
     fi
 
     xcrun simctl spawn "$simulator" log stream --style compact \
