@@ -244,9 +244,23 @@ run_one() {
     # made the first version of the GenAI check impossible to satisfy. The
     # probe clause matches the `log show` process rather than the app, so it
     # has to sit outside the process filter.
+    # Deliberately broken for the first ORT_FAULT_DEAD_STREAM attempts, so the
+    # recovery below can be exercised on demand instead of waiting for the
+    # real fault, which was intermittent at about one launch in three and has
+    # not been seen since this script started proving the stream. The clause
+    # matches nothing, which is exactly what a dead stream looks like from
+    # here: a subprocess that starts, stays alive, reports no error and
+    # delivers nothing. Unset in every normal run.
+    local predicate='processImagePath ENDSWITH "Runner"
+                OR eventMessage CONTAINS "ortdartprobe"'
+    if [ "$attempt" -le "${ORT_FAULT_DEAD_STREAM:-0}" ]; then
+      echo "::warning::ORT_FAULT_DEAD_STREAM is set, so attempt $attempt uses"\
+        "a predicate that cannot match. This is a test of the restart path."
+      predicate='eventMessage CONTAINS "ortdartprobe-that-never-appears"'
+    fi
+
     xcrun simctl spawn "$simulator" log stream --style compact \
-      --predicate 'processImagePath ENDSWITH "Runner"
-                OR eventMessage CONTAINS "ortdartprobe"' \
+      --predicate "$predicate" \
       > "$work/stream.txt" 2>&1 &
     stream_pid=$!
     if wait_for_stream; then
