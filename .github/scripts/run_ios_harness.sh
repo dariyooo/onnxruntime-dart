@@ -116,8 +116,7 @@ work=$(mktemp -d)
 # Measured healthy values, for scale: the log stream delivers in 2s and the
 # announcement arrives in 2 to 6s, so these are between twenty and fifty times
 # the observed need.
-attach_deadline=30
-attach_attempts=3
+announce_attempts=2
 announce_deadline=120
 
 stream_pid=
@@ -133,34 +132,6 @@ stop_stream() {
 # Set once stop_stream exists, so the handler cannot run before the function
 # it calls is defined. Nothing above here starts a background process.
 trap 'stop_stream; rm -rf "$work"' EXIT
-
-# Proves the log stream is attached and delivering, rather than assuming it
-# after a sleep. `log show` announces its own noninteractive run, quoting its
-# arguments, so asking it for a marker string makes the marker appear as a log
-# message that the stream we just started has to carry. Nothing is delivered
-# until the stream is really attached, which is the property being tested.
-#
-# The filter echo has to be excluded or this proves nothing. `log stream`
-# opens by printing "Filtering the log data using ..." with the predicate
-# quoted back, and the predicate contains the marker, so a plain grep matches
-# the stream's own header before it has carried a single event. That is how
-# this was written, and it meant the check passed instantly on a stream that
-# went on to deliver nothing at all. Found by faking a dead stream and
-# watching the probe pass anyway.
-wait_for_stream() {
-  local waited=0
-  until grep ortdartprobe "$work/stream.txt" 2>/dev/null \
-    | grep -qv 'Filtering the log data'; do
-    if [ "$waited" -ge "$attach_deadline" ]; then
-      return 1
-    fi
-    xcrun simctl spawn "$simulator" log show --last 1s --style compact \
-      --predicate 'eventMessage CONTAINS "ortdartprobe"' >/dev/null 2>&1 || true
-    sleep 2
-    waited=$((waited + 2))
-  done
-  echo "the log stream is delivering after ${waited}s"
-}
 
 # One file at a time, deliberately. Searching both at once would find the URI
 # without saying which channel produced it, and that is the one thing about
@@ -238,56 +209,35 @@ run_one() {
   : > "$work/stream.txt"
   : > "$work/app.txt"
 
-  # The system log, the same source flutter uses, and on iOS the only one that
-  # actually carries the announcement. The difference from flutter is entirely
-  # in the next few lines: this one is confirmed to be delivering before the
-  # app is allowed to start, and a stream that will not deliver is discarded
-  # and replaced rather than waited on. A dead stream is the measured failure,
-  # and it is only unrecoverable if nobody looks.
-  local attempt=1
-  while :; do
-    # Everything the app logs, not just the announcement. On iOS the engine
-    # routes Dart's output through os_log, so this stream is the only place
-    # the harness's own prints exist at all: not on the pty, and not in
-    # flutter drive's output either. Narrowing it to the announcement is what
-    # made the first version of the GenAI check impossible to satisfy. The
-    # probe clause matches the `log show` process rather than the app, so it
-    # has to sit outside the process filter.
-    # Deliberately broken for the first ORT_FAULT_DEAD_STREAM attempts, so the
-    # recovery below can be exercised on demand instead of waiting for the
-    # real fault, which was intermittent at about one launch in three and has
-    # not been seen since this script started proving the stream. The clause
-    # matches nothing, which is exactly what a dead stream looks like from
-    # here: a subprocess that starts, stays alive, reports no error and
-    # delivers nothing. Unset in every normal run.
-    local predicate='processImagePath ENDSWITH "Runner"
-                OR eventMessage CONTAINS "ortdartprobe"'
-    if [ "$attempt" -le "${ORT_FAULT_DEAD_STREAM:-0}" ]; then
-      echo "::warning::ORT_FAULT_DEAD_STREAM is set, so attempt $attempt uses"\
-        "a predicate that cannot match. This is a test of the restart path."
-      predicate='eventMessage CONTAINS "ortdartnevermatch"'
+  # Everything the app logs, not just the announcement. On iOS the engine
+  # routes Dart's output through os_log, so this stream is the only place the
+  # harness's own prints exist at all: not on the pty, and not in flutter
+  # drive's output either.
+  #
+  # There is deliberately no attempt to verify this stream before launching.
+  # An earlier version did, by asking `log show` for a marker and waiting for
+  # the stream to carry it back. That never worked: the marker is not
+  # delivered, and the check passed only because `log stream` opens by echoing
+  # its own predicate, which contained the marker. Made strict, it rejected
+  # healthy streams and failed every run. The failure is instead caught below,
+  # where it is directly observable, by the announcement not arriving.
+  start_stream() {
+    local predicate='processImagePath ENDSWITH "Runner"'
+    # Deliberately broken for the first ORT_FAULT_DEAD_STREAM launches so the
+    # recovery can be exercised on demand. A predicate matching no app event
+    # is exactly what a dead stream looks like from here: a subprocess that
+    # starts, stays alive, reports no error, and carries nothing. Unset in
+    # every normal run.
+    if [ "$launch" -le "${ORT_FAULT_DEAD_STREAM:-0}" ]; then
+      echo "::warning::ORT_FAULT_DEAD_STREAM is set, so launch $launch uses a"\
+        "predicate that matches no app event. This tests the recovery."
+      predicate='processImagePath ENDSWITH "ortdartnevermatch"'
     fi
-
-    xcrun simctl spawn "$simulator" log stream --style compact \
-      --predicate "$predicate" \
-      > "$work/stream.txt" 2>&1 &
-    stream_pid=$!
-    if wait_for_stream; then
-      break
-    fi
-    stop_stream
-    if [ "$attempt" -ge "$attach_attempts" ]; then
-      echo "::error::the simulator log stream delivered nothing in"\
-        "$attach_attempts attempts of ${attach_deadline}s. This is the"\
-        "channel the VM service announcement arrives on, so there is no"\
-        "point launching the app."
-      return 2
-    fi
-    echo "::warning::the log stream delivered nothing in ${attach_deadline}s,"\
-      "discarding it and starting attempt $((attempt + 1))"
     : > "$work/stream.txt"
-    attempt=$((attempt + 1))
-  done
+    xcrun simctl spawn "$simulator" log stream --style compact \
+      --predicate "$predicate" > "$work/stream.txt" 2>&1 &
+    stream_pid=$!
+  }
 
   # The app's own stdout. Measured to carry only the pid on iOS, because the
   # engine logs through os_log rather than the process's descriptors, so this
@@ -299,35 +249,70 @@ run_one() {
   # The launch arguments are the ones flutter passes, minus
   # --disable-vm-service-publication, which suppresses the mDNS advertisement
   # that would otherwise be a third way to find the service.
-  xcrun simctl launch --console-pty "$simulator" "$bundle" \
-    --enable-dart-profiling --enable-checked-mode --verify-entry-points \
-    > "$work/app.txt" 2>&1 &
-  local app_pid=$!
-
+  # Launch, and if the announcement never arrives, throw the stream and the
+  # app away and do it again. This is the recovery, and it sits here rather
+  # than before the launch because "the announcement did not arrive" is the
+  # only form of the failure that can actually be observed. The measured fault
+  # was a log stream that starts, stays alive, reports no error and delivers
+  # nothing, which is indistinguishable from a healthy stream until the thing
+  # it was supposed to carry fails to appear.
+  #
+  # Restarting means a new `log stream` subprocess and a fresh launch, so a
+  # dead stream is replaced rather than waited on. That is what flutter cannot
+  # do: it commits to one stream and then waits on it forever.
   local uri=''
   local from_pty=''
   local from_log=''
   local waited=0
+  local app_pid=''
+  local launch=1
   while :; do
-    from_pty=$(vm_service_uri "$work/app.txt")
-    from_log=$(vm_service_uri "$work/stream.txt")
-    # The pty first where both have it, so the reported source is the one the
-    # fix depends on rather than whichever sed happened to reach first.
-    uri=${from_pty:-$from_log}
+    start_stream
+    : > "$work/app.txt"
+
+    # The launch arguments are the ones flutter passes, minus
+    # --disable-vm-service-publication, which suppresses the mDNS
+    # advertisement that would otherwise be a third way to find the service.
+    xcrun simctl launch --console-pty "$simulator" "$bundle" \
+      --enable-dart-profiling --enable-checked-mode --verify-entry-points \
+      > "$work/app.txt" 2>&1 &
+    app_pid=$!
+
+    waited=0
+    uri=''
+    while [ "$waited" -lt "$announce_deadline" ]; do
+      from_pty=$(vm_service_uri "$work/app.txt")
+      from_log=$(vm_service_uri "$work/stream.txt")
+      # The pty first where both have it, so the reported source is named
+      # rather than being whichever sed happened to reach first.
+      uri=${from_pty:-$from_log}
+      [ -n "$uri" ] && break
+      sleep 2
+      waited=$((waited + 2))
+    done
     [ -n "$uri" ] && break
-    if [ "$waited" -ge "$announce_deadline" ]; then
-      echo "::error::no Dart VM service announcement in ${announce_deadline}s"
+
+    kill "$app_pid" 2>/dev/null || true
+    xcrun simctl terminate "$simulator" "$bundle" >/dev/null 2>&1 || true
+    stop_stream
+
+    if [ "$launch" -ge "$announce_attempts" ]; then
+      echo "::error::no Dart VM service announcement in $announce_attempts"\
+        "launches of ${announce_deadline}s each. The app starts but nothing"\
+        "carries its announcement, which is the failure this script exists"\
+        "to survive, and restarting the log stream did not recover it."
       echo "--- the app's own output"
       cat "$work/app.txt"
       echo "--- the system log stream"
       cat "$work/stream.txt"
-      kill "$app_pid" 2>/dev/null || true
-      stop_stream
       return 2
     fi
-    sleep 2
-    waited=$((waited + 2))
+
+    echo "::warning::no announcement in ${announce_deadline}s, discarding the"\
+      "log stream and the app and starting launch $((launch + 1))"
+    launch=$((launch + 1))
   done
+
   if [ -n "$from_pty" ] && [ -n "$from_log" ]; then
     echo "the app announced $uri after ${waited}s, on its stdout and in the log"
   elif [ -n "$from_pty" ]; then
@@ -336,6 +321,9 @@ run_one() {
     # The expected case on iOS, and stated rather than assumed so that the day
     # it changes is visible in the log.
     echo "the app announced $uri after ${waited}s, in the system log"
+  fi
+  if [ "$launch" -gt 1 ]; then
+    echo "recovered on launch $launch after $((launch - 1)) dead stream(s)"
   fi
   # Deliberately left running. Everything the tests print arrives on it, and
   # stopping here is what threw that away in the earlier version.
