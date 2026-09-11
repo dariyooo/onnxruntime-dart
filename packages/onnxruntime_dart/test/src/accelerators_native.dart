@@ -78,6 +78,29 @@ bool _canRunOn(String provider) {
   }
 }
 
+/// Why [accelerators] came back empty, or null if it did not.
+///
+/// An empty list is two different situations and they need opposite answers.
+/// On a developer machine with no plugin supplied, nothing can run and that is
+/// expected. In CI the plugins are staged and required, so an empty list means
+/// something that was supposed to be there is not, and the suite would
+/// otherwise report green having registered no tests at all.
+String? get skipWithoutAccelerators {
+  if (skipWithoutOrt != null) return skipWithoutOrt;
+  if (skipWithoutNativeAsset != null) return skipWithoutNativeAsset;
+  final supplied = _pluginVariables.entries
+      .where((e) => Platform.environment[e.value] != null)
+      .map((e) => e.key)
+      .toList();
+  if (supplied.isEmpty) {
+    return 'no execution provider plugin was supplied; set '
+        '${_pluginVariables.values.join(', ')} to exercise one';
+  }
+  // Supplied but unusable is a failure, not a skip, so say nothing here and
+  // let the emptiness assertion report it.
+  return null;
+}
+
 List<Accelerator> accelerators() => [
       for (final provider in _pluginVariables.keys)
         if (skipWithoutOrt == null &&

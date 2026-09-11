@@ -26,6 +26,24 @@ set -euo pipefail
 has_webgpu="${1:?has_webgpu argument is required}"
 has_genai="${2:?has_genai argument is required}"
 
+# Exactly "true" or "false", nothing else. bool.fromEnvironment treats every
+# value that is not the literal string "true" as false, so "True", "yes" or an
+# empty string silently disables the guarded group and the job stays green
+# having tested less than it claims. ${x:?} rejects empty but accepts any
+# other string, which is not enough. The iOS script validates the same way and
+# this one did not, which is the asymmetry an audit found.
+for pair in "has_webgpu=$has_webgpu" "has_genai=$has_genai"; do
+  case "${pair#*=}" in
+    true | false) ;;
+    *)
+      echo "::error::${pair%%=*} must be exactly true or false, got"\
+        "'${pair#*=}'. Anything else reads as false in the test and turns a"\
+        "group off without saying so."
+      exit 1
+      ;;
+  esac
+done
+
 # What the emulator actually offers, before the tests run. This has now been
 # answered: the image does carry a driver, at /vendor/lib64/hw/vulkan.ranchu.so,
 # and vkjson builds a VkInstance on it, yet ONNX Runtime still reports CPU as
@@ -48,8 +66,30 @@ if [ -z "$device" ]; then
 fi
 echo "running on $device"
 
+# Captured as well as shown, so the run can be checked afterwards. Passing by
+# skipping is not passing, and the expanded reporter names every test and its
+# skip reason, so the evidence is right there as long as somebody reads it.
+out=$(mktemp)
+status=0
 flutter test integration_test \
   -d "$device" \
   --reporter expanded \
   --dart-define=HAS_WEBGPU="$has_webgpu" \
-  --dart-define=HAS_GENAI="$has_genai"
+  --dart-define=HAS_GENAI="$has_genai" 2>&1 | tee "$out" || status=${PIPESTATUS[0]}
+
+[ "$status" -eq 0 ] || exit "$status"
+
+# The same check the iOS script makes, and for the same reason: a group that
+# stopped running is indistinguishable from one that passed unless something
+# insists on seeing it run. The marker is printed from a setUpAll inside the
+# group, and a group-level skip stops setUpAll too, so it cannot be faked.
+if [ "$has_genai" = true ]; then
+  if grep -q "the GenAI group is running" "$out"; then
+    echo "the GenAI group ran"
+  else
+    echo "::error::a GenAI library was staged but the GenAI group never ran."\
+      "It skipped, or the app never got that far. Passing by skipping is not"\
+      "passing."
+    exit 1
+  fi
+fi

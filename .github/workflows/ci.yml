@@ -951,7 +951,7 @@ jobs:
         # number becomes, those bounds have to sum to less than it, or the
         # step is killed before it can say what went wrong, which is the
         # failure this whole change exists to remove.
-        timeout-minutes: 25
+        timeout-minutes: 35
         env:
           # Normally empty. Set to a number by a manual dispatch to make that
           # many log stream attempts use a predicate that cannot match, which

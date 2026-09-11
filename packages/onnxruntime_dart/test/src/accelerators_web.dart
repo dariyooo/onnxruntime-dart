@@ -28,6 +28,11 @@ String? get _skipWithoutAcceleratorBuild =>
         ? 'this is the plain WebAssembly build, which has no accelerator'
         : null);
 
+/// Always null on the web: [accelerators] returns both entries whatever the
+/// build is, carrying a named skip rather than disappearing, so an empty list
+/// here would be a bug rather than a configuration.
+String? get skipWithoutAccelerators => null;
+
 List<Accelerator> accelerators() => [
       Accelerator(
         label: 'WebGPU',
