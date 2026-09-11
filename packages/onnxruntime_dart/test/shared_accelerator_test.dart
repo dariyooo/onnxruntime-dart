@@ -77,7 +77,27 @@ Future<void> main() async {
   // exist is a property of the module that gets fetched here.
   await ensureRuntime();
 
-  for (final accelerator in accelerators()) {
+  final available = accelerators();
+
+  // Without this the suite reports green having registered nothing at all. On
+  // native, accelerators() returns an empty list when no plugin is usable, so
+  // the loop below produces no groups, no tests, and no skips either, and
+  // every CI guard in this repository looks for the word "skip". An audit
+  // found it: the one suite that runs a model on an accelerator could vanish
+  // without a trace. A test that says so is the difference between "nothing
+  // ran here" and "nothing ran here and nobody noticed".
+  test('some accelerator is available to test, or the reason is named', () {
+    expect(
+      available,
+      isNotEmpty,
+      reason: 'no accelerator was usable, so nothing below this line ran. On '
+          'a machine with no plugin that is expected and this test is the '
+          'only evidence of it. In CI it means a provider that should be '
+          'staged was not, and the suite would otherwise have passed empty.',
+    );
+  }, skip: skipWithoutAccelerators);
+
+  for (final accelerator in available) {
     group('on ${accelerator.label}', () {
       setUpAll(() async {
         if (accelerator.skip == null) await accelerator.ensure();

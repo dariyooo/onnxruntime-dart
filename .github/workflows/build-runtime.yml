@@ -322,10 +322,12 @@ jobs:
           RELEASE_TAG: ${{ steps.identity.outputs.tag }}
         run: |
           python3 .github/scripts/write_release_manifest.py
-          echo '### Manifest to commit before publishing' >> "$GITHUB_STEP_SUMMARY"
-          echo '```dart' >> "$GITHUB_STEP_SUMMARY"
-          cat packages/onnxruntime_binaries/lib/src/release.g.dart >> "$GITHUB_STEP_SUMMARY"
-          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          {
+            echo '### Manifest to commit before publishing'
+            echo '```dart'
+            cat packages/onnxruntime_binaries/lib/src/release.g.dart
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - uses: actions/upload-artifact@v4
         if: steps.component.outputs.name == 'runtime' && steps.archives.outputs.empty != 'true'

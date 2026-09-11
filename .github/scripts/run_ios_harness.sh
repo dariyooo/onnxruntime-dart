@@ -95,15 +95,28 @@ work=$(mktemp -d)
 # why, which is the entire thing being fixed. Keep that invariant if you change
 # either number.
 #
-# The arithmetic against the step's 25 minute cap. Attach is 30s times 3
-# attempts, the announcement is 120s, and the driver in
-# test_driver/integration_test.dart is 300s, so one file can burn 8.5 minutes
-# of bounded waiting. The unbounded part is the simulator boot, the two
-# builds and the hooks, measured across healthy runs at 5m42s, 7m12s, 12m08s
-# and 12m52s, so call it 13. 13 plus 8.5 is 21.5, which fits under 25, and
-# only fits because a failure that is not the tests' fault stops the loop
-# rather than letting the second file spend another 8.5 minutes discovering
-# the same thing.
+# The arithmetic, recomputed. An audit found the previous version of this
+# comment wrong in three ways at once, which is worth recording because each
+# was the kind of mistake that looks right.
+#
+# It cited an attach bound of 30s times 3 attempts. That bound does not
+# exist: the pre-launch stream check was deleted, so 90s of the claimed total
+# was phantom.
+#
+# It counted the announcement as 120s when announce_attempts is 2, so the
+# real figure is 240s.
+#
+# And it claimed only one file could burn the bound, because a failure that is
+# not the tests' fault stops the loop. That is true of a give-up, which
+# returns 2, but NOT of a recovery: a launch that fails and then succeeds
+# returns 0 and the loop goes on to the second file, which can spend the same
+# again.
+#
+# So the real worst case is per file 240s of announcement plus 300s of driver,
+# 540s, and BOTH files can spend it: 1080s, 18 minutes. The unbounded part is
+# the simulator boot, the two builds and the hooks, measured across healthy
+# runs at 5m42s, 7m12s, 9m48s, 12m08s and 12m52s, so call it 13. 18 plus 13 is
+# 31, and the cap is 35.
 #
 # Note what dominates: the Xcode builds varied from 24.7s to 196.6s for the
 # same work on the same image, so the cap is sized against runner contention
@@ -155,6 +168,14 @@ vm_service_uri() {
 # already been recorded, so a late reader still finds an early message. It
 # costs a subprocess per poll, which is why it is only asked every few
 # seconds, and it is worth every bit of that.
+# The process filter is not decoration. `log` records its own noninteractive
+# invocation in the unified log, quoting the whole argv including the
+# predicate, so a query for a phrase finds the query that asked for it. That
+# is how the previous version of this check passed while verifying nothing,
+# and it is the second time this file has had a check satisfied by its own
+# side effect. Restricting to the Runner process is what makes the answer come
+# from the app rather than from the question.
+#
 # $1 is the timestamp the current launch began, and it is not optional. A
 # window like --last 5m also covers the PREVIOUS launch, so the query happily
 # returns an announcement from the test file before this one, and the driver
@@ -164,7 +185,8 @@ vm_service_uri() {
 # a pull query safe to use.
 vm_service_uri_from_archive() {
   xcrun simctl spawn "$simulator" log show --start "$1" --style compact \
-    --predicate 'eventMessage CONTAINS "Dart VM service is listening on"' \
+    --predicate 'processImagePath ENDSWITH "Runner"
+              AND eventMessage CONTAINS "Dart VM service is listening on"' \
     2>/dev/null \
     | sed -n 's/.*Dart VM service is listening on \(http:[^[:space:]]*\).*/\1/p' \
     | tail -1
@@ -424,7 +446,8 @@ run_one() {
     if grep -q "the GenAI group is running" "$work/stream.txt" \
       || xcrun simctl spawn "$simulator" log show --start "$launch_started" \
            --style compact \
-           --predicate 'eventMessage CONTAINS "the GenAI group is running"' \
+           --predicate 'processImagePath ENDSWITH "Runner"
+                     AND eventMessage CONTAINS "the GenAI group is running"' \
            2>/dev/null | grep -q "the GenAI group is running"; then
       echo "the GenAI group ran"
     else
