@@ -13,6 +13,7 @@ export 'src/install.dart'
         installGenAi,
         installProvider,
         installRuntime,
+        isLibraryFileName,
         releaseTagFor;
 export 'src/target.dart'
     show

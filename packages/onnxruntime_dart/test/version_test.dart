@@ -45,10 +45,26 @@ void main() {
       );
     });
 
-    for (final package in ['onnxruntime_binaries', 'onnxruntime_binaries']) {
-      test('$package is versioned as the runtime it installs', () {
+    // Every package that delivers the runtime, not one package listed twice.
+    // This loop named onnxruntime_binaries in both slots, and the test below
+    // it compared that package's pubspec to itself, so between them they
+    // asserted nothing at all. There is only ever one binaries package: base
+    // and full are a user-define variant of it, not separate packages. The
+    // three web packages do carry the runtime version and were unchecked.
+    for (final package in [
+      'onnxruntime_binaries',
+      'onnxruntime_web',
+      'onnxruntime_web_webgpu',
+      'onnxruntime_web_webgpu_webnn',
+    ]) {
+      test('$package is versioned as the runtime it delivers', () {
+        // Build metadata dropped before comparing: a `+1` means the same
+        // upstream repackaged, which is the only room pub.dev leaves once a
+        // version is published, and it must not read as a mismatch.
         final version =
-            _field(fromRoot('packages/$package/pubspec.yaml'), 'version');
+            _field(fromRoot('packages/$package/pubspec.yaml'), 'version')
+                .split('+')
+                .first;
         expect(
           version,
           ortVersion,
@@ -58,19 +74,6 @@ void main() {
         );
       });
     }
-
-    test('both runtime packages install the same runtime', () {
-      // Base and full differ in what is compiled in, never in which ONNX
-      // Runtime, so an application swapping one for the other keeps its ABI.
-      expect(
-        _field(
-            fromRoot('packages/onnxruntime_binaries/pubspec.yaml'), 'version'),
-        _field(
-          fromRoot('packages/onnxruntime_binaries/pubspec.yaml'),
-          'version',
-        ),
-      );
-    });
 
     for (final ep in ['webgpu', 'cuda']) {
       test('onnxruntime_ep_${ep}_binaries is versioned as its plugin', () {

@@ -8,7 +8,11 @@ repository: https://github.com/dariyooo/onnxruntime-dart
 issue_tracker: https://github.com/dariyooo/onnxruntime-dart/issues
 
 environment:
-  sdk: ^3.6.0
+  # 3.10 because this package uses build hooks: code_assets and hooks both
+  # require it, so ^3.6.0 advertised a floor the package could not meet and a
+  # user on 3.6 to 3.9 got a resolution failure naming a transitive package
+  # rather than the real requirement.
+  sdk: ^3.10.0
 
 resolution: workspace
 
