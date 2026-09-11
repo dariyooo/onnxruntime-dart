@@ -88,18 +88,25 @@ bool _canRunOn(String provider) {
 String? get skipWithoutAccelerators {
   if (skipWithoutOrt != null) return skipWithoutOrt;
   if (skipWithoutNativeAsset != null) return skipWithoutNativeAsset;
-  final supplied = _pluginVariables.entries
-      .where((e) => Platform.environment[e.value] != null)
-      .map((e) => e.key)
-      .toList();
-  if (supplied.isEmpty) {
+  if (suppliedPlugins.isEmpty) {
     return 'no execution provider plugin was supplied; set '
         '${_pluginVariables.values.join(', ')} to exercise one';
   }
-  // Supplied but unusable is a failure, not a skip, so say nothing here and
-  // let the emptiness assertion report it.
   return null;
 }
+
+/// The providers whose plugin CI staged, whether or not it turned out usable.
+///
+/// Supplied and unusable is not automatically a defect. A provider can load
+/// and register correctly and still contribute no device, which is what
+/// happens on a runner with no GPU: the Intel macOS images and the Android
+/// emulator both register WebGPU and then offer only CPU. What would be a
+/// defect is staging a plugin and never finding out either way, which is the
+/// hole this list exists to close.
+List<String> get suppliedPlugins => [
+      for (final entry in _pluginVariables.entries)
+        if (Platform.environment[entry.value] != null) entry.key,
+    ];
 
 List<Accelerator> accelerators() => [
       for (final provider in _pluginVariables.keys)

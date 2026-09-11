@@ -86,14 +86,30 @@ Future<void> main() async {
   // found it: the one suite that runs a model on an accelerator could vanish
   // without a trace. A test that says so is the difference between "nothing
   // ran here" and "nothing ran here and nobody noticed".
-  test('some accelerator is available to test, or the reason is named', () {
+  test('every plugin that was supplied was actually evaluated', () {
+    // Not "at least one works". A provider can load and register correctly
+    // and still contribute no device, which is what a runner without a GPU
+    // does, so demanding a usable accelerator would fail for the machine
+    // rather than for the code.
+    //
+    // What this does catch is the hole it was written for: when nothing is
+    // usable the loop below registers no groups, no tests and no skips, and
+    // every CI guard in this repository looks for the word "skip". The one
+    // suite that runs a model on an accelerator could vanish leaving a green
+    // tick and no trace. This test always runs, names what was staged and
+    // what became of it, and fails if CI staged nothing at all.
+    final usable = available.map((a) => a.label).toSet();
+    for (final provider in suppliedPlugins) {
+      // ignore: avoid_print
+      print(usable.contains(provider)
+          ? '$provider: usable, its group ran below'
+          : '$provider: supplied but not usable here, reason printed above');
+    }
     expect(
-      available,
+      suppliedPlugins,
       isNotEmpty,
-      reason: 'no accelerator was usable, so nothing below this line ran. On '
-          'a machine with no plugin that is expected and this test is the '
-          'only evidence of it. In CI it means a provider that should be '
-          'staged was not, and the suite would otherwise have passed empty.',
+      reason: 'no plugin was staged, so the accelerator suite had nothing to '
+          'evaluate and everything below this line was skipped silently',
     );
   }, skip: skipWithoutAccelerators);
 

@@ -33,6 +33,9 @@ String? get _skipWithoutAcceleratorBuild =>
 /// here would be a bug rather than a configuration.
 String? get skipWithoutAccelerators => null;
 
+/// Both, always. The web build decides what is usable, not the environment.
+List<String> get suppliedPlugins => const ['webgpu', 'webnn'];
+
 List<Accelerator> accelerators() => [
       Accelerator(
         label: 'WebGPU',
