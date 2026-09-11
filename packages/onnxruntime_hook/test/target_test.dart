@@ -10,6 +10,7 @@ import 'package:onnxruntime_hook/onnxruntime_hook.dart';
 import 'package:test/test.dart';
 
 void main() {
+  _librarySiblingTests();
   _simulatorAdviceTests();
   _companionTests();
   group('targetId', () {
@@ -216,6 +217,36 @@ void _simulatorAdviceTests() {
       // simulator the same way hits it, so the message has to say what to do.
       expect(OrtGenAi.isAvailableOn('ios-sim-x86_64'), isFalse);
       expect(OrtGenAi.isAvailableOn('ios-sim-arm64'), isTrue);
+    });
+  });
+}
+
+void _librarySiblingTests() {
+  group('library detection for provider siblings', () {
+    test('recognises every shared library extension we ship', () {
+      // QNN's archive is the reason this exists: the provider dlopens eleven
+      // Qualcomm libraries by name, and the set differs per target, so they
+      // are matched by extension rather than by a list that would silently
+      // drop whichever target was not listed.
+      for (final name in [
+        'libQnnHtp.so',
+        'libc++-71bc274c.so.1.0',
+        'QnnHtp.dll',
+        'libonnxruntime-genai.dylib',
+      ]) {
+        expect(isLibraryFileName(name), isTrue, reason: name);
+      }
+    });
+
+    test('does not mistake the licence files that travel with them', () {
+      for (final name in [
+        'LICENSE',
+        'Privacy.md',
+        'Qualcomm_LICENSE.pdf',
+        'ThirdPartyNotices.txt',
+      ]) {
+        expect(isLibraryFileName(name), isFalse, reason: name);
+      }
     });
   });
 }

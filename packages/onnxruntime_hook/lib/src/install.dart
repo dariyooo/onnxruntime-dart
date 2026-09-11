@@ -144,6 +144,7 @@ Future<File> _download({
   required String target,
   required String package,
   List<String> companions = const [],
+  bool siblings = false,
 }) async {
   final client = HttpClient()..connectionTimeout = _timeout;
   final Uint8List archive;
@@ -191,10 +192,28 @@ Future<File> _download({
   // first time because local_build gets a directory that was untarred whole
   // and already had it, while the download path takes one file out of the
   // archive and drops the rest.
-  for (final companion in companions) {
-    await File.fromUri(into.uri.resolve(companion))
-        .writeAsBytes(_extractLibrary(archive, companion), flush: true);
+  if (siblings) {
+    // Everything the archive holds, not just the named library, because some
+    // components are a set. Licence files travel too: the archives carry them
+    // because redistribution is conditional on it, so dropping them on the
+    // consumer's disk would not satisfy that condition.
+    final entries = _extractAll(archive);
+    if (!entries.containsKey(fileName)) {
+      throw StateError('archive holds no $fileName');
+    }
+    for (final entry in entries.entries) {
+      if (entry.key == fileName) continue;
+      await File.fromUri(into.uri.resolve(entry.key))
+          .writeAsBytes(entry.value, flush: true);
+    }
+  } else {
+    for (final companion in companions) {
+      await File.fromUri(into.uri.resolve(companion))
+          .writeAsBytes(_extractLibrary(archive, companion), flush: true);
+    }
   }
+  // The named library last in both paths, so its presence means the whole set
+  // is present and a concurrent build cannot take a half-written cache.
   await into.writeAsBytes(_extractLibrary(archive, fileName), flush: true);
   return into;
 }
@@ -234,8 +253,8 @@ Future<void> _verify(
 
   throw StateError(
     '$package: $url does not match the SHA-256 published beside it.\n'
-    '  expected \$published\n'
-    '  actual   \$actual\n'
+    '  expected $published\n'
+    '  actual   $actual\n'
     'Refusing to install it.',
   );
 }
@@ -284,6 +303,50 @@ String _simulatorArchAdvice(String target) {
       '\n'
       'Running through a device, as `flutter test -d <udid>` and '
       '`flutter run` do, narrows it for you and does not hit this.';
+}
+
+/// Every regular file in a gzipped tar archive, by name.
+///
+/// Needed because some components are not one library. The QNN provider
+/// dlopens the Qualcomm runtime by name, `libQnnHtp.so` and friends, and finds
+/// it through a RUNPATH of $ORIGIN, so those libraries have to sit beside it
+/// on disk and be declared as assets or the bundler leaves them out. The
+/// archive carries eleven of them plus four licence files. Taking only the
+/// named library, which is what this hook used to do, produces a provider that
+/// registers and then fails at the first session with "Unable to load backend
+/// libQnnHtp.so".
+///
+/// Invisible in CI for the same reason the GenAI companion was: local_build
+/// points at a directory that was untarred whole, so the neighbours are
+/// already there. Only the download path drops them.
+Map<String, Uint8List> _extractAll(Uint8List archive) {
+  const blockSize = 512;
+  final tar = Uint8List.fromList(gzip.decode(archive));
+  final out = <String, Uint8List>{};
+  var offset = 0;
+
+  while (offset + blockSize <= tar.length) {
+    final header = Uint8List.sublistView(tar, offset, offset + blockSize);
+    final name = _tarField(header, 0, 100);
+    if (name.isEmpty) break;
+
+    final typeFlag = header[156];
+    final sizeField = _tarField(header, 124, 12);
+    final size = sizeField.isEmpty ? 0 : int.parse(sizeField, radix: 8);
+    offset += blockSize;
+
+    if (offset + size > tar.length) {
+      throw StateError('truncated archive at entry $name');
+    }
+    // '0' and a NUL both mean a regular file. Directories and anything else
+    // are skipped rather than written.
+    if (typeFlag == 0x30 || typeFlag == 0) {
+      out[name.split('/').last] =
+          Uint8List.fromList(Uint8List.sublistView(tar, offset, offset + size));
+    }
+    offset += (size + blockSize - 1) & ~(blockSize - 1);
+  }
+  return out;
 }
 
 /// Pulls [fileName] out of a gzipped tar archive.
@@ -375,8 +438,41 @@ Future<void> installProvider(List<String> args, OrtProvider provider) async {
         file: library.uri,
       ),
     );
+
+    // Everything the provider loads beside itself. QNN's archive carries
+    // eleven Qualcomm libraries that libonnxruntime_providers_qnn dlopens by
+    // name, and a DT_NEEDED or a dlopen is not something the bundler follows,
+    // so an undeclared neighbour is simply not packaged. Declaring only the
+    // provider produced one that registers and then fails at the first
+    // session with "Unable to load backend libQnnHtp.so". The other providers
+    // ship alone and this loop finds nothing for them.
+    final directory = Directory.fromUri(library.parent.uri);
+    for (final entry in directory.listSync().whereType<File>()) {
+      final name = entry.uri.pathSegments.last;
+      if (entry.path == library.path) continue;
+      if (!isLibraryFileName(name)) continue;
+      output.assets.code.add(
+        CodeAsset(
+          package: input.packageName,
+          // Unique per file and stable across builds. The name is how the
+          // asset is addressed, not how it is loaded, and these are loaded by
+          // filename out of the bundle.
+          name: 'provider/$name',
+          linkMode: DynamicLoadingBundled(),
+          file: entry.uri,
+        ),
+      );
+    }
   });
 }
+
+/// Whether [name] is a shared library rather than a licence or a notice.
+///
+/// Matched on the extension rather than a list, because the set differs per
+/// target: the arm64 QNN archive carries eleven DSP libraries the x64 one does
+/// not, and hardcoding either list would silently drop the other.
+bool isLibraryFileName(String name) =>
+    name.endsWith('.dll') || name.endsWith('.dylib') || name.contains('.so');
 
 /// Which library to install, from user-defines. The default is the one almost
 /// every application wants.
@@ -633,5 +729,10 @@ Future<File?> _resolveProvider(
     fileName: fileName,
     target: target,
     package: input.packageName,
+    // The whole archive. QNN is a set, not a library: the provider dlopens
+    // the Qualcomm runtime by name and finds it through a RUNPATH of $ORIGIN,
+    // so every one of those has to land beside it. The others are single
+    // libraries and simply have no siblings to write.
+    siblings: true,
   );
 }
