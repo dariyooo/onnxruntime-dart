@@ -1,5 +1,4 @@
 @TestOn('vm')
-
 /// The build hook maps a target to a release asset. A wrong mapping downloads a
 /// library for the wrong architecture, which fails at load time on a user's
 /// device rather than during our build.
@@ -116,7 +115,9 @@ void main() {
         targetId: 'linux-x64',
       );
       expect(
-          url.toString(), endsWith('/runtime-v1.29.0/base-linux-x64.tar.gz'));
+        url.toString(),
+        endsWith('/runtime-v1.29.0/base-linux-x64.tar.gz'),
+      );
       expect(url.scheme, 'https');
     });
 
