@@ -455,10 +455,16 @@ Future<void> installProvider(List<String> args, OrtProvider provider) async {
     // provider produced one that registers and then fails at the first
     // session with "Unable to load backend libQnnHtp.so". The other providers
     // ship alone and this loop finds nothing for them.
-    final directory = Directory.fromUri(library.parent.uri);
-    for (final entry in directory.listSync().whereType<File>()) {
+    // Only the cache directory, which holds exactly what this provider's
+    // archive contained. Scanning wherever the library happens to live was
+    // wrong: with a local_build override every package points at one shared
+    // directory, so this claimed the runtime, the operator library and GenAI
+    // as assets of the provider package and the build failed on duplicate
+    // library names. A local_build means the caller staged the directory
+    // themselves and the other packages declare their own, so there is
+    // nothing here to add.
+    for (final entry in _siblingsOf(library, input)) {
       final name = entry.uri.pathSegments.last;
-      if (entry.path == library.path) continue;
       if (!isLibraryFileName(name)) continue;
       output.assets.code.add(
         CodeAsset(
@@ -473,6 +479,22 @@ Future<void> installProvider(List<String> args, OrtProvider provider) async {
       );
     }
   });
+}
+
+/// The other files this provider's archive put beside [library].
+///
+/// Empty when a local_build override is in play. That directory belongs to
+/// whoever staged it and commonly holds every component at once, so anything
+/// found there is somebody else's asset.
+List<File> _siblingsOf(File library, BuildInput input) {
+  if (input.userDefines.path('local_build') != null) return const [];
+
+  final directory = Directory.fromUri(library.parent.uri);
+  if (!directory.existsSync()) return const [];
+  return [
+    for (final entry in directory.listSync().whereType<File>())
+      if (entry.path != library.path) entry,
+  ];
 }
 
 /// Whether [name] is a shared library rather than a licence or a notice.
