@@ -36,13 +36,13 @@ enum OrtVariant {
   final String suffix;
 
   static OrtVariant byName(String name) => values.firstWhere(
-        (v) => v.name == name,
-        orElse: () => throw ArgumentError.value(
-          name,
-          'variant',
-          'expected one of ${values.map((v) => v.name).join(', ')}',
-        ),
-      );
+    (v) => v.name == name,
+    orElse: () => throw ArgumentError.value(
+      name,
+      'variant',
+      'expected one of ${values.map((v) => v.name).join(', ')}',
+    ),
+  );
 }
 
 /// Identifiers of every configuration we build, matching the release assets.
@@ -79,14 +79,14 @@ String targetId({
     (OS.android, Architecture.x64) => 'android-x86_64',
     (OS.android, Architecture.ia32) => 'android-x86',
     (OS.iOS, Architecture.arm64) => switch (iosSdk) {
-        IOSSdk.iPhoneOS => 'ios-device-arm64',
-        IOSSdk.iPhoneSimulator => 'ios-sim-arm64',
-        _ => throw UnsupportedTarget(
-            os,
-            architecture,
-            'iOS builds must say whether they target a device or the simulator',
-          ),
-      },
+      IOSSdk.iPhoneOS => 'ios-device-arm64',
+      IOSSdk.iPhoneSimulator => 'ios-sim-arm64',
+      _ => throw UnsupportedTarget(
+        os,
+        architecture,
+        'iOS builds must say whether they target a device or the simulator',
+      ),
+    },
     // The simulator is the only place an x64 iOS build runs.
     (OS.iOS, Architecture.x64) => 'ios-sim-x86_64',
     (OS.linux, Architecture.x64) => 'linux-x64',
@@ -103,10 +103,10 @@ String targetId({
 
 /// File name of the shared library on [os].
 String libraryFileName(OS os) => switch (os) {
-      OS.windows => 'onnxruntime.dll',
-      OS.macOS || OS.iOS => 'libonnxruntime.dylib',
-      _ => 'libonnxruntime.so',
-    };
+  OS.windows => 'onnxruntime.dll',
+  OS.macOS || OS.iOS => 'libonnxruntime.dylib',
+  _ => 'libonnxruntime.so',
+};
 
 /// Release asset holding the library for [targetId].
 /// Where every asset this hook downloads is published.
@@ -169,9 +169,9 @@ enum OrtProvider {
   /// what they ask of the machine, so which to install is the application's
   /// choice rather than ours.
   List<String> get builds => switch (this) {
-        OrtProvider.cuda => const ['cuda12', 'cuda13'],
-        _ => const [],
-      };
+    OrtProvider.cuda => const ['cuda12', 'cuda13'],
+    _ => const [],
+  };
 
   /// The build preferred when the application does not say.
   ///
@@ -182,9 +182,9 @@ enum OrtProvider {
   ///
   /// A preference, not a guarantee: see [buildFor], which is what installs.
   String? get defaultBuild => switch (this) {
-        OrtProvider.cuda => 'cuda12',
-        _ => null,
-      };
+    OrtProvider.cuda => 'cuda12',
+    _ => null,
+  };
 
   /// The build to install for [target] when the application does not say.
   ///
@@ -207,61 +207,61 @@ enum OrtProvider {
   /// Only CUDA 13 exists for arm64 upstream, so asking for 12 there is a
   /// mistake worth naming rather than a download that will not be found.
   List<String> targetsFor(String? build) => switch ((this, build)) {
-        (OrtProvider.cuda, 'cuda12') => const ['linux-x64', 'windows-x64'],
-        _ => targets,
-      };
+    (OrtProvider.cuda, 'cuda12') => const ['linux-x64', 'windows-x64'],
+    _ => targets,
+  };
 
   static OrtProvider byName(String name) => values.firstWhere(
-        (p) => p.name == name,
-        orElse: () => throw ArgumentError.value(
-          name,
-          'provider',
-          'expected one of ${values.map((p) => p.name).join(', ')}',
-        ),
-      );
+    (p) => p.name == name,
+    orElse: () => throw ArgumentError.value(
+      name,
+      'provider',
+      'expected one of ${values.map((p) => p.name).join(', ')}',
+    ),
+  );
 
   /// Targets this provider is published for.
   List<String> get targets => switch (this) {
-        // Ours, and everywhere Dawn reaches a GPU: Vulkan on Linux and
-        // Android, D3D12 or Vulkan on Windows, Metal on Apple. On Android it
-        // replaces NNAPI, which was deprecated in Android 15.
-        //
-        // Not the 32-bit Android ABIs, where Vulkan is not dependable on the
-        // hardware still running them. Not iOS either: Dawn's Objective-C is
-        // written for manual reference counting and ONNX Runtime's iOS
-        // toolchain forces ARC on, so it does not compile there.
-        OrtProvider.webgpu => const [
-            'android-arm64-v8a',
-            'android-x86_64',
-            'ios-device-arm64',
-            'ios-sim-arm64',
-            'ios-sim-x86_64',
-            'linux-x64',
-            'linux-arm64',
-            'macos-arm64',
-            'macos-x86_64',
-            'windows-x64',
-            'windows-arm64',
-          ],
-        // What ONNX Runtime's own plugin release publishes. No macOS, and
-        // nothing mobile: NVIDIA hardware is desktop and server only.
-        OrtProvider.cuda || OrtProvider.tensorrt => const [
-            'linux-x64',
-            'linux-arm64',
-            'windows-x64',
-            'windows-arm64',
-          ],
-        // What the wheels cover. Not Android: there QNN is linked into a
-        // whole runtime rather than published as a plugin, so it cannot layer
-        // on ours. The x64 hosts have no NPU and are there to compile graphs
-        // ahead of time for one that does.
-        OrtProvider.qnn => const [
-            'linux-x64',
-            'linux-arm64',
-            'windows-x64',
-            'windows-arm64',
-          ],
-      };
+    // Ours, and everywhere Dawn reaches a GPU: Vulkan on Linux and
+    // Android, D3D12 or Vulkan on Windows, Metal on Apple. On Android it
+    // replaces NNAPI, which was deprecated in Android 15.
+    //
+    // Not the 32-bit Android ABIs, where Vulkan is not dependable on the
+    // hardware still running them. Not iOS either: Dawn's Objective-C is
+    // written for manual reference counting and ONNX Runtime's iOS
+    // toolchain forces ARC on, so it does not compile there.
+    OrtProvider.webgpu => const [
+      'android-arm64-v8a',
+      'android-x86_64',
+      'ios-device-arm64',
+      'ios-sim-arm64',
+      'ios-sim-x86_64',
+      'linux-x64',
+      'linux-arm64',
+      'macos-arm64',
+      'macos-x86_64',
+      'windows-x64',
+      'windows-arm64',
+    ],
+    // What ONNX Runtime's own plugin release publishes. No macOS, and
+    // nothing mobile: NVIDIA hardware is desktop and server only.
+    OrtProvider.cuda || OrtProvider.tensorrt => const [
+      'linux-x64',
+      'linux-arm64',
+      'windows-x64',
+      'windows-arm64',
+    ],
+    // What the wheels cover. Not Android: there QNN is linked into a
+    // whole runtime rather than published as a plugin, so it cannot layer
+    // on ours. The x64 hosts have no NPU and are there to compile graphs
+    // ahead of time for one that does.
+    OrtProvider.qnn => const [
+      'linux-x64',
+      'linux-arm64',
+      'windows-x64',
+      'windows-arm64',
+    ],
+  };
 
   /// Whether this provider exists for [target].
   bool isAvailableOn(String target) => targets.contains(target);
@@ -271,10 +271,10 @@ enum OrtProvider {
   /// Also what ONNX Runtime looks for when handed a relative name: it resolves
   /// one against its own directory, so the name has to be exact.
   String libraryFileName(OS os) => switch (os) {
-        OS.windows => '$libraryStem.dll',
-        OS.macOS || OS.iOS => 'lib$libraryStem.dylib',
-        _ => 'lib$libraryStem.so',
-      };
+    OS.windows => '$libraryStem.dll',
+    OS.macOS || OS.iOS => 'lib$libraryStem.dylib',
+    _ => 'lib$libraryStem.so',
+  };
 }
 
 /// Release asset holding [provider] for [targetId].
@@ -300,10 +300,10 @@ abstract final class OrtExtensions {
   static bool isAvailableOn(String target) => targets.contains(target);
 
   static String fileName(OS os) => switch (os) {
-        OS.windows => '$libraryStem.dll',
-        OS.macOS || OS.iOS => 'lib$libraryStem.dylib',
-        _ => 'lib$libraryStem.so',
-      };
+    OS.windows => '$libraryStem.dll',
+    OS.macOS || OS.iOS => 'lib$libraryStem.dylib',
+    _ => 'lib$libraryStem.so',
+  };
 }
 
 /// ONNX Runtime GenAI, which is a library above the runtime rather than a part
@@ -339,10 +339,10 @@ abstract final class OrtGenAi {
   static bool isAvailableOn(String target) => targets.contains(target);
 
   static String fileName(OS os) => switch (os) {
-        OS.windows => '$libraryStem.dll',
-        OS.macOS || OS.iOS => 'lib$libraryStem.dylib',
-        _ => 'lib$libraryStem.so',
-      };
+    OS.windows => '$libraryStem.dll',
+    OS.macOS || OS.iOS => 'lib$libraryStem.dylib',
+    _ => 'lib$libraryStem.so',
+  };
 
   /// Libraries the GenAI library needs beside it, which nothing else ships.
   ///
@@ -363,10 +363,7 @@ abstract final class OrtGenAi {
 String genAiAssetFileName(String targetId) => 'genai-$targetId.tar.gz';
 
 /// URL of the GenAI asset for [targetId] at [releaseTag].
-Uri genAiAssetUrl({
-  required String releaseTag,
-  required String targetId,
-}) =>
+Uri genAiAssetUrl({required String releaseTag, required String targetId}) =>
     Uri.parse('$_releases/$releaseTag/${genAiAssetFileName(targetId)}');
 
 /// Asset name for the extensions library on [targetId].
@@ -377,14 +374,15 @@ String extensionsAssetFileName(String targetId) =>
 Uri extensionsAssetUrl({
   required String releaseTag,
   required String targetId,
-}) =>
-    Uri.parse('$_releases/$releaseTag/${extensionsAssetFileName(targetId)}');
+}) => Uri.parse('$_releases/$releaseTag/${extensionsAssetFileName(targetId)}');
 
-String providerAssetFileName(String provider, String targetId,
-        {String? build}) =>
-    build == null
-        ? '$provider-$targetId.tar.gz'
-        : '$provider-$build-$targetId.tar.gz';
+String providerAssetFileName(
+  String provider,
+  String targetId, {
+  String? build,
+}) => build == null
+    ? '$provider-$targetId.tar.gz'
+    : '$provider-$build-$targetId.tar.gz';
 
 /// URL of the provider asset for [targetId] at [releaseTag].
 Uri providerAssetUrl({
@@ -392,8 +390,7 @@ Uri providerAssetUrl({
   required String provider,
   required String targetId,
   String? build,
-}) =>
-    Uri.parse(
-      '$_releases/$releaseTag/'
-      '${providerAssetFileName(provider, targetId, build: build)}',
-    );
+}) => Uri.parse(
+  '$_releases/$releaseTag/'
+  '${providerAssetFileName(provider, targetId, build: build)}',
+);

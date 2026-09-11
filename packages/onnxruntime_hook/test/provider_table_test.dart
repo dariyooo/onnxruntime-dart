@@ -1,5 +1,4 @@
 @TestOn('vm')
-
 /// The providers the EP package can install.
 ///
 /// Selection happens at build time from a list in `user_defines`, so a mistake

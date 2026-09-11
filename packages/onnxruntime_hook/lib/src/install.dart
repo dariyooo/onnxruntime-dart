@@ -164,8 +164,10 @@ Future<File> _download({
       );
     }
     if (response.statusCode != HttpStatus.ok) {
-      throw StateError('$package could not download $url: '
-          'HTTP ${response.statusCode}');
+      throw StateError(
+        '$package could not download $url: '
+        'HTTP ${response.statusCode}',
+      );
     }
     final builder = BytesBuilder(copy: false);
     await response.forEach(builder.add);
@@ -203,13 +205,15 @@ Future<File> _download({
     }
     for (final entry in entries.entries) {
       if (entry.key == fileName) continue;
-      await File.fromUri(into.uri.resolve(entry.key))
-          .writeAsBytes(entry.value, flush: true);
+      await File.fromUri(
+        into.uri.resolve(entry.key),
+      ).writeAsBytes(entry.value, flush: true);
     }
   } else {
     for (final companion in companions) {
-      await File.fromUri(into.uri.resolve(companion))
-          .writeAsBytes(_extractLibrary(archive, companion), flush: true);
+      await File.fromUri(
+        into.uri.resolve(companion),
+      ).writeAsBytes(_extractLibrary(archive, companion), flush: true);
     }
   }
   // The named library last in both paths, so its presence means the whole set
@@ -235,13 +239,17 @@ Future<void> _verify(
   final http = client ?? (HttpClient()..connectionTimeout = _timeout);
   String? published;
   try {
-    final response =
-        await (await http.getUrl(Uri.parse('$url.sha256'))).close();
+    final response = await (await http.getUrl(
+      Uri.parse('$url.sha256'),
+    )).close();
     if (response.statusCode != HttpStatus.ok) return;
     final builder = BytesBuilder(copy: false);
     await response.forEach(builder.add);
-    published =
-        utf8.decode(builder.takeBytes()).trim().split(RegExp(r'\s+')).first;
+    published = utf8
+        .decode(builder.takeBytes())
+        .trim()
+        .split(RegExp(r'\s+'))
+        .first;
   } on IOException {
     return;
   } finally {
@@ -341,8 +349,9 @@ Map<String, Uint8List> _extractAll(Uint8List archive) {
     // '0' and a NUL both mean a regular file. Directories and anything else
     // are skipped rather than written.
     if (typeFlag == 0x30 || typeFlag == 0) {
-      out[name.split('/').last] =
-          Uint8List.fromList(Uint8List.sublistView(tar, offset, offset + size));
+      out[name.split('/').last] = Uint8List.fromList(
+        Uint8List.sublistView(tar, offset, offset + size),
+      );
     }
     offset += (size + blockSize - 1) & ~(blockSize - 1);
   }
@@ -616,11 +625,7 @@ Future<void> installGenAi(List<String> args) async {
   });
 }
 
-Future<File?> _resolveGenAi(
-  BuildInput input,
-  String target,
-  OS os,
-) async {
+Future<File?> _resolveGenAi(BuildInput input, String target, OS os) async {
   final fileName = OrtGenAi.fileName(os);
 
   final override = input.userDefines.path('local_build');
@@ -642,7 +647,8 @@ Future<File?> _resolveGenAi(
   // written before they were extracted holds the library alone, and taking it
   // would reintroduce the missing-neighbour failure on every later build.
   final companions = OrtGenAi.companions(os);
-  final cacheIsComplete = cached.existsSync() &&
+  final cacheIsComplete =
+      cached.existsSync() &&
       companions.every(
         (name) => File.fromUri(cached.uri.resolve(name)).existsSync(),
       );
@@ -658,11 +664,7 @@ Future<File?> _resolveGenAi(
   );
 }
 
-Future<File?> _resolveExtensions(
-  BuildInput input,
-  String target,
-  OS os,
-) async {
+Future<File?> _resolveExtensions(BuildInput input, String target, OS os) async {
   final fileName = OrtExtensions.fileName(os);
 
   final override = input.userDefines.path('local_build');
@@ -713,8 +715,9 @@ Future<File?> _resolveProvider(
 
   final tag = releaseTag(input, component: 'ep-${provider.name}');
   final cached = File.fromUri(
-    input.outputDirectoryShared
-        .resolve('$tag/${build ?? 'default'}/$target/$fileName'),
+    input.outputDirectoryShared.resolve(
+      '$tag/${build ?? 'default'}/$target/$fileName',
+    ),
   );
   if (cached.existsSync()) return cached;
 
