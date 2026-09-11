@@ -27,16 +27,16 @@ you add.
 
 ## Contents
 
-- [Quick start](#quick-start) — install and run your first model
+- [Quick start](#quick-start): install and run your first model
 - [Tensors and shapes](#tensors-and-shapes)
-- [Choosing a runtime](#choosing-a-runtime) — `base` or `full`
-- [Execution providers](#execution-providers) — GPUs and NPUs
-- [Extra operators](#extra-operators) — tokenizers, images, audio
+- [Choosing a runtime](#choosing-a-runtime): `base` or `full`
+- [Execution providers](#execution-providers): GPUs and NPUs
+- [Extra operators](#extra-operators): tokenizers, images, audio
 - [The web](#the-web)
 - [Keeping inference off the calling thread](#keeping-inference-off-the-calling-thread)
 - [On-device training](#on-device-training)
-- [The packages](#the-packages) — how the pieces fit together
-- [Going further](#going-further) — the full C API, your own providers
+- [The packages](#the-packages): how the pieces fit together
+- [Going further](#going-further): the full C API, your own providers
 
 ## Quick start
 
@@ -145,8 +145,8 @@ every build is in [Platforms](#platforms) and needs nothing.
 | Provider | Android | iOS | macOS | Linux | Windows | Web |
 | --- | --- | --- | --- | --- | --- | --- |
 | WebGPU | 64-bit ABIs | yes | yes | yes | yes | compiled in |
-| CUDA | — | — | — | x64, arm64 | x64, arm64 | — |
-| QNN | — | — | — | x64, arm64 | x64, arm64 | — |
+| CUDA | no | no | no | x64, arm64 | x64, arm64 | no |
+| QNN | no | no | no | x64, arm64 | x64, arm64 | no |
 
 Two packages: the API, and the plugin it registers. They are separate so that
 an application can move one without the other, or take the API alone and supply
@@ -241,11 +241,12 @@ runtime rather than loaded beside it.
 
 ## The web
 
-Two differences. The runtime has to be fetched, which cannot happen
-synchronously, so `openOnnxRuntime` needs to know where it is. And which of the
-three builds you serve decides whether you call the synchronous API or the
-asynchronous one, because ONNX Runtime compiles the accelerator builds
-differently.
+The same code runs in a browser, with two differences worth knowing up front.
+
+The runtime is a WebAssembly module that has to be downloaded, so you tell
+`openOnnxRuntime` where it is. And there are three builds, differing in which
+accelerators are compiled in; the one you serve decides whether you can use the
+synchronous API.
 
 ```sh
 dart pub add onnxruntime_web
@@ -257,106 +258,13 @@ import 'package:onnxruntime_web/onnxruntime_web.dart' as ort_assets;
 await openOnnxRuntime(web: WebRuntimeOptions(ort_assets.ortLoaderUrl));
 ```
 
-One url, because the runtime looks for its `.wasm` next to the `.mjs` and the
-asset packages ship them together. Pass `wasm:` as well if a bundler has moved
-them apart, or `wasmBytes:` if you already have it in memory.
+That, plus `Session.load` and `runAsync`, works on every build and every
+platform. If that is all you need, you are done.
 
-Three builds, and you pick one by which package you depend on:
+For the WebGPU and WebNN builds, picking a build at run time, and the things
+that genuinely cannot work in a browser, see
+[Running on the web](doc/web.md).
 
-| Package | Accelerators | How you call it |
-| --- | --- | --- |
-| `onnxruntime_web` | XNNPACK | either form |
-| `onnxruntime_web_webgpu` | XNNPACK, WebGPU | `Session.load` and `runAsync` |
-| `onnxruntime_web_webgpu_webnn` | XNNPACK, WebGPU, WebNN | `Session.load` and `runAsync` |
-
-The accelerator builds are compiled with Asyncify, because WebGPU needs an
-asynchronous path to read results back off the GPU. That changes the calling
-convention rather than the speed: creating a session and running it can suspend
-and hand back a promise. The right backend is chosen from the build itself, and
-the synchronous forms refuse there rather than mistaking a promise for a result.
-
-`Session.load` exists for this and works everywhere, completing immediately on
-every other platform, so code that has to run on all three builds uses it.
-
-### Choosing a build at run time
-
-The build is not a compile-time decision. `openOnnxRuntime` takes a url, so a
-page can look at the browser it is in and fetch accordingly:
-
-```dart
-final gpu = web.window.navigator.has('gpu');
-await openOnnxRuntime(
-  web: WebRuntimeOptions(gpu ? webgpuLoaderUrl : plainLoaderUrl),
-);
-```
-
-Serve the files yourself rather than depending on all three asset packages,
-which would bundle every build into the app.
-
-The accelerators cannot be loaded separately, and that is upstream rather than
-here: ONNX Runtime links WebNN and WebGPU into the wasm and injects their
-JavaScript glue at link time, so there is no library to load even if the build
-allowed it.
-
-Some things cannot work there and say so rather than failing quietly:
-
-- **WebNN needs a little JavaScript, and this package supplies it.** WebGPU's
-  implementation is inside the WebAssembly module, so naming it is enough.
-  WebNN's is not: the provider reads a context that this side has to create,
-  and every WebNN entry point stays unset until `Module.webnnInit` is handed a
-  backend object. Upstream passes its TypeScript one; this package passes its
-  own. Only the parts a session on ordinary tensors reaches are implemented,
-  which is all of them so far. The MLTensor paths, where a model's data would
-  stay on the accelerator between runs, throw by name if the runtime ever asks.
-- **No loading libraries at run time.** Emscripten can do it, with
-  `MAIN_MODULE` and side modules, but ONNX Runtime links its web build
-  statically and sets neither. So providers and custom operators are compiled
-  into the build you serve rather than added as packages.
-- **No filesystem in this build.** Emscripten offers several, but ONNX Runtime
-  links its web build with `FILESYSTEM=0` to keep it small, so profiling and
-  optimized-model output have nowhere to write.
-- **No 64-bit integers when compiled to JavaScript.** A Dart `int` is a
-  JavaScript number there, so `Int64List` does not exist and the zero-copy
-  `view.int64s` refuses. int64 is common in ONNX outputs, indices and token
-  ids especially, so there are two portable accessors instead. Reach for
-  `view.int64Values` first: it returns a `List<int>` on every platform and is
-  free where 64-bit integers are real. It throws on a value beyond 53 bits
-  rather than returning a rounded one, since an index that is quietly wrong is
-  worse than one that fails. `view.int64BigInts` is exact for any 64-bit value
-  and is what to use when they really are that large.
-- **Compiled to WebAssembly, the page must be cross-origin isolated.** Every
-  runtime we ship is the threaded build, so its heap is a `SharedArrayBuffer`
-  whether or not the page can use the threads, and a browser hides that
-  constructor unless the page is cross-origin isolated. dart2js never looks,
-  so it works either way. dart2wasm checks a buffer's kind before viewing it,
-  finds nothing to compare against, and fails an assertion inside the first
-  allocation. Serve with COOP and COEP, which is what threads need anyway.
-  `test/web_environment_test.dart` checks this and says so when it is wrong.
-  Both compilers are tested, and on dart2wasm `view.int64s` works natively.
-- **Serve the Asyncify build, not the JSPI one.** ONNX Runtime can be built
-  either way, and upstream is moving toward JSPI. This package drives Asyncify:
-  it tells the two kinds of build apart by whether the module defines
-  `asyncInit`, which a JSPI build does not, so one would be taken for the plain
-  synchronous build and its promises read as numbers. Nothing would throw and
-  every result would be wrong, so a loader URL containing `.jspi.` is refused
-  outright. The same directory publishes the `.asyncify.mjs` build beside it.
-- **Threads need a cross-origin isolated page.** The runtime uses real workers,
-  which need `SharedArrayBuffer`, which needs COOP and COEP headers. That is
-  the page's choice, so the default is the hardware concurrency when the page
-  has them and one when it does not: asking for more without them fails to
-  start the runtime rather than degrading. `WebRuntimeOptions.threads` overrides
-  it.
-- **Both forms work on every build; only an accelerator needs the
-  asynchronous one.** `Session.load` and `runAsync` work everywhere. So do
-  `Session.fromBytes` and `run`, including on the WebGPU and WebNN builds, as
-  long as the session stays on the CPU: those builds are compiled with
-  Asyncify, but Asyncify only suspends when a call reaches something
-  asynchronous, and CPU work never does. What cannot be synchronous is a
-  session on an accelerator, because requesting a device and reading results
-  back off one are asynchronous, and a synchronous call is holding the event
-  loop that would resume it. That case throws and points at `runAsync`. Note that the plain build still blocks the page while a model runs:
-  awaiting it does not move the work, it only lets you await it. See
-  [Keeping inference off the calling thread](#keeping-inference-off-the-calling-thread).
 
 ## Keeping inference off the calling thread
 
@@ -441,75 +349,9 @@ makes the next section possible.
 
 ## Going further
 
-### Adding a provider we do not package
+Two things most applications never need:
 
-A provider is a shared library exporting `CreateEpFactories`, and nothing about
-the ones here is privileged. If you have one we do not ship, package it the same
-way.
-
-The only constraint is that `@Native` needs a compile-time constant asset id, so
-it can only be written in the package that owns the asset. That is why providers
-are packages rather than entries in a table here.
-
-```dart
-import 'dart:ffi';
-import 'package:onnxruntime_dart/native.dart';
-
-@Native<Void Function()>(
-  symbol: 'CreateEpFactories',
-  assetId: 'package:my_provider/provider',
-)
-external void _entryPoint();
-
-bool registerMine() {
-  final path = loadedLibraryPath(
-    () => Native.addressOf<NativeFunction<Void Function()>>(_entryPoint).cast(),
-    // Checked against the file the loader names. Every provider exports the
-    // same symbol, so without this an asset you did not install resolves to
-    // whichever library did, and the runtime is handed the wrong file.
-    stem: 'onnxruntime_providers_mine',
-  );
-  if (path == null) return false;
-
-  final environment = OrtEnvironment.instance();
-  registerExecutionProviderLibrary(
-    environment.api,
-    environment.handle,
-    name: 'mine',
-    path: path,
-  );
-  return true;
-}
-```
-
-Your package needs a build hook that installs the library as a code asset named
-`provider`. `onnxruntime_hook` does that work, and `onnxruntime_ep_webgpu` is
-fifty lines and is the whole example.
-
-Already have the library on disk? `registerProviderLibrary(name:, path:)` takes
-any path, no package required.
-
-The same shape works for a custom operator library: export `RegisterCustomOps`
-instead and pass the path to `SessionOptions(customOpsLibraries: [...])`.
-
-### The complete C API
-
-`onnxruntime_dart.dart` is the ergonomic surface and covers the common path. It
-is not the ceiling.
-
-```dart
-import 'package:onnxruntime_dart/native.dart';
-```
-
-Every function in every API struct is reachable, because ffigen binds the
-headers whole. Most also have a generated wrapper taking and returning Dart
-values, allocating what the call needs and turning a failed `OrtStatus` into an
-`OrtException`. A few dozen do not, where a signature defeats the generator, and
-those are listed in `lib/src/bindings/api/unmapped.txt`.
-
-Either way the raw function pointer is there, which is also the way in when a
-wrapper cannot express what you need, such as a callback.
-
-`native.dart` also holds what needs the loader rather than the runtime, which is
-why provider registration lives there: the shared library has to compile for the
-web, and that means no `dart:ffi` above the backend seam.
+- [Adding an execution provider we do not package](doc/extending.md#adding-a-provider-we-do-not-package),
+  if you have a provider library of your own.
+- [Reaching the complete C API](doc/extending.md#the-complete-c-api), for the
+  parts of ONNX Runtime the ordinary Dart API does not cover.
