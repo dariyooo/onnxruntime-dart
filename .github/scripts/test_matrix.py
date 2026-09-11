@@ -651,6 +651,38 @@ class WebPackages(unittest.TestCase):
         stems = [stem for _, stem in self.WEB.values()]
         self.assertNotEqual(len(set(stems)), len(stems))
 
+    def test_pub_publishes_the_libraries_git_refuses_to_track(self):
+        """The one file that stops these shipping as empty shells.
+
+        assets/.gitignore excludes *.wasm and *.mjs because they are staged at
+        release time and do not belong in the repository. `dart pub publish`
+        selects files the way git does, so it honoured that too and would have
+        published a library bundle containing no library: the application
+        builds and 404s at the first session. pub reads .pubignore in
+        preference to .gitignore, so the two questions are separated.
+        """
+        for package in self.WEB:
+            assets = REPO_ROOT / "packages" / package / "assets"
+            gitignore = assets / ".gitignore"
+            pubignore = assets / ".pubignore"
+
+            self.assertTrue(gitignore.is_file(), f"{package} must keep git out")
+            self.assertTrue(
+                pubignore.is_file(),
+                f"{package} has no assets/.pubignore, so pub would fall back "
+                f"to .gitignore and publish without the runtime",
+            )
+            patterns = [
+                line.strip()
+                for line in pubignore.read_text(encoding="utf-8").splitlines()
+                if line.strip() and not line.strip().startswith("#")
+            ]
+            self.assertEqual(
+                patterns,
+                [],
+                f"{package}/assets/.pubignore excludes {patterns}, which is "
+                f"how the runtime would go missing from the published package",
+            )
 
 class Packaging(unittest.TestCase):
     """The globs that decide what ends up in an archive."""

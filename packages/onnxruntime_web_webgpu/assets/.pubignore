@@ -1,0 +1,12 @@
+# Deliberately empty of patterns, and that is the whole point of the file.
+#
+# .gitignore beside this one excludes *.wasm and *.mjs, because those are
+# multi-megabyte binaries staged at release time and the repository is not
+# where they belong. But `dart pub publish` selects files the same way git
+# does, so it honoured that .gitignore too and would have published this
+# package with the loader and the runtime missing: an application depending on
+# it would build cleanly and then 404 at the first session.
+#
+# pub reads .pubignore in preference to .gitignore when it is present, so this
+# file separates the two questions. Git still refuses to track the binaries.
+# pub now ships them.

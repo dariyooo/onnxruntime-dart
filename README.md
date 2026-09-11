@@ -11,9 +11,6 @@ documentation. The rest of these exist so it has something to run against.
 packages and reports which execution provider actually served each one, which is
 usually a different question from which one was asked for.
 
-Where this is going, and what has been decided, is in
-[ROADMAP.md](ROADMAP.md).
-
 ## The packages
 
 | Package | Version | What it is |
@@ -24,7 +21,7 @@ Where this is going, and what has been decided, is in
 | [`onnxruntime_extensions_binaries`](packages/onnxruntime_extensions_binaries) | 0.15.0 | The operator library those bindings drive. |
 | [`onnxruntime_genai`](packages/onnxruntime_genai) | 0.1.0+genai-0.15.2 | Token generation, KV caching and sampling on top of a session. |
 | [`onnxruntime_genai_binaries`](packages/onnxruntime_genai_binaries) | 0.15.2 | The GenAI library that API drives. |
-| [`onnxruntime_hook`](packages/onnxruntime_hook) | 1.29.0 | The build hook the others install through. Not named directly. |
+| [`onnxruntime_hook`](packages/onnxruntime_hook) | 0.1.0 | The build hook the others install through. Not named directly. |
 
 ### Execution providers
 
