@@ -12,6 +12,8 @@ export 'src/install.dart'
         installExtensions,
         installGenAi,
         installProvider,
+        extractAllForTesting,
+        extractLibraryForTesting,
         installRuntime,
         isLibraryFileName,
         releaseTagFor;

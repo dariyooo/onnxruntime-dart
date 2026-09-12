@@ -1,8 +1,7 @@
 name: onnxruntime_binaries
 description: >-
-  The ONNX Runtime shared library for onnxruntime_dart. Every operator and
-  every execution provider we build, with on-device training available as a
-  variant. The package version is the ONNX Runtime version it installs.
+  The ONNX Runtime shared library, downloaded at build time for the platform you
+  are building for. Depend on onnxruntime_dart rather than on this directly.
 # The version IS the ONNX Runtime version. Depend on 1.29.1 to run on 1.29.1.
 # No Dart API lives here; the bindings are in onnxruntime_dart.
 version: 1.29.0

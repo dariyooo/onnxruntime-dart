@@ -111,14 +111,6 @@ void main() {
     // does not appear. See .github/scripts/run_ios_harness.sh.
     setUpAll(() => print('harness: the GenAI group is running'));
 
-    // Asserted rather than skipped where upstream has no library for this
-    // ABI. The .aar carries arm64-v8a and x86_64 only, so on a 32-bit row the
-    // right answer is a clean refusal, and a handle that somehow worked would
-    // mean the wrong library got loaded.
-    test('is absent on an ABI upstream does not ship', () {
-      expect(Sequences.new, throwsA(anything));
-    }, skip: hasGenAi ? 'this ABI has a GenAI library' : false);
-
     // No model anywhere in here. GenAI resolves OrtGetApiBase out of an ONNX
     // Runtime that is already loaded, so simply constructing a handle proves
     // the library was found and its dependency satisfied, which is the part
@@ -145,4 +137,16 @@ void main() {
       expect(() => Model('/no/such/model'), throwsA(isA<Exception>()));
     });
   }, skip: hasGenAi ? false : 'upstream ships no GenAI library for this ABI');
+
+  // Outside the group above, deliberately. This was written inside it, where
+  // it could never run: its own skip fires when a GenAI library is present,
+  // and the group's skip fires when it is absent, so both branches skipped it
+  // and the absence was never actually asserted anywhere.
+  //
+  // Upstream's .aar carries arm64-v8a and x86_64 only, so on a 32-bit row the
+  // right answer is a clean refusal. A handle that somehow worked there would
+  // mean the wrong library got loaded, which is worse than no library.
+  test('GenAI is absent on an ABI upstream does not ship', () {
+    expect(Sequences.new, throwsA(anything));
+  }, skip: hasGenAi ? 'this ABI has a GenAI library' : false);
 }
