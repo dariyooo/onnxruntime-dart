@@ -1,8 +1,9 @@
 /// The build hook the runtime packages share.
 ///
-/// `onnxruntime_binaries` and `onnxruntime_binaries` differ only in which
-/// library they install, so the work lives here and each of them is a few lines
-/// naming its variant. Neither package holds a binary: the library is fetched
+/// There is one binaries package for the runtime, not two: `base` and `full`
+/// are a user-define variant of it rather than separate packages. The work
+/// lives here and each depending package is a few lines naming what it wants.
+/// No package holds a binary: the library is fetched
 /// from the release named for the package's own version, which is the ONNX
 /// Runtime version.
 library;
@@ -327,6 +328,9 @@ String _simulatorArchAdvice(String target) {
 /// Invisible in CI for the same reason the GenAI companion was: local_build
 /// points at a directory that was untarred whole, so the neighbours are
 /// already there. Only the download path drops them.
+Map<String, Uint8List> extractAllForTesting(Uint8List archive) =>
+    _extractAll(archive);
+
 Map<String, Uint8List> _extractAll(Uint8List archive) {
   const blockSize = 512;
   final tar = Uint8List.fromList(gzip.decode(archive));
@@ -359,6 +363,9 @@ Map<String, Uint8List> _extractAll(Uint8List archive) {
 }
 
 /// Pulls [fileName] out of a gzipped tar archive.
+Uint8List extractLibraryForTesting(Uint8List archive, String fileName) =>
+    _extractLibrary(archive, fileName);
+
 Uint8List _extractLibrary(Uint8List archive, String fileName) {
   const blockSize = 512;
   final tar = Uint8List.fromList(gzip.decode(archive));

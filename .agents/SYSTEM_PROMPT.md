@@ -47,14 +47,20 @@ Both backends are generated from pinned headers. Neither is hand-written, and
 the same is true of the link between them.
 
 ```
-423 wrappers   onnxruntime_c_api.h        native only, dart:ffi
- 40 externals  onnxruntime/wasm/api.h     web only, dart:js_interop
- 43 methods    OrtCalls                   the seam both implement
+onnxruntime_c_api.h        native only, dart:ffi          raw_ffi_calls.g.dart
+onnxruntime/wasm/api.h     web only, dart:js_interop      raw_wasm_calls.g.dart
+OrtCalls                   the seam both implement        interface.dart
 ```
 
-`ffi_calls.dart` composes the 423. `wasm_calls.dart` composes the 40.
+`ffi_calls.dart` composes the native side, `wasm_calls.dart` the web side, and
 `async_calls.dart` extends the latter for the Asyncify builds, overriding only
 the five exports that can suspend.
+
+There were counts here and they were wrong: the C API figure was out by
+roughly twenty and the seam figure by one. They came from a header that has
+since moved. Counts in a document nothing runs will drift, so the files are
+named instead. If you want the numbers, read them off the generated files or
+run the generator, which prints them.
 
 Availability is expressed by placement, never by an annotation on a portable
 member. An operation in both headers is portable; an operation in one belongs
@@ -119,12 +125,19 @@ reference input and output pairs, and edge cases such as free dimensions and
 fp16. Do not duplicate ORT's own test code: it verifies their kernels compute
 correctly, which is their responsibility, not ours.
 
-Tests run against binaries we build, never a published Microsoft release. Theirs
-trims opset coverage and is not what we ship, so a green run against it would
-prove nothing about ours. The same applies to execution provider libraries as
-they are added: build, then test what was built.
+The ONNX Runtime itself is always ours, built from the pinned submodule, never
+a published Microsoft release. Theirs trims opset coverage and is not what we
+ship, so a green run against it would prove nothing about ours.
 
-Exactly one conditional import, in `lib/src/backend/backend.dart`. Everything
+That is not true of every component, and the difference matters when reading a
+green run. Of the three execution providers, only WebGPU is compiled here. The
+CUDA plugin is fetched from upstream's release and the QNN plugin is repackaged
+from Qualcomm's wheel, so for those two a passing test says their binary works,
+not that ours does. `ep_matrix.py` records which is which. GenAI is mirrored
+rather than built for the same reason.
+
+The conditional import that picks a backend is in
+`lib/src/backend/calls.dart`. Everything
 above the seam is shared between native and web.
 
 The seam limits what web can implement, not what the API may declare. A call
@@ -133,9 +146,10 @@ WebAssembly cannot support is annotated `@NativeOnly(reason)` and throws through
 API to the intersection of both backends, and never let a web gap be silent or
 undocumented.
 
-Execution providers load by path, so users can supply their own. We build two.
-Everything else, CUDA and TensorRT and OpenVINO among them, is theirs to
-provide, as it is with Microsoft's own distribution.
+Execution providers load by path, so users can supply their own. We package
+three: WebGPU, which we build, and CUDA and QNN, which we mirror from upstream.
+Everything else, TensorRT and OpenVINO among them, is theirs to provide, as it
+is with Microsoft's own distribution.
 
 Shared code imports nothing native. One `dart:ffi` above the backend boundary
 breaks the package on the web, and the failure lands in a consumer's build

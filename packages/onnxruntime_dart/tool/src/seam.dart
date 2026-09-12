@@ -23,7 +23,8 @@
 ///   3. A new operation on one side: add an entry naming only that side. It
 ///      lands on that platform's type and is invisible to portable code.
 ///   4. A shape change a table cannot express, such as one call becoming two:
-///      write the method by hand in the matching `*_extra.dart` and list it in
+///      write the method by hand in `ffi_calls.dart` or `wasm_calls.dart` and
+///      list it in
 ///      [handWritten] so the coverage check knows it is deliberate.
 library;
 

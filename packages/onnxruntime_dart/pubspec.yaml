@@ -1,8 +1,7 @@
 name: onnxruntime_dart
 description: >-
-  Comprehensive, pure-Dart bindings to the ONNX Runtime C API. Complete operator
-  coverage, full parity with the Python session and run configuration surface, and
-  a single narrow seam shared between native FFI and WebAssembly.
+  ONNX Runtime for Dart and Flutter. Run models on Android, iOS, macOS, Linux,
+  Windows and the web, with GPU and NPU acceleration where the platform has it.
 # Version scheme: X.Y.Z+onnxruntime-<ORT version>
 # The build metadata after '+' names the ONNX Runtime release this package binds,
 # and MUST match the tag of the third_party/onnxruntime submodule. Enforced by

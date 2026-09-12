@@ -1522,3 +1522,147 @@ class ReleaseIdentityCoversGenAi(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+
+
+class ProviderPackagesNameTheirOwnProvider(unittest.TestCase):
+    """Each execution provider package must refer to itself, not a sibling.
+
+    The three provider packages are near-identical by design, so a new one is
+    made by copying an existing one and changing the names. Nothing checked
+    that every name actually got changed. A missed one is invisible: the
+    package builds, the hook runs, and it installs or registers the wrong
+    provider, which surfaces as a provider that is mysteriously unavailable
+    or, worse, as one that silently answers for another.
+    """
+
+    PROVIDERS = ("webgpu", "cuda", "qnn")
+
+    def _read(self, path: pathlib.Path) -> str:
+        self.assertTrue(path.is_file(), f"{path} is missing")
+        return path.read_text(encoding="utf-8")
+
+    def test_identity_names_the_provider_the_package_is_for(self):
+        for provider in self.PROVIDERS:
+            source = self._read(
+                REPO_ROOT
+                / "packages"
+                / f"onnxruntime_ep_{provider}"
+                / "lib"
+                / "src"
+                / "identity.dart"
+            )
+            self.assertIn(
+                f"providerName = '{provider}'",
+                source,
+                f"onnxruntime_ep_{provider} does not name itself",
+            )
+            self.assertIn(
+                f"providerLibraryStem = 'onnxruntime_providers_{provider}'",
+                source,
+                f"onnxruntime_ep_{provider} names the wrong library",
+            )
+
+    def test_the_build_hook_installs_the_provider_the_package_is_for(self):
+        for provider in self.PROVIDERS:
+            source = self._read(
+                REPO_ROOT
+                / "packages"
+                / f"onnxruntime_ep_{provider}_binaries"
+                / "hook"
+                / "build.dart"
+            )
+            self.assertIn(
+                f"OrtProvider.{provider}",
+                source,
+                f"onnxruntime_ep_{provider}_binaries installs another provider",
+            )
+
+    def test_the_native_binding_points_at_its_own_asset(self):
+        # The asset id is a compile-time constant, so a wrong one resolves to
+        # whichever library did get installed rather than failing to link.
+        for provider in self.PROVIDERS:
+            source = self._read(
+                REPO_ROOT
+                / "packages"
+                / f"onnxruntime_ep_{provider}"
+                / "lib"
+                / "src"
+                / "register_ffi.dart"
+            )
+            self.assertIn(
+                f"assetId: 'package:onnxruntime_ep_{provider}_binaries/provider'",
+                source,
+                f"onnxruntime_ep_{provider} binds to another package's asset",
+            )
+
+    def test_the_web_half_refuses_rather_than_pretending(self):
+        for provider in self.PROVIDERS:
+            source = self._read(
+                REPO_ROOT
+                / "packages"
+                / f"onnxruntime_ep_{provider}"
+                / "lib"
+                / "src"
+                / "register_web.dart"
+            )
+            self.assertIn(
+                "String? providerPath() => null",
+                source,
+                f"onnxruntime_ep_{provider} claims a library path on the web",
+            )
+
+
+class PublishingMetadata(unittest.TestCase):
+    """What pub.dev checks, checked here instead of at the moment of publish.
+
+    A version number is permanent once uploaded, so a metadata problem found
+    by `pub publish` is found too late to fix cleanly. None of these are
+    interesting on their own; together they are the difference between a
+    package that presents well and one that does not.
+    """
+
+    def _packages(self):
+        for pubspec in sorted((REPO_ROOT / "packages").glob("*/pubspec.yaml")):
+            text = pubspec.read_text(encoding="utf-8")
+            if "publish_to: none" in text:
+                continue
+            yield pubspec.parent, text
+
+    def test_the_changelog_names_the_version_being_published(self):
+        for package, text in self._packages():
+            version = re.search(r"^version:\s*(\S+)", text, re.M).group(1)
+            changelog = package / "CHANGELOG.md"
+            self.assertTrue(changelog.is_file(), f"{package.name} has none")
+            heading = re.search(
+                r"^##\s*(\S+)", changelog.read_text(encoding="utf-8"), re.M
+            )
+            self.assertIsNotNone(heading, f"{package.name} has no version heading")
+            self.assertEqual(
+                heading.group(1),
+                version,
+                f"{package.name}'s changelog is headed {heading.group(1)} but "
+                f"the package is {version}",
+            )
+
+    def test_the_description_fits_what_pub_dev_will_show(self):
+        # pana wants 60 to 180 characters. Shorter says nothing, longer is
+        # truncated in the search results, which is where it is read.
+        for package, text in self._packages():
+            match = re.search(r"^description: >-\n((?:  .*\n)+)", text, re.M)
+            self.assertIsNotNone(match, f"{package.name} has no description")
+            description = " ".join(match.group(1).split())
+            self.assertGreaterEqual(
+                len(description), 60, f"{package.name}: too short to be useful"
+            )
+            self.assertLessEqual(
+                len(description),
+                180,
+                f"{package.name}: {len(description)} characters, which pub.dev "
+                f"truncates in search results",
+            )
+
+    def test_every_published_package_carries_its_licence(self):
+        for package, _ in self._packages():
+            self.assertTrue(
+                (package / "LICENSE").is_file(), f"{package.name} has no LICENSE"
+            )
