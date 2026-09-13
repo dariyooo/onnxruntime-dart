@@ -47,6 +47,19 @@ class DiagnosticsPanel extends StatelessWidget {
                   total: report.totalNodes,
                 ),
             ],
+            if (report.segments.length > 1) ...[
+              const SizedBox(height: 12),
+              Text('Execution order', style: theme.textTheme.titleSmall),
+              const SizedBox(height: 2),
+              Text(
+                'Crossed between providers ${report.crossings} '
+                '${report.crossings == 1 ? 'time' : 'times'}',
+                style: theme.textTheme.bodySmall,
+              ),
+              const SizedBox(height: 8),
+              _SegmentStrip(
+                  segments: report.segments, total: report.totalNodes),
+            ],
             if (report.warnings.isNotEmpty) ...[
               const SizedBox(height: 12),
               for (final warning in report.warnings)
@@ -133,4 +146,105 @@ class _ProviderBar extends StatelessWidget {
       ),
     );
   }
+}
+
+/// The path execution took, as a row of blocks in order.
+///
+/// The proportions matter more than the numbers. A model that is mostly one
+/// long accelerated stretch looks entirely different from one that alternates
+/// every few nodes, and the aggregate counts above cannot tell those apart.
+class _SegmentStrip extends StatelessWidget {
+  const _SegmentStrip({required this.segments, required this.total});
+
+  final List<RunSegment> segments;
+  final int total;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        ClipRRect(
+          borderRadius: BorderRadius.circular(3),
+          child: Row(
+            children: [
+              for (final segment in segments)
+                Expanded(
+                  // Every segment stays visible, so a single node between two
+                  // long stretches still shows as a crossing.
+                  flex: segment.nodes.clamp(1, total),
+                  child: Container(
+                    height: 10,
+                    margin: const EdgeInsets.only(right: 1),
+                    color: _colourFor(segment.provider, theme),
+                  ),
+                ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 6,
+          runSpacing: 4,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            for (var i = 0; i < segments.length; i++) ...[
+              if (i > 0)
+                Icon(
+                  Icons.arrow_right_alt,
+                  size: 14,
+                  color: theme.colorScheme.outline,
+                ),
+              _SegmentChip(segment: segments[i]),
+            ],
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _SegmentChip extends StatelessWidget {
+  const _SegmentChip({required this.segment});
+
+  final RunSegment segment;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: _colourFor(segment.provider, theme).withValues(alpha: 0.18),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Text(
+        '${_shortName(segment.provider)} (${segment.nodes})',
+        style: theme.textTheme.bodySmall,
+      ),
+    );
+  }
+}
+
+/// `CPUExecutionProvider` is what the profile calls it. `cpu` is what fits.
+String _shortName(String provider) {
+  final trimmed = provider.endsWith('ExecutionProvider')
+      ? provider.substring(0, provider.length - 'ExecutionProvider'.length)
+      : provider;
+  return trimmed.toLowerCase();
+}
+
+/// The CPU is the one worth recognising at a glance, because seeing it in the
+/// middle of an accelerated run is the point of this strip. Everything else is
+/// distinguished only from it and from the next one along.
+Color _colourFor(String provider, ThemeData theme) {
+  if (provider.startsWith('CPU')) return theme.colorScheme.outlineVariant;
+  const palette = [
+    Color(0xFF4C8DF6),
+    Color(0xFF34A853),
+    Color(0xFFF9AB00),
+    Color(0xFFA142F4),
+  ];
+  return palette[provider.hashCode.abs() % palette.length];
 }

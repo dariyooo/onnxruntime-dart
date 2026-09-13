@@ -4,9 +4,8 @@ A Flutter app that runs six ONNX models and shows which execution provider ran
 each one.
 
 It is a test app more than a demo. It uses the packages the way a real
-application does: the build hooks install the runtime, the models are
-downloaded at startup instead of being bundled, and each run is measured rather
-than assumed.
+application does: the build hooks install the runtime, and models are downloaded
+at startup instead of being bundled.
 
 ## The models
 
@@ -19,38 +18,37 @@ than assumed.
 | all-MiniLM-L6-v2 | transformer | 86 MB | sentence-transformers |
 | Phi-3 mini 4k instruct | generative | 2.5 GB | Microsoft |
 
-Each size covers everything the model needs: the ImageNet labels for the
-classifiers, the vocabulary for MiniLM, and the tokenizer and weights for
-Phi-3. The app shows the size before the download starts, and checks it
-afterwards. A file that arrives at the wrong size is discarded instead of run.
-
-Every model is downloaded from the project that published it. Nothing is
-converted or re-hosted here, so the behaviour you see is ONNX Runtime's.
+Each size includes the labels, vocabulary or tokenizer the model needs. Every
+model is downloaded from the project that published it, so nothing is converted
+or re-hosted here.
 
 ## Which provider ran
 
 Asking for a provider is not the same as getting it. ONNX Runtime assigns nodes
 to providers one at a time, and a provider that cannot handle a node leaves it
-on the CPU without reporting it. A session created with WebGPU requested can
-run entirely on the CPU and look no different from one that did not.
+on the CPU without reporting it. A session created with WebGPU requested can run
+entirely on the CPU and look no different from one that did not.
 
-Every session runs with profiling enabled. The profile records which provider
-executed each node, so the panel below each run shows the actual split, and
-says so when a requested provider ran nothing.
+Every session runs with profiling enabled, and the panel below each run shows
+what the profile recorded: how many nodes each provider took, and the order
+execution moved between them.
+
+```
+cpu (60) -> webgpu (400) -> cpu (1) -> webgpu (140)
+```
+
+The order matters more than the totals. Each crossing copies tensors between
+providers, so a model that alternates can be slower than one that stays on the
+CPU throughout, even though the totals look good.
 
 ## On the web
 
-The app is compiled with `--wasm`, so Dart runs as WebAssembly in browsers that
-support WasmGC, and as JavaScript in the rest.
+The app is compiled with `--wasm`. The bundled runtime includes XNNPACK, WebGPU
+and WebNN, so all three can be requested.
 
-The provider panel is most useful here. The bundled runtime includes XNNPACK,
-WebGPU and WebNN, so all three can be requested and the panel shows which one
-took the work.
-
-Two things are different in a browser, and the app says so rather than letting
-you find out. Models are kept only for the lifetime of the tab, because a
-browser has nowhere to store them, so reloading downloads them again. And Phi-3
-does not run, because GenAI has no WebAssembly build.
+Two things differ in a browser. Models are kept only for the lifetime of the
+tab, so reloading downloads them again. And Phi-3 does not run, because GenAI
+has no WebAssembly build.
 
 ## Running it
 
@@ -58,10 +56,8 @@ does not run, because GenAI has no WebAssembly build.
 flutter run
 ```
 
-`onnxruntime_binaries` downloads the runtime during the first build. Two of the
-packages this app uses have no published release yet, so you need to point
-their build hooks at a local build. Add this to `pubspec.yaml`, with the paths
-changed to match where your builds are:
+Two of the packages this app uses have no published release yet, so point their
+build hooks at a local build by adding this to `pubspec.yaml`:
 
 ```yaml
 hooks:
@@ -72,12 +68,9 @@ hooks:
       local_build: ../../.local/ort/current/lib
 ```
 
-This is not committed on purpose. A `local_build` path that does not exist is a
-build error rather than a fallback, so committing it would break a fresh
-checkout on a machine without those builds.
-
-Without it, everything except Phi-3 and the WebGPU provider works from the
-published runtime.
+This is not committed, because a `local_build` path that does not exist is a
+build error rather than a fallback. Without it, everything except Phi-3 and the
+WebGPU provider works from the published runtime.
 
 ## Tests
 
@@ -85,8 +78,6 @@ published runtime.
 flutter test
 ```
 
-The tests run offline. The models are between 5 MB and 2.5 GB, so the app does
-not run them as part of the suite. The tests cover the model catalogue, where
-the models are downloaded from, the size arithmetic, the profile reader that
-tells a CPU fallback from a real accelerated run, the WordPiece tokenizer, the
-similarity scoring and the in-memory model store used on the web.
+The tests run offline and do not run the models. They cover the catalogue, the
+download sizes, the profile reader, the WordPiece tokenizer, similarity scoring
+and the in-memory store used on the web.

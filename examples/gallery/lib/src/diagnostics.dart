@@ -14,6 +14,19 @@ library;
 import 'dart:convert';
 import 'dart:io';
 
+/// One unbroken stretch of nodes that ran on the same provider.
+///
+/// The interesting number in a split model is not how many nodes each provider
+/// took, it is how many times execution crossed between them. Every crossing
+/// copies tensors, so a model that alternates is often slower than one that
+/// stays on the CPU throughout.
+class RunSegment {
+  const RunSegment(this.provider, this.nodes);
+
+  final String provider;
+  final int nodes;
+}
+
 /// What one run cost and who did the work.
 class RunReport {
   const RunReport({
@@ -21,6 +34,7 @@ class RunReport {
     required this.requested,
     required this.nodesByProvider,
     required this.warnings,
+    this.segments = const [],
   });
 
   final Duration wallTime;
@@ -31,6 +45,10 @@ class RunReport {
   /// How many nodes each provider executed, largest first.
   final Map<String, int> nodesByProvider;
 
+  /// The same nodes in execution order, with consecutive runs on one provider
+  /// collapsed. `[cpu 60, webgpu 400, cpu 1]` means execution crossed twice.
+  final List<RunSegment> segments;
+
   /// Anything worth saying about the difference between the two.
   final List<String> warnings;
 
@@ -40,6 +58,9 @@ class RunReport {
   /// The provider that did most of the work, or null when nothing ran.
   String? get principal =>
       nodesByProvider.isEmpty ? null : nodesByProvider.keys.first;
+
+  /// How many times execution moved from one provider to another.
+  int get crossings => segments.isEmpty ? 0 : segments.length - 1;
 
   /// Whether the run fell back to the CPU despite being asked for something
   /// else.
@@ -62,6 +83,7 @@ RunReport readProfile(
 }) {
   final warnings = <String>[];
   final counts = <String, int>{};
+  final ordered = <(int, String)>[];
 
   final file = File(path);
   if (!file.existsSync()) {
@@ -86,6 +108,11 @@ RunReport readProfile(
         final provider = args['provider'];
         if (provider is String && provider.isNotEmpty) {
           counts[provider] = (counts[provider] ?? 0) + 1;
+          // `ts` is microseconds since the session started. Sorting by it
+          // recovers execution order, which the array is already in but is
+          // not required to be.
+          final ts = event['ts'];
+          ordered.add((ts is int ? ts : ordered.length, provider));
         }
       }
     }
@@ -102,11 +129,25 @@ RunReport readProfile(
     counts.entries.toList()..sort((a, b) => b.value.compareTo(a.value)),
   );
 
+  // Consecutive nodes on one provider collapse into a single segment, so the
+  // result reads as the path execution actually took.
+  ordered.sort((a, b) => a.$1.compareTo(b.$1));
+  final segments = <RunSegment>[];
+  for (final (_, provider) in ordered) {
+    if (segments.isNotEmpty && segments.last.provider == provider) {
+      segments[segments.length - 1] =
+          RunSegment(provider, segments.last.nodes + 1);
+    } else {
+      segments.add(RunSegment(provider, 1));
+    }
+  }
+
   final report = RunReport(
     wallTime: wallTime,
     requested: requested,
     nodesByProvider: sorted,
     warnings: warnings,
+    segments: segments,
   );
 
   if (report.fellBack) {
@@ -122,9 +163,10 @@ RunReport readProfile(
         .fold(0, (total, e) => total + e.value);
     if (cpu > 0) {
       warnings.add(
-        '$cpu of ${report.totalNodes} nodes stayed on the CPU. A model split '
-        'between two providers copies tensors between them at every crossing, '
-        'which is often slower than either one alone.',
+        '$cpu of ${report.totalNodes} nodes stayed on the CPU, and execution '
+        'crossed between providers ${report.crossings} times. Each crossing '
+        'copies tensors between them, which is often slower than staying on '
+        'one provider.',
       );
     }
   }

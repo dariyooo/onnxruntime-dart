@@ -167,6 +167,99 @@ void main() {
       expect(report.principal, 'CPUExecutionProvider');
     });
 
+    test('reports the order execution took, not just the totals', () {
+      // The case this exists for: a model that alternates. The totals alone
+      // would show 3 webgpu and 2 cpu and look like a mostly accelerated run.
+      final file = write([
+        {
+          'name': 'a',
+          'ts': 10,
+          'args': {'provider': 'CPUExecutionProvider'}
+        },
+        {
+          'name': 'b',
+          'ts': 20,
+          'args': {'provider': 'JsExecutionProvider'}
+        },
+        {
+          'name': 'c',
+          'ts': 30,
+          'args': {'provider': 'JsExecutionProvider'}
+        },
+        {
+          'name': 'd',
+          'ts': 40,
+          'args': {'provider': 'CPUExecutionProvider'}
+        },
+        {
+          'name': 'e',
+          'ts': 50,
+          'args': {'provider': 'JsExecutionProvider'}
+        },
+      ]);
+
+      final report = readProfile(
+        file.path,
+        wallTime: const Duration(milliseconds: 5),
+        requested: const ['webgpu'],
+      );
+
+      expect(
+        report.segments.map((s) => '${s.provider}:${s.nodes}').toList(),
+        [
+          'CPUExecutionProvider:1',
+          'JsExecutionProvider:2',
+          'CPUExecutionProvider:1',
+          'JsExecutionProvider:1'
+        ],
+      );
+      expect(report.crossings, 3);
+    });
+
+    test('collapses a run on one provider into a single segment', () {
+      final file = write([
+        for (var i = 0; i < 4; i++)
+          {
+            'name': 'n$i',
+            'ts': i,
+            'args': {'provider': 'CPUExecutionProvider'}
+          },
+      ]);
+
+      final report = readProfile(
+        file.path,
+        wallTime: Duration.zero,
+        requested: const [],
+      );
+
+      expect(report.segments, hasLength(1));
+      expect(report.segments.single.nodes, 4);
+      expect(report.crossings, 0);
+    });
+
+    test('orders by timestamp, not by position in the file', () {
+      final file = write([
+        {
+          'name': 'b',
+          'ts': 20,
+          'args': {'provider': 'JsExecutionProvider'}
+        },
+        {
+          'name': 'a',
+          'ts': 10,
+          'args': {'provider': 'CPUExecutionProvider'}
+        },
+      ]);
+
+      final report = readProfile(
+        file.path,
+        wallTime: Duration.zero,
+        requested: const [],
+      );
+
+      expect(report.segments.first.provider, 'CPUExecutionProvider');
+    });
+
     test('says so when a requested provider took nothing', () {
       final file = write([
         {
