@@ -37,38 +37,11 @@ binary it registers.
 
 ### The web
 
-The WebAssembly runtime is fetched at startup rather than linked in, so which
-build you serve decides which accelerators exist. Pick one.
+The WebAssembly runtime is bundled as a flutter asset or you can fetch it on your own at runtime.
+Currenlty, there is no way to load dynamic libraries on web and therefore, the precompiled binaries of this pacakge include the EPs.
 
 | Package | Accelerators |
 | --- | --- |
 | [`onnxruntime_web`](packages/onnxruntime_web) | XNNPACK. The smallest. |
 | [`onnxruntime_web_webgpu`](packages/onnxruntime_web_webgpu) | XNNPACK and WebGPU. |
 | [`onnxruntime_web_webgpu_webnn`](packages/onnxruntime_web_webgpu_webnn) | XNNPACK, WebGPU and WebNN. |
-
-## Building and testing
-
-One workflow, with one switch. By default it builds every binary and tests what
-it built, so no binary is published without something loading it first. Give the
-`from_release` input a runtime tag, or `latest`, and it skips the builds and
-runs the same tests against what is already published instead. That is also
-what the weekly run does, so a release that stops installing is noticed without
-waiting for a push.
-
-Releasing is tagging, one component at a time. The tag names what it releases,
-and the pipeline runs that component alone:
-
-| tag | releases |
-| --- | --- |
-| `runtime-v*` | the runtime, base and full |
-| `ep-webgpu-v*` | the WebGPU provider |
-| `ep-cuda-v*` | the CUDA provider |
-| `ep-qnn-v*` | the QNN provider |
-| `extensions-v*` | the operator library |
-| `genai-v*` | the GenAI library |
-
-The version in the tag is the package's own, so `runtime-v1.29.0` releases
-`onnxruntime_binaries` at `1.29.0`.
-
-So a provider that gains a version is released by its own tag and nothing else
-is rebuilt. Pushing to a branch never publishes, whichever branch it is.
