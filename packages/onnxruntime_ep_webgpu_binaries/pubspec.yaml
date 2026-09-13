@@ -1,6 +1,6 @@
 name: onnxruntime_ep_webgpu_binaries
 description: >-
-  Prebuilt the WebGPU execution provider plugin for onnxruntime_dart, installed as a code asset. The API lives in onnxruntime_ep_webgpu.
+  The prebuilt WebGPU execution provider plugin for onnxruntime_dart, installed as a code asset. The API lives in onnxruntime_ep_webgpu.
 # The binary's own version, unchanged by this package existing. It is separate
 # from the API so that an application can move one without the other.
 version: 0.3.0

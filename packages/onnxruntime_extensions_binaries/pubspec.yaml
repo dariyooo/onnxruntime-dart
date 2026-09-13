@@ -1,6 +1,6 @@
 name: onnxruntime_extensions_binaries
 description: >-
-  Prebuilt the operator library for onnxruntime_dart, installed as a code asset. The API lives in onnxruntime_extensions.
+  The prebuilt operator library for onnxruntime_dart, installed as a code asset. The API lives in onnxruntime_extensions.
 # The binary's own version, unchanged by this package existing. It is separate
 # from the API so that an application can move one without the other.
 version: 0.15.0
