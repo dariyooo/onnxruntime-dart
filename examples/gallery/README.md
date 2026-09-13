@@ -1,15 +1,14 @@
 # ONNX Runtime gallery
 
-Runs a spread of upstream ONNX models and reports which execution provider
-actually served each one.
+A Flutter app that runs six ONNX models and shows which execution provider ran
+each one.
 
-It exists to exercise the packages rather than to demonstrate them. Everything
-in it is a path a real application takes: the build hooks install the runtime,
-the models are fetched at runtime rather than bundled, and each run is
-accounted for node by node instead of being assumed to have gone the way it was
-asked to.
+It is a test app more than a demo. It uses the packages the way a real
+application does: the build hooks install the runtime, the models are
+downloaded at startup instead of being bundled, and each run is measured rather
+than assumed.
 
-## What is in it
+## The models
 
 | Model | Kind | Size | From |
 | --- | --- | --- | --- |
@@ -20,49 +19,38 @@ asked to.
 | all-MiniLM-L6-v2 | transformer | 86 MB | sentence-transformers |
 | Phi-3 mini 4k instruct | generative | 2.5 GB | Microsoft |
 
-Sizes include everything each one needs: the ImageNet labels beside the
-classifiers, the vocabulary beside MiniLM, and the tokenizer and weights beside
-Phi-3. They are what the app shows before the download starts.
+Each size covers everything the model needs: the ImageNet labels for the
+classifiers, the vocabulary for MiniLM, and the tokenizer and weights for
+Phi-3. The app shows the size before the download starts, and checks it
+afterwards. A file that arrives at the wrong size is discarded instead of run.
 
-Every one is fetched from the project that published it. Nothing is converted
-here and nothing is hosted here, because a converted model is one whose
-behaviour this project would have to explain rather than ONNX Runtime's.
+Every model is downloaded from the project that published it. Nothing is
+converted or re-hosted here, so the behaviour you see is ONNX Runtime's.
 
-Sizes are shown before a download starts, checked when it finishes, and a file
-that arrives a different length than the catalogue promised is discarded rather
-than run.
+## Which provider ran
 
-## Which provider actually ran
+Asking for a provider is not the same as getting it. ONNX Runtime assigns nodes
+to providers one at a time, and a provider that cannot handle a node leaves it
+on the CPU without reporting it. A session created with WebGPU requested can
+run entirely on the CPU and look no different from one that did not.
 
-Asking for a provider and getting it are different things. ONNX Runtime assigns
-nodes to providers one at a time, and a provider that cannot take a node leaves
-it on the CPU without saying so. A session created with WebGPU requested can
-therefore run entirely on the CPU and look, from the outside, exactly like one
-that got what it asked for.
-
-Each session is created with profiling on. The profile names the provider that
-executed each node, so the panel under every run reports the split rather than
-the request, and says plainly when a requested provider took nothing.
+Every session runs with profiling enabled. The profile records which provider
+executed each node, so the panel below each run shows the actual split, and
+says so when a requested provider ran nothing.
 
 ## On the web
 
-Compiled with `--wasm`, so Dart itself runs as WebAssembly where the browser
-supports WasmGC, with a JavaScript build served to those that do not.
+The app is compiled with `--wasm`, so Dart runs as WebAssembly in browsers that
+support WasmGC, and as JavaScript in the rest.
 
-It runs in a browser too, and that is where the provider panel earns its keep:
-the bundled runtime carries XNNPACK, WebGPU and WebNN, so all three are
-offerable and the panel reports which one actually took the nodes.
+The provider panel is most useful here. The bundled runtime includes XNNPACK,
+WebGPU and WebNN, so all three can be requested and the panel shows which one
+took the work.
 
-Two things differ there, and the app says so rather than leaving them to be
-discovered. Models are held for as long as the tab lives, because a browser has
-no directory to keep them in, so a reload fetches them again. And Phi-3 does not
-run: GenAI has no WebAssembly build, and it reads a model directory rather than
-bytes.
-
-Which providers are on offer is asked of the runtime on both platforms. The
-WebAssembly C API has no call that enumerates them, but each provider brings
-its own runtime helpers into the module, and those exist only when it was
-compiled in, so the module can be asked instead.
+Two things are different in a browser, and the app says so rather than letting
+you find out. Models are kept only for the lifetime of the tab, because a
+browser has nowhere to store them, so reloading downloads them again. And Phi-3
+does not run, because GenAI has no WebAssembly build.
 
 ## Running it
 
@@ -70,10 +58,10 @@ compiled in, so the module can be asked instead.
 flutter run
 ```
 
-The runtime arrives through `onnxruntime_binaries`' build hook, which downloads
-it on the first build. Two of the packages this app depends on have no published
-release yet, so their hooks need to be pointed at a local build. Append this to
-`pubspec.yaml`, with the paths adjusted to wherever the builds are:
+`onnxruntime_binaries` downloads the runtime during the first build. Two of the
+packages this app uses have no published release yet, so you need to point
+their build hooks at a local build. Add this to `pubspec.yaml`, with the paths
+changed to match where your builds are:
 
 ```yaml
 hooks:
@@ -84,12 +72,12 @@ hooks:
       local_build: ../../.local/ort/current/lib
 ```
 
-It is deliberately not committed: pointing at a directory that does not exist is
-a build failure rather than a fallback, so it would break a fresh checkout on a
-machine that has no local build.
+This is not committed on purpose. A `local_build` path that does not exist is a
+build error rather than a fallback, so committing it would break a fresh
+checkout on a machine without those builds.
 
 Without it, everything except Phi-3 and the WebGPU provider works from the
-published runtime alone.
+published runtime.
 
 ## Tests
 
@@ -97,7 +85,8 @@ published runtime alone.
 flutter test
 ```
 
-Offline. The models are between five megabytes and two and a half gigabytes, so
-the runs themselves are not part of the suite. What is covered is the catalogue,
-the size arithmetic, the profile reader that tells a fallback apart from a real
-run, and the WordPiece tokenizer.
+The tests run offline. The models are between 5 MB and 2.5 GB, so the app does
+not run them as part of the suite. The tests cover the model catalogue, where
+the models are downloaded from, the size arithmetic, the profile reader that
+tells a CPU fallback from a real accelerated run, the WordPiece tokenizer, the
+similarity scoring and the in-memory model store used on the web.
