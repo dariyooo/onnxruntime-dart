@@ -1356,32 +1356,37 @@ class ApiAndBinariesAreSeparate(unittest.TestCase):
 
 
 class WorkspaceReadme(unittest.TestCase):
-    """The package table says what the pubspecs say.
+    """The package table lists every package, and no versions.
 
-    A table of versions is the first thing a reader trusts and the first thing
-    to go stale, because nothing breaks when it does.
+    It used to carry a version column and a test that kept it honest. The
+    column is gone: a version in a README goes stale the moment anything is
+    released, and the pubspec is the only place it can be right. What still
+    matters is that a package added to the workspace does not go unmentioned.
     """
 
-    def test_every_package_is_listed_at_its_version(self):
-        import yaml
-
+    def test_every_package_is_listed(self):
         readme = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
         for package in sorted((REPO_ROOT / "packages").iterdir()):
             if not package.is_dir():
                 continue
-            spec = yaml.safe_load((package / "pubspec.yaml").read_text(encoding="utf-8"))
             with self.subTest(package=package.name):
                 self.assertIn(
                     f"`{package.name}`",
                     readme,
                     f"{package.name} is not in the workspace README table",
                 )
-                self.assertIn(
-                    f"| {spec['version']} |",
-                    readme,
-                    f"{package.name} is listed at a version that is not "
-                    f"{spec['version']}",
-                )
+
+    def test_the_table_carries_no_versions(self):
+        # Deliberately absent, so nobody reintroduces a column that cannot be
+        # kept true.
+        readme = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
+        for line in readme.splitlines():
+            if not line.startswith("| [`"):
+                continue
+            self.assertIsNone(
+                re.search(r"\|\s*\d+\.\d+\.\d+", line),
+                f"the package table names a version: {line}",
+            )
 
 
 class ReusableWorkflowPermissions(unittest.TestCase):
