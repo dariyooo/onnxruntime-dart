@@ -4,8 +4,9 @@ Run ONNX models from Dart and Flutter. Android, iOS, macOS, Linux, Windows and
 the web, from one codebase.
 
 Bindings to [ONNX Runtime](https://onnxruntime.ai). They are generated from the
-pinned C headers instead of written by hand, so the whole C API is available and
-always matches the version the binaries were built from.
+pinned C headers, so they match the version the binaries were built from. Eleven
+functions whose signatures the generator cannot express are wrapped by hand, and
+one is not exposed at all.
 
 ## Platforms
 
@@ -16,14 +17,10 @@ always matches the version the binaries were built from.
 | macOS | arm64, x86_64 | CPU, XNNPACK, CoreML |
 | Linux | x86_64, arm64 | CPU, XNNPACK |
 | Windows | x86_64, arm64 | CPU, XNNPACK |
-| Web | wasm32 | CPU, XNNPACK; WebGPU and WebNN per build |
+| Web | wasm32 | CPU, XNNPACK, and WebGPU or WebNN depending on the build |
 
 Every library is built from the pinned submodule with all operators and all
 opsets included. Nothing is removed to save size.
-
-On the web, accelerators are compiled into the runtime instead of loaded at
-startup, so the build you serve decides which ones you get. On every other
-platform you add them as packages.
 
 ## Contents
 
@@ -35,7 +32,6 @@ platform you add them as packages.
 - [The web](#the-web)
 - [Keeping inference off the calling thread](#keeping-inference-off-the-calling-thread)
 - [On-device training](#on-device-training)
-- [The packages](#the-packages): how the pieces fit together
 - [Going further](#going-further): the full C API, your own providers
 
 ## Quick start
@@ -60,7 +56,7 @@ void main() async {
   // does nothing, ignoring the url. On the web it downloads and starts the
   // WebAssembly module from that url, which is why this is a Future.
   //
-  // onnxruntime_web publishes the url; see "the web".
+  // onnxruntime_web publishes the url. See "the web".
   await openOnnxRuntime(web: WebRuntimeOptions('url/to/ort-wasm.mjs'));
 
   final session = Session.fromBytes(File('mnist.onnx').readAsBytesSync());
@@ -79,8 +75,7 @@ void main() async {
 
   // Free what you made, in the order you made it. Sessions and tensors hold
   // memory the garbage collector cannot see, so this is the one rule you have
-  // to follow. Forgetting leaks; it cannot corrupt anything, because using or
-  // releasing something twice throws.
+  // to follow.
   input.release();
   for (final output in outputs.values) {
     output.release();
@@ -216,9 +211,11 @@ operators have to be compiled into the runtime instead of loaded next to it.
 The same code runs in a browser. Two things are different.
 
 The runtime is a WebAssembly module that has to be downloaded, so you tell
-`openOnnxRuntime` where to find it. And there are three builds, each with
-different accelerators compiled in. The build you serve decides whether you can
-use the synchronous API.
+`openOnnxRuntime` where to find it.
+
+And accelerators are compiled into the runtime rather than added as packages, so
+the build you serve decides which ones you get, and whether you can use the
+synchronous API.
 
 ```sh
 dart pub add onnxruntime_web
@@ -239,47 +236,30 @@ work in a browser, see [Running on the web](doc/web.md).
 
 ## Keeping inference off the calling thread
 
-`runAsync` only moves work off the calling thread if something else can take
-it. On native, ONNX Runtime has its own thread pool, so the isolate stays free.
+`runAsync` only moves work off the calling thread if something else can take it.
+On native, ONNX Runtime has its own thread pool, so the isolate stays free. On
+the web there is no pool, so a slow model freezes the page.
 
-On the web there is no pool to hand a whole run to. The plain build runs the
-model on whatever thread called it. The Asyncify builds pause while the GPU
-works, but still do their CPU work on the calling thread. Either way, a slow
-model on the main thread freezes the page.
-
-The solution is the same on both platforms: run the model on another thread.
-**A session belongs to the thread that created it.** You cannot send a session
-between threads, and this package does not provide a thread pool, because how
-many threads you want and how long they live is your application's decision.
-
-What this package guarantees is that a session works when you create it on
-another thread. `test/isolate_test.dart` and `test/worker_test.dart` check
-this.
+The fix on both platforms is to run the model on another thread. A session
+belongs to the thread that created it and cannot be sent between threads, so
+send the model bytes instead and create the session there.
 
 | | Native | Web |
 | --- | --- | --- |
 | The thread | an isolate | a worker |
-| Sending the model | the bytes, over a port | the bytes, by `postMessage` |
-| Sending a session | never, it is not sendable | never, it is not sendable |
-| Sending a result | copied out, the view borrows memory | copied out, the view borrows heap |
 | Worked example | [`example/isolates.dart`](example/isolates.dart) | [`example/workers.dart`](example/workers.dart) |
 
-Both examples show the same two approaches, because the choice is the same on
-either platform. One thread per call is simpler, but reloads the model every
-time. One thread that loads the model once and answers many requests is what
-most applications want.
+Both examples show the two options: one thread per call, which is simpler but
+reloads the model every time, and one thread that loads once and answers many
+requests, which is what most applications want.
 
-The web has one extra step. A worker runs a script rather than a closure, so
-the worker body is a separate program that you compile alongside your page.
+On the web a worker runs a script rather than a closure, so compile the worker
+body alongside your page:
 
 ```sh
 dart compile js example/worker_body.dart -o web/worker_body.dart.js
 ```
 
-The page fetches the runtime once and hands the worker the bytes, because a
-worker resolves a relative URL against its own script rather than the page.
-Inside the worker, use `Session.load` and `runAsync`: that way the same worker
-body serves the plain build and the WebGPU one.
 
 ## On-device training
 
@@ -296,35 +276,16 @@ if (trainingIsAvailable()) {
 Calling it on a `base` build throws `OrtTrainingUnavailable` rather than
 crashing, because `GetTrainingApi` returns null there and that is detectable.
 
-## The packages
-
-The packages are kept small and separate so your application ships only what it
-uses. Each download is compressed and specific to the platform you build for.
-
-| Package | What it is | Download |
-| --- | --- | --- |
-| `onnxruntime_dart` | Bindings and the API. No binaries. | Dart only |
-| `onnxruntime_binaries` | The engine, one variant per build | up to 12 MB |
-| `onnxruntime_ep_webgpu_binaries` | WebGPU provider | tens of MB |
-| `onnxruntime_ep_cuda_binaries` | CUDA provider | 70 to 333 MB |
-| `onnxruntime_ep_qnn_binaries` | QNN provider and the Qualcomm runtime | 55 to 89 MB |
-| `onnxruntime_extensions_binaries` | Tokenizers, image and audio operators | about 1 MB |
-| `onnxruntime_genai_binaries` | Token generation on top of a session | 3 to 24 MB |
-| `onnxruntime_web*` | The WebAssembly builds, as Flutter assets | 4 to 10 MB |
-
-Each package is built and released by its own pipeline, so a provider that
-fails to compile does not stop the runtime from being built. Every archive is
-checked against the SHA-256 published next to it before it is installed.
+## Going further
 
 `onnxruntime_dart` does not depend on any of the other packages and does not
-name them. This is deliberate. Providers depend on it, never the other way
-round, which is what lets you package a provider we do not ship.
-
-## Going further
+name them. Providers depend on it, never the other way round, which is what
+lets you package a provider we do not ship.
 
 Two things most applications do not need:
 
-- [Adding an execution provider we do not package](doc/extending.md#adding-a-provider-we-do-not-package),
-  if you have a provider library of your own.
+- [Using an execution provider we do not package](doc/extending.md#using-a-provider-we-do-not-package),
+  such as CANN or one you built yourself. If the library is already on disk this
+  is two lines and needs no package.
 - [Reaching the complete C API](doc/extending.md#the-complete-c-api), for the
   parts of ONNX Runtime the ordinary Dart API does not cover.

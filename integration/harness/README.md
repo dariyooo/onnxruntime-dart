@@ -1,17 +1,17 @@
 # onnxruntime_harness
 
-A new Flutter project.
+The Flutter app that CI uses to run the package tests on a real device or
+simulator.
 
-## Getting Started
+It exists because the Dart tests cannot run on Android or iOS on their own.
+Those platforms load the runtime as a Flutter asset, so the tests have to run
+inside a Flutter app. The harness is that app, and nothing more. The tests it
+runs are the same ones `dart test` runs on the desktop platforms, driven from
+`integration_test/`.
 
-This project is a starting point for a Flutter application.
+You do not need this to use the packages. If you want to run it by hand, start
+a simulator or attach a device and run:
 
-A few resources to get you started if this is your first Flutter project:
-
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+```sh
+flutter test integration_test
+```
