@@ -1,17 +1,16 @@
 # Running on the web
 
-Everything in this package works in a browser, but two things are different
-enough to be worth reading before you start.
+Everything in this package works in a browser. Two things are different, and
+both are worth reading before you start.
 
 The runtime is a WebAssembly module that has to be downloaded, and a download
-cannot happen synchronously, so you tell `openOnnxRuntime` where to find it.
-And there are three builds of that module, differing in which accelerators are
-compiled in. Which one you serve decides whether you can use the synchronous
-API or have to use the asynchronous one.
+cannot be synchronous, so you tell `openOnnxRuntime` where to find it. There are
+also three builds of that module, each with different accelerators compiled in.
+The build you serve decides whether you can use the synchronous API.
 
-If you only want the short version: depend on `onnxruntime_web`, call
+If you want the short version: depend on `onnxruntime_web`, call
 `openOnnxRuntime` with its loader URL, and use `Session.load` and `runAsync`.
-That combination works on every build and every platform.
+That works on every build and every platform.
 
 ## Getting started
 

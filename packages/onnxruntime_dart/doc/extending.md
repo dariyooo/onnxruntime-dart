@@ -1,11 +1,10 @@
 # Extending the package
 
-Two things you are unlikely to need on day one, and are documented because
-there is no way to work them out from the source.
+Two things most applications do not need. They are documented here because you
+cannot work either of them out from the source alone.
 
 The first is packaging an execution provider we do not ship. The second is
-reaching the parts of ONNX Runtime's C API that the ordinary Dart API does not
-cover.
+reaching parts of ONNX Runtime's C API that the Dart API does not cover.
 
 ## Adding a provider we do not package
 
