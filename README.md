@@ -38,10 +38,15 @@ binary it registers.
 ### The web
 
 The WebAssembly runtime is bundled as a flutter asset or you can fetch it on your own at runtime.
-Currenlty, there is no way to load dynamic libraries on web and therefore, the precompiled binaries of this pacakge include the EPs.
+Currently, there is no way to load dynamic libraries on web and therefore, the precompiled binaries of this package include the EPs.
 
 | Package | Accelerators |
 | --- | --- |
 | [`onnxruntime_web`](packages/onnxruntime_web) | XNNPACK. The smallest. |
 | [`onnxruntime_web_webgpu`](packages/onnxruntime_web_webgpu) | XNNPACK and WebGPU. |
 | [`onnxruntime_web_webgpu_webnn`](packages/onnxruntime_web_webgpu_webnn) | XNNPACK, WebGPU and WebNN. |
+
+## Working on this repository
+
+How CI builds and tests the binaries, and how a release is cut, is in
+[Building, testing and releasing](doc/building-and-releasing.md).
