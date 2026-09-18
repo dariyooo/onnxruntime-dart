@@ -4,7 +4,7 @@
 import 'dart:ffi';
 
 import 'package:flutter/material.dart';
-import 'package:onnxruntime_dart/native.dart';
+import 'package:onnxruntime_core/native.dart';
 
 void main() => runApp(const HarnessApp());
 

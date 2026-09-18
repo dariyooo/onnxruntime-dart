@@ -1,6 +1,6 @@
 name: onnxruntime_ep_webgpu
 description: >-
-  The webgpu execution provider for onnxruntime_dart. GPU compute through WebGPU, which reaches Vulkan, D3D12 and Metal.
+  The webgpu execution provider for onnxruntime_core. GPU compute through WebGPU, which reaches Vulkan, D3D12 and Metal.
 # The API's own version. The build metadata names the binary it was
 # written against, which is a different thing from the one an
 # application chooses to run: that is the _binaries package.
@@ -13,7 +13,7 @@ environment:
 
 resolution: workspace
 dependencies:
-  onnxruntime_dart: ^0.1.0
+  onnxruntime_core: ^0.1.0
   # The oldest runtime this plugin works against, from its own
   # MIN_ONNXRUNTIME_VERSION. ONNX Runtime compiles that into the library and
   # refuses to load below it, so declaring it here turns a runtime failure into
@@ -23,4 +23,4 @@ dependencies:
 # package is declared against is installed by that package, and naming it
 # here would make it compulsory. Leaving it out is what lets an
 # application pick a build, or take none and supply the library itself at
-# run time. onnxruntime_dart does the same with onnxruntime_binaries.
+# run time. onnxruntime_core does the same with onnxruntime_binaries.

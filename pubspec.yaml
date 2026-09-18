@@ -2,14 +2,14 @@
 #
 # The ONNX Runtime submodule and the CI that builds it are shared by every
 # package here, so they live above the members rather than inside one.
-name: _onnxruntime_dart_workspace
+name: _onnxruntime_core_workspace
 publish_to: none
 
 environment:
   sdk: ^3.6.0
 
 workspace:
-  - packages/onnxruntime_dart
+  - packages/onnxruntime_core
   - packages/onnxruntime_hook
   - packages/onnxruntime_binaries
   - packages/onnxruntime_extensions

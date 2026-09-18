@@ -1,7 +1,7 @@
 /// This package ships no Dart API.
 ///
 /// It installs the ONNX Runtime shared library as a code asset. Use
-/// [onnxruntime_dart](https://pub.dev/packages/onnxruntime_dart) for the API.
+/// [onnxruntime_core](https://pub.dev/packages/onnxruntime_core) for the API.
 ///
 /// Two libraries are published and this installs one of them. The default has
 /// every operator and every execution provider we build, which is what almost

@@ -11,7 +11,7 @@
 /// asking which one it is on.
 library;
 
-import 'package:onnxruntime_dart/onnxruntime_dart.dart';
+import 'package:onnxruntime_core/onnxruntime_core.dart';
 
 import 'identity.dart';
 

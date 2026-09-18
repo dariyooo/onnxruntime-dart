@@ -11,7 +11,7 @@ environment:
 # the point is to exercise the packages the way an application does.
 dependencies:
   flutter: { sdk: flutter }
-  onnxruntime_dart: { path: ../../packages/onnxruntime_dart }
+  onnxruntime_core: { path: ../../packages/onnxruntime_core }
   onnxruntime_binaries: { path: ../../packages/onnxruntime_binaries }
   # So the device tests prove a provider loads and runs where it is hardest:
   # Android maps libraries out of the APK and iOS repackages each into its own
@@ -48,7 +48,7 @@ dependency_overrides:
   # harness is deliberately not a workspace member, so the provider package's
   # constraints have to be pointed back at this tree by hand.
   onnxruntime_binaries: { path: ../../packages/onnxruntime_binaries }
-  onnxruntime_dart: { path: ../../packages/onnxruntime_dart }
+  onnxruntime_core: { path: ../../packages/onnxruntime_core }
   onnxruntime_hook: { path: ../../packages/onnxruntime_hook }
   onnxruntime_ep_webgpu_binaries:
     { path: ../../packages/onnxruntime_ep_webgpu_binaries }

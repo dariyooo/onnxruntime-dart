@@ -1,6 +1,6 @@
 name: onnxruntime_extensions
 description: >-
-  Pre and post-processing operators for onnxruntime_dart: tokenizers, text, image and audio ops that run inside the graph instead of in Dart.
+  Pre and post-processing operators for onnxruntime_core: tokenizers, text, image and audio ops that run inside the graph instead of in Dart.
 # The API's own version. The build metadata names the binary it was
 # written against, which is a different thing from the one an
 # application chooses to run: that is the _binaries package.
@@ -16,10 +16,10 @@ dependencies:
   # For loadedLibraryPath: this package declares its own asset and has to find
   # where it landed. The dependency points this way on purpose, so the base
   # package knows nothing about which packages exist.
-  onnxruntime_dart: '>=0.1.0 <1.0.0'
+  onnxruntime_core: '>=0.1.0 <1.0.0'
 
 # onnxruntime_extensions_binaries is deliberately not a dependency. The asset this
 # package is declared against is installed by that package, and naming it
 # here would make it compulsory. Leaving it out is what lets an
 # application pick a build, or take none and supply the library itself at
-# run time. onnxruntime_dart does the same with onnxruntime_binaries.
+# run time. onnxruntime_core does the same with onnxruntime_binaries.

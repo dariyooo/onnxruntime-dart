@@ -11,11 +11,11 @@ packages.
 
 | Package | What it is |
 | --- | --- |
-| [`onnxruntime_dart`](packages/onnxruntime_dart) | The bindings and the API of the base runtime. |
-| [`onnxruntime_binaries`](packages/onnxruntime_binaries) | The native binaries of `onnxruntime_dart` bundled as native assets. |
+| [`onnxruntime_core`](packages/onnxruntime_core) | The bindings and the API of the base runtime. |
+| [`onnxruntime_binaries`](packages/onnxruntime_binaries) | The native binaries of `onnxruntime_core` bundled as native assets. |
 | [`onnxruntime_extensions`](packages/onnxruntime_extensions) | Tokenizers, text, image and audio operators that run inside the graph. |
 | [`onnxruntime_extensions_binaries`](packages/onnxruntime_extensions_binaries) | The native binaries of `onnxruntime_extensions`. |
-| [`onnxruntime_genai`](packages/onnxruntime_genai) | Token generation, KV caching and sampling on top of a `onnxruntime_dart` session. |
+| [`onnxruntime_genai`](packages/onnxruntime_genai) | Token generation, KV caching and sampling on top of a `onnxruntime_core` session. |
 | [`onnxruntime_genai_binaries`](packages/onnxruntime_genai_binaries) | The native binaries of `onnxruntime_genai`. |
 | [`onnxruntime_hook`](packages/onnxruntime_hook) | The build hook the other packages use. |
 

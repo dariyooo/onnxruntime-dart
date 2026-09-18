@@ -1,4 +1,4 @@
-/// A gallery of upstream ONNX models, run through onnxruntime_dart.
+/// A gallery of upstream ONNX models, run through onnxruntime_core.
 ///
 /// It exists to exercise the packages rather than to demonstrate them. Every
 /// model is fetched from the project that published it, its download size is
@@ -7,7 +7,7 @@
 library;
 
 import 'package:flutter/material.dart';
-import 'package:onnxruntime_dart/onnxruntime_dart.dart';
+import 'package:onnxruntime_core/onnxruntime_core.dart';
 import 'package:onnxruntime_web_webgpu_webnn/onnxruntime_web_webgpu_webnn.dart';
 
 import 'src/catalogue.dart';

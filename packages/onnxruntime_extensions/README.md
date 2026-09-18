@@ -1,1 +1,1 @@
-See [onnxruntime_dart](https://pub.dev/packages/onnxruntime_dart).
+See [onnxruntime_core](https://pub.dev/packages/onnxruntime_core).

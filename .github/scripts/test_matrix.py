@@ -262,8 +262,8 @@ class PackageVersions(unittest.TestCase):
             REPO_ROOT / "third_party" / "onnxruntime" / "VERSION_NUMBER"
         ).read_text(encoding="utf-8").strip()
         self.assertTrue(
-            self._version("onnxruntime_dart").endswith(f"+onnxruntime-{upstream}"),
-            self._version("onnxruntime_dart"),
+            self._version("onnxruntime_core").endswith(f"+onnxruntime-{upstream}"),
+            self._version("onnxruntime_core"),
         )
 
 
@@ -534,7 +534,7 @@ class Providers(unittest.TestCase):
         # symbol lookup, and every provider exports the same entry point, so
         # the file name is checked before a path is believed.
         lookup = (
-            REPO_ROOT / "packages" / "onnxruntime_dart" / "lib" / "src" / "ffi"
+            REPO_ROOT / "packages" / "onnxruntime_core" / "lib" / "src" / "ffi"
             / "library_lookup.dart"
         ).read_text(encoding="utf-8")
         self.assertIn("fileName.contains(stem)", lookup)
@@ -549,7 +549,7 @@ class Providers(unittest.TestCase):
         # The layering. A provider package declares its own asset and finds it
         # with loadedLibraryPath, so adding one is a new package rather than an
         # edit to the base.
-        base = REPO_ROOT / "packages" / "onnxruntime_dart" / "lib"
+        base = REPO_ROOT / "packages" / "onnxruntime_core" / "lib"
         for source in base.rglob("*.dart"):
             self.assertNotIn(
                 "package:onnxruntime_ep_",
@@ -1479,7 +1479,7 @@ class InstallInstructions(unittest.TestCase):
 
     def test_adding_an_api_package_also_adds_its_binaries(self):
         readme = (
-            REPO_ROOT / "packages" / "onnxruntime_dart" / "README.md"
+            REPO_ROOT / "packages" / "onnxruntime_core" / "README.md"
         ).read_text(encoding="utf-8")
 
         for line in readme.splitlines():

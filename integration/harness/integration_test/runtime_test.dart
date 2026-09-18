@@ -18,9 +18,9 @@ import 'dart:typed_data';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
-import 'package:onnxruntime_dart/native.dart';
+import 'package:onnxruntime_core/native.dart';
 import 'package:onnxruntime_ep_webgpu/onnxruntime_ep_webgpu.dart' as webgpu;
-import 'package:onnxruntime_dart/onnxruntime_dart.dart' hide runtimeVersion;
+import 'package:onnxruntime_core/onnxruntime_core.dart' hide runtimeVersion;
 
 import 'package:onnxruntime_harness/staged.dart';
 

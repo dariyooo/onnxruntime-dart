@@ -7,7 +7,7 @@ library;
 import 'dart:typed_data';
 
 import 'package:file_selector/file_selector.dart';
-import 'package:onnxruntime_dart/onnxruntime_dart.dart';
+import 'package:onnxruntime_core/onnxruntime_core.dart';
 import 'package:onnxruntime_ep_webgpu/onnxruntime_ep_webgpu.dart';
 
 import 'inference.dart';

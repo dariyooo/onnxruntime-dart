@@ -1,9 +1,9 @@
 name: onnxruntime_binaries
 description: >-
   The ONNX Runtime shared library, downloaded at build time for the platform you
-  are building for. Depend on onnxruntime_dart rather than on this directly.
+  are building for. Depend on onnxruntime_core rather than on this directly.
 # The version IS the ONNX Runtime version. Depend on 1.29.1 to run on 1.29.1.
-# No Dart API lives here; the bindings are in onnxruntime_dart.
+# No Dart API lives here; the bindings are in onnxruntime_core.
 version: 1.29.0
 repository: https://github.com/dariyooo/onnxruntime-dart
 issue_tracker: https://github.com/dariyooo/onnxruntime-dart/issues

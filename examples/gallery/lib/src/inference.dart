@@ -11,7 +11,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:onnxruntime_dart/onnxruntime_dart.dart';
+import 'package:onnxruntime_core/onnxruntime_core.dart';
 import 'package:path/path.dart' as p;
 
 import 'catalogue.dart';

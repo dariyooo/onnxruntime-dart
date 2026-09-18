@@ -11,7 +11,7 @@ build="${1:-web-wasm}"
 tag="${2:-$(gh release list --limit 20 --json tagName \
   --jq '[.[] | select(.tagName | startswith("runtime-v"))][0].tagName')}"
 
-target=packages/onnxruntime_dart/test/web_runtime
+target=packages/onnxruntime_core/test/web_runtime
 mkdir -p "$target"
 
 echo "fetching $build from $tag"
@@ -23,7 +23,7 @@ loader=$(cd "$target" && ls *.mjs | head -1)
 wasm=$(cd "$target" && ls *.wasm | head -1)
 
 # package:test serves the package root, so the URL is the path within it.
-cat > packages/onnxruntime_dart/test/src/web_runtime_config.dart <<EOF
+cat > packages/onnxruntime_core/test/src/web_runtime_config.dart <<EOF
 // Written by tool/fetch_web_runtime.sh. Reset it with git checkout.
 library;
 

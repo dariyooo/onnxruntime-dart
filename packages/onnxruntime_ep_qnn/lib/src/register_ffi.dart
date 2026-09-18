@@ -10,7 +10,7 @@ import 'identity.dart';
 
 import 'dart:ffi';
 
-import 'package:onnxruntime_dart/native.dart';
+import 'package:onnxruntime_core/native.dart';
 
 /// The library's file name without prefix or extension.
 const providerLibraryStem = 'onnxruntime_providers_qnn';

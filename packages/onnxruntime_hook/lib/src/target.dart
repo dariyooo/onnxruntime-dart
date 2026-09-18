@@ -16,7 +16,7 @@ final class UnsupportedTarget implements Exception {
 
   @override
   String toString() =>
-      'onnxruntime_dart has no prebuilt library for $os $architecture'
+      'onnxruntime_core has no prebuilt library for $os $architecture'
       '${detail == null ? '' : ' ($detail)'}. Supported targets: '
       '${supportedTargets.join(', ')}.';
 }

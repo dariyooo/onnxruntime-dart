@@ -24,7 +24,7 @@ python3 .github/scripts/test_matrix.py > /dev/null 2>&1
 echo "test      hook"
 dart test packages/onnxruntime_hook --reporter failures-only
 
-cd packages/onnxruntime_dart
+cd packages/onnxruntime_core
 echo "test      default"
 dart test --exclude-tags exclusive --reporter failures-only
 echo "test      exclusive"

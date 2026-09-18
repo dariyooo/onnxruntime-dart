@@ -1,0 +1,42 @@
+name: onnxruntime_core
+description: >-
+  ONNX Runtime for Dart and Flutter. Run models on Android, iOS, macOS, Linux,
+  Windows and the web, with GPU and NPU acceleration where the platform has it.
+# Version scheme: X.Y.Z+onnxruntime-<ORT version>
+# The build metadata after '+' names the ONNX Runtime release this package binds,
+# and MUST match the tag of the third_party/onnxruntime submodule. Enforced by
+# test/version_test.dart.
+version: 0.1.0+onnxruntime-1.29.0
+repository: https://github.com/dariyooo/onnxruntime-dart
+issue_tracker: https://github.com/dariyooo/onnxruntime-dart/issues
+
+environment:
+  sdk: ^3.6.0
+
+resolution: workspace
+
+dependencies:
+  # No code_assets or hooks: this package has no build hook and ships no
+  # binaries. They live in onnxruntime_hook, which the binary packages use.
+  # Keeping them here would drag record_use in, which pins a newer meta than
+  # Flutter ships, making this package unusable from any Flutter app.
+  ffi: ^2.1.0
+  # Wide on purpose. Flutter pins meta to whatever its SDK ships, so a tight
+  # constraint here makes the package unusable from any Flutter app. We use
+  # @visibleForTesting and TargetKind, both long-standing.
+  meta: '>=1.15.0 <2.0.0'
+
+dev_dependencies:
+  # Browser tests fetch the WebAssembly runtime before handing it to the
+  # loader; see test/src/runtime_web.dart.
+  web: ^1.1.0
+  # The generator formats its own output, so what it writes is final.
+  dart_style: ^3.1.0
+  # So this package's own tests have a runtime to load. A dev dependency is
+  # not transitive, so an application still chooses its own and is never
+  # handed one by depending on the bindings.
+  onnxruntime_binaries: ^1.29.0
+  ffigen: ^21.0.0
+  lints: ^6.0.0
+  pub_semver: ^2.1.0
+  test: ^1.25.0

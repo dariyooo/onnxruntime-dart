@@ -10,7 +10,7 @@
 /// application shipping both platforms can depend on it, ask, and be told no.
 library;
 
-import 'package:onnxruntime_dart/onnxruntime_dart.dart';
+import 'package:onnxruntime_core/onnxruntime_core.dart';
 
 import 'identity.dart';
 

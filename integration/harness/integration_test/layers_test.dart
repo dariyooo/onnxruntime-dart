@@ -17,7 +17,7 @@ import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
-import 'package:onnxruntime_dart/onnxruntime_dart.dart';
+import 'package:onnxruntime_core/onnxruntime_core.dart';
 import 'package:onnxruntime_extensions/onnxruntime_extensions.dart'
     as extensions;
 import 'package:onnxruntime_genai/onnxruntime_genai.dart';

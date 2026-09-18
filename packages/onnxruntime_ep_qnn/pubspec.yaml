@@ -1,6 +1,6 @@
 name: onnxruntime_ep_qnn
 description: >-
-  The qnn execution provider for onnxruntime_dart. Qualcomm NPUs, carrying the Qualcomm AI Runtime it loads.
+  The qnn execution provider for onnxruntime_core. Qualcomm NPUs, carrying the Qualcomm AI Runtime it loads.
 # The API's own version. The build metadata names the binary it was
 # written against, which is a different thing from the one an
 # application chooses to run: that is the _binaries package.
@@ -13,7 +13,7 @@ environment:
 
 resolution: workspace
 dependencies:
-  onnxruntime_dart: ^0.1.0
+  onnxruntime_core: ^0.1.0
   # The oldest runtime this plugin works against, from the wheel's own
   # requirements. ONNX Runtime refuses to load a plugin below it, so declaring
   # it turns a runtime failure into one pub reports before anything downloads.
@@ -22,4 +22,4 @@ dependencies:
 # package is declared against is installed by that package, and naming it
 # here would make it compulsory. Leaving it out is what lets an
 # application pick a build, or take none and supply the library itself at
-# run time. onnxruntime_dart does the same with onnxruntime_binaries.
+# run time. onnxruntime_core does the same with onnxruntime_binaries.

@@ -1,4 +1,4 @@
-# onnxruntime_dart
+# onnxruntime_core
 
 Instructions for agents working in this repository.
 
@@ -14,11 +14,11 @@ Run from the workspace root.
 ```
 dart pub get
 dart analyze --fatal-infos
-dart test packages/onnxruntime_dart
-dart test packages/onnxruntime_dart -p chrome   # web-safe subset
+dart test packages/onnxruntime_core
+dart test packages/onnxruntime_core -p chrome   # web-safe subset
 python3 .github/scripts/test_matrix.py          # build matrix invariants
 
-cd packages/onnxruntime_dart && dart run ffigen --config ffigen.yaml
+cd packages/onnxruntime_core && dart run ffigen --config ffigen.yaml
 ```
 
 Tests resolve paths through `test/src/paths.dart`, so they run from the root or
@@ -30,7 +30,7 @@ A pub workspace. The submodule and CI are shared, so they sit above the members.
 
 | Path | Contents |
 | --- | --- |
-| `packages/onnxruntime_dart/` | Core package. |
+| `packages/onnxruntime_core/` | Core package. |
 | `packages/*/lib/src/bindings/*.g.dart` | ffigen output. Never edit. |
 | `packages/*/lib/src/backend/` | The FFI and wasm seam. |
 | `packages/*/tool/src/seam.dart` | The one hand-written link between the two. |
@@ -157,7 +157,7 @@ rather than ours. `test/web_safety_test.dart` enforces it.
 
 Two public libraries. `native.dart` exports the generated C API, so every
 `OrtApi` function is reachable by construction rather than by effort.
-`onnxruntime_dart.dart` is the ergonomic layer, built on it, covering the common
+`onnxruntime_core.dart` is the ergonomic layer, built on it, covering the common
 path. The ergonomic layer is never a ceiling: if something is missing there, it
 is reachable in `native.dart`, and reaching for it is expected.
 
