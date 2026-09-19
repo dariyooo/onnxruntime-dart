@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import dataclasses
 import os
-import subprocess
 import pathlib
 import sys
 
@@ -60,28 +59,26 @@ class Build:
         return COMMON + tuple(os.path.expandvars(a) for a in self.args)
 
 
+# The upstream release the submodule is pinned to, written down rather than
+# read from the tree. The commit upstream tagged v0.14.0 carries a version.txt
+# that already reads 0.15.0, the next development version, so the file names a
+# release that does not exist and would send anyone looking for the source to a
+# tag they cannot find. Reading the tag instead is not an option either: the
+# submodule is cloned shallow (`shallow = true` in .gitmodules), so CI has no
+# tags to describe against. Same pattern as `pinned_version` in ep_matrix.py.
+#
+# Bump this together with the submodule pointer.
+PINNED_VERSION = "0.14.0"
+
+
 def version() -> str:
     """The upstream release this is built from.
 
-    From the submodule's tag, not its version.txt. Upstream tags v0.14.0 on a
-    commit whose version.txt already reads 0.15.0, the next development
-    version, so the file names a release that does not exist. Publishing 0.15.0
-    would send anyone looking for the source to a tag they cannot find.
-
-    The built library still reports 0.15.0 in its soname, which is upstream's
-    business and not what this version is for: this one says which release the
-    binaries came from.
+    Not version.txt, which names the next development version rather than this
+    release. The built library still reports that in its soname, which is
+    upstream's business: this version says which release the binaries came from.
     """
-    tag = subprocess.run(
-        ["git", "describe", "--tags", "--exact-match"],
-        cwd=SUBMODULE,
-        capture_output=True,
-        text=True,
-        check=True,
-    ).stdout.strip()
-    if not tag.startswith("v"):
-        raise SystemExit(f"{SUBMODULE} is at {tag!r}, expected a vX.Y.Z tag")
-    return tag[1:]
+    return PINNED_VERSION
 
 
 def release_tag() -> str:

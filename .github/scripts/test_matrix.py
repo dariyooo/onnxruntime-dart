@@ -839,9 +839,22 @@ class Extensions(unittest.TestCase):
         # operators are compiled into the runtime instead of loaded beside it.
         self.assertFalse([t for t in self.ext.targets() if t.startswith("web")])
 
+    def test_the_version_is_the_upstream_release_not_the_next_one(self):
+        # version.txt on the pinned commit reads the NEXT development version,
+        # so publishing it would name a release upstream never tagged. The
+        # version is written down in extensions_matrix instead, and this is what
+        # catches it drifting from the submodule: bump both together.
+        in_tree = (
+            REPO_ROOT / "third_party" / "onnxruntime-extensions" / "version.txt"
+        ).read_text(encoding="utf-8").strip()
+        self.assertNotEqual(
+            self.ext.version(),
+            in_tree,
+            "version.txt now agrees with the pinned version. If upstream "
+            "tagged this commit, read the file again and drop PINNED_VERSION.",
+        )
+
     def test_the_version_comes_from_the_pinned_source(self):
-        # Upstream tags v0.14.0 on a commit whose version.txt says 0.15.0, and
-        # the built library follows the file, so the file is what we publish.
         version = self.ext.version()
         pubspec = (
             REPO_ROOT / "packages" / "onnxruntime_extensions_binaries" / "pubspec.yaml"
