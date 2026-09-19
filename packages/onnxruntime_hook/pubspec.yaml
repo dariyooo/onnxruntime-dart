@@ -5,7 +5,7 @@ description: >-
 # Versioned as itself, not as the binaries. It installs several components at
 # several upstream versions, so there is no single version it could carry, and
 # the release each package downloads from is named by that package's version.
-version: 0.1.0
+version: 0.1.0+1
 repository: https://github.com/dariyooo/onnxruntime-dart
 issue_tracker: https://github.com/dariyooo/onnxruntime-dart/issues
 

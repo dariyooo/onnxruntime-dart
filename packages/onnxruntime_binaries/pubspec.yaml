@@ -4,7 +4,7 @@ description: >-
   are building for. Depend on onnxruntime_core rather than on this directly.
 # The version IS the ONNX Runtime version. Depend on 1.29.1 to run on 1.29.1.
 # No Dart API lives here; the bindings are in onnxruntime_core.
-version: 1.29.0
+version: 1.29.0+1
 repository: https://github.com/dariyooo/onnxruntime-dart
 issue_tracker: https://github.com/dariyooo/onnxruntime-dart/issues
 

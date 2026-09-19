@@ -83,10 +83,13 @@ void main() {
         //
         // The binaries package carries that version. The API beside it has one
         // of its own, so an application can move either without the other.
+        // Build metadata dropped before comparing, as for the runtime
+        // packages above: a `+1` is the same plugin repackaged and must not
+        // read as a mismatch.
         final declared = _field(
           fromRoot('packages/onnxruntime_ep_${ep}_binaries/pubspec.yaml'),
           'version',
-        );
+        ).split('+').first;
         final upstream = File(
           fromRoot('third_party/onnxruntime/plugin-ep-$ep/VERSION_NUMBER'),
         ).readAsStringSync().trim();

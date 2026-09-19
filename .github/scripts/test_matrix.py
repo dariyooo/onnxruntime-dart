@@ -24,6 +24,17 @@ import ort_matrix as m
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 import package_artifact
+
+def released_version(version: str) -> str:
+    """The part of a pubspec version that a release tag is built from.
+
+    Build metadata is a repackage counter: `1.29.0+1` is the same upstream
+    runtime published again, so it installs from `runtime-v1.29.0`. This
+    mirrors `releaseTagFor` in onnxruntime_hook, which splits on `+` for the
+    same reason. Comparing the raw version here would forbid repackaging.
+    """
+    return version.split("+", 1)[0]
+
 import release_identity
 import binary_arch
 import rename_release_assets
@@ -194,7 +205,7 @@ class ReleaseIdentity(unittest.TestCase):
         ).group(1)
         self.assertEqual(
             release_identity.release_tag("runtime"),
-            f"runtime-v{installed}",
+            f"runtime-v{released_version(installed)}",
             f"the hook would look for runtime-v{installed}",
         )
 
@@ -237,7 +248,7 @@ class PackageVersions(unittest.TestCase):
             "onnxruntime_web_webgpu",
             "onnxruntime_web_webgpu_webnn",
         ):
-            version = self._version(package).split("+")[0]
+            version = released_version(self._version(package))
             self.assertEqual(version, upstream, package)
 
     def test_the_extensions_package_carries_the_extensions_version(self):
@@ -249,7 +260,9 @@ class PackageVersions(unittest.TestCase):
     def test_each_provider_package_carries_its_plugin_version(self):
         for provider in ep_matrix.PROVIDERS:
             self.assertEqual(
-                self._version(f"onnxruntime_ep_{provider.name}_binaries"),
+                released_version(
+                    self._version(f"onnxruntime_ep_{provider.name}_binaries")
+                ),
                 provider.version,
                 provider.name,
             )
@@ -415,7 +428,7 @@ class Providers(unittest.TestCase):
                 r"^version:\s*(\S+)\s*$", pubspec, re.MULTILINE
             ).group(1)
             self.assertEqual(
-                f"ep-{provider.name}-v{installed}",
+                f"ep-{provider.name}-v{released_version(installed)}",
                 provider.release_tag,
                 f"{provider.name}: the hook would look for "
                 f"ep-{provider.name}-v{installed}, the workflow publishes "
@@ -954,7 +967,7 @@ class Pipelines(unittest.TestCase):
             )
             self.assertIsNotNone(declared, provider.name)
 
-            expected = f"ep-{provider.name}-v{declared.group(1)}"
+            expected = f"ep-{provider.name}-v{released_version(declared.group(1))}"
             self.assertEqual(
                 provider.release_tag,
                 expected,
@@ -967,7 +980,7 @@ class Pipelines(unittest.TestCase):
             # without saying so.
             self.assertEqual(
                 release_identity.provider_version(f"ep-{provider.name}"),
-                declared.group(1),
+                released_version(declared.group(1)),
                 f"{provider.name}: the release would be named for a different "
                 f"version than the package asks for",
             )
