@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import dataclasses
 import os
+import subprocess
 import pathlib
 import sys
 
@@ -60,13 +61,27 @@ class Build:
 
 
 def version() -> str:
-    """What the library reports in its soname.
+    """The upstream release this is built from.
 
-    From version.txt rather than the tag: upstream tags v0.14.0 on a commit
-    whose version.txt already says 0.15.0, and the built library follows the
-    file.
+    From the submodule's tag, not its version.txt. Upstream tags v0.14.0 on a
+    commit whose version.txt already reads 0.15.0, the next development
+    version, so the file names a release that does not exist. Publishing 0.15.0
+    would send anyone looking for the source to a tag they cannot find.
+
+    The built library still reports 0.15.0 in its soname, which is upstream's
+    business and not what this version is for: this one says which release the
+    binaries came from.
     """
-    return (SUBMODULE / "version.txt").read_text(encoding="utf-8").strip()
+    tag = subprocess.run(
+        ["git", "describe", "--tags", "--exact-match"],
+        cwd=SUBMODULE,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.strip()
+    if not tag.startswith("v"):
+        raise SystemExit(f"{SUBMODULE} is at {tag!r}, expected a vX.Y.Z tag")
+    return tag[1:]
 
 
 def release_tag() -> str:
