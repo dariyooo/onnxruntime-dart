@@ -38,6 +38,17 @@ String get ortVersionFile =>
 String get ortBindings =>
     _fromRoot('packages/onnxruntime_core/lib/src/bindings/ort_bindings.g.dart');
 
+/// The hand-written wrappers, which say which C calls have one. Read back so
+/// that hand-writing a wrapper updates the record of what is unwrapped without
+/// anyone having to remember to.
+String get ortManualWrappers =>
+    _fromRoot('packages/onnxruntime_core/lib/src/bindings/api/manual.dart');
+
+/// The hand-written seam, which is the source of truth for which operations
+/// the two backends translate rather than pass straight through.
+String get ortInterface =>
+    _fromRoot('packages/onnxruntime_core/lib/src/backend/interface.dart');
+
 String _fromRoot(String relative) => '${_root.path}/$relative';
 
 final Directory _root = _findRoot();

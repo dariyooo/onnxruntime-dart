@@ -110,7 +110,7 @@ Generated generate({
   // is the translated one, and generating a native-only twin of it would put
   // two meanings on one name. Read from the file rather than listed, so adding
   // a hand-written operation is enough and nothing here has to be told.
-  final translated = _declaredBy(File('lib/src/backend/interface.dart'));
+  final translated = _declaredBy(File(ortInterface));
   final rawOnly = [
     for (final operation in raw)
       if (!translated.contains(operation.name) &&
@@ -218,8 +218,13 @@ String _unmapped(List<String> skipped) {
 /// record true: hand-writing a wrapper updates the file that says which calls
 /// have none, without anyone having to remember to.
 Set<String> _handWritten() {
-  final file = File('lib/src/bindings/api/manual.dart');
-  if (!file.existsSync()) return const {};
+  final file = File(ortManualWrappers);
+  if (!file.existsSync()) {
+    // Never silently: reporting no hand-written wrappers makes the generator
+    // emit one for every call manual.dart already covers, which is a large
+    // wrong diff rather than a visible failure.
+    throw StateError('no hand-written wrappers at ${file.path}');
+  }
   // Every backticked name on a doc line, not just the first: a wrapper that
   // covers a pair names both, as `availableProviders` names the release it
   // makes on the caller's behalf. Names that are not C calls match nothing and
@@ -249,7 +254,7 @@ String _supportSource() {
   final described = {
     for (final operation in correspondence) operation.name: operation,
   };
-  final declared = _declaredBy(File('lib/src/backend/interface.dart'));
+  final declared = _declaredBy(File(ortInterface));
 
   final entries = [
     for (final name in ({...declared, ...described.keys}.toList()..sort()))
@@ -363,7 +368,12 @@ ${methods.join('\n')}}
 /// Parsed rather than listed. The hand-written seam is the authority on what
 /// it covers, and a list here would be a second place to keep in step.
 Set<String> _declaredBy(File interface) {
-  if (!interface.existsSync()) return const {};
+  if (!interface.existsSync()) {
+    // Never silently: an empty set makes the generator emit raw pass-throughs
+    // for operations the seam translates, which is a large wrong diff rather
+    // than a visible failure.
+    throw StateError('no seam at ${interface.path}');
+  }
   return {
     for (final match in RegExp(
       r'^\s{2}(?:@\w+[^\n]*\n\s*)*[A-Za-z][\w<>,?\[\] ]*\s+(\w+)\(',
