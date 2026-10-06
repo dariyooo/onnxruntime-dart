@@ -850,22 +850,25 @@ jobs:
       # HV_UNSUPPORTED". kern.hv_support says in one line whether that is the
       # machine refusing or something we are doing wrong, and the alternative
       # is waiting out a boot timeout to learn nothing.
-      # Reported as a warning rather than an error, and the step is
-      # continue-on-error, so a runner that cannot host a hypervisor leaves
-      # this job yellow instead of red. The distinction is the point: a red
-      # android-arm64 used to mean "CI found nothing wrong but the workflow
-      # failed anyway", every week, which trains everyone to ignore a red
-      # pipeline. Yellow says the target went untested for a reason nothing in
-      # this repository can fix.
+      # Warnings and an output, not an error and an exit code. A runner that
+      # cannot host a hypervisor leaves this job yellow instead of red. The
+      # distinction is the point: a red android-arm64 used to mean "CI found
+      # nothing wrong but the workflow failed anyway", every week, which trains
+      # everyone to ignore a red pipeline. Yellow says the target went untested
+      # for a reason nothing in this repository can fix.
       #
-      # Scoped to this step alone on purpose. Everything after it still fails
-      # red, so an emulator that boots and then fails a test is a real
-      # failure and reads as one. This never converts a test result into a
-      # warning, only the absence of a machine to run it on.
+      # Signalled by an output rather than `exit 1` under continue-on-error.
+      # Both leave the workflow green, but a tolerated non-zero exit still
+      # files a red "Process completed with exit code 1" annotation, which is
+      # the one thing this is trying not to show.
+      #
+      # Only this probe is forgiving. Everything after it still fails red, so
+      # an emulator that boots and then fails a test is a real failure and
+      # reads as one. This never converts a test result into a warning, only
+      # the absence of a machine to run it on.
       - name: Can this runner host a hypervisor
         id: hypervisor
         if: matrix.name == 'android-arm64'
-        continue-on-error: true
         run: |
           hv=$(sysctl -n kern.hv_support 2>&1 || true)
           cpu=$(sysctl -n machdep.cpu.brand_string 2>&1 || true)
@@ -882,14 +885,17 @@ jobs:
             echo "::warning::Google ships an emulator for at all."
             echo "::warning::Real coverage needs arm64 hardware CI does not"
             echo "::warning::have. See issue #1 for the measurements."
-            exit 1
+            echo "usable=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "usable=true" >> "$GITHUB_OUTPUT"
           fi
 
       # In the run summary, not just the step log. A warning annotation is easy
       # to miss on a green run, and the whole reason this is yellow rather than
       # red is that someone reads it and knows arm64 was not covered.
       - name: Say that arm64 went untested
-        if: matrix.name == 'android-arm64' && steps.hypervisor.outcome == 'failure'
+        if: matrix.name == 'android-arm64'
+          && steps.hypervisor.outputs.usable == 'false'
         run: |
           {
             echo "### android-arm64 untested"
@@ -925,10 +931,10 @@ jobs:
           fi
 
       - name: Run on an Android emulator
-        # outcome is 'skipped' for every other target, so only a real probe
-        # failure holds this back.
+        # The output is empty for every other target, because the probe only
+        # runs for android-arm64, so only an explicit 'false' holds this back.
         if: startsWith(matrix.name, 'android')
-          && steps.hypervisor.outcome != 'failure'
+          && steps.hypervisor.outputs.usable != 'false'
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: ${{ matrix.api }}
