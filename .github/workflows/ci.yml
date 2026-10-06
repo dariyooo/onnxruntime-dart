@@ -850,26 +850,55 @@ jobs:
       # HV_UNSUPPORTED". kern.hv_support says in one line whether that is the
       # machine refusing or something we are doing wrong, and the alternative
       # is waiting out a boot timeout to learn nothing.
+      # Reported as a warning rather than an error, and the step is
+      # continue-on-error, so a runner that cannot host a hypervisor leaves
+      # this job yellow instead of red. The distinction is the point: a red
+      # android-arm64 used to mean "CI found nothing wrong but the workflow
+      # failed anyway", every week, which trains everyone to ignore a red
+      # pipeline. Yellow says the target went untested for a reason nothing in
+      # this repository can fix.
+      #
+      # Scoped to this step alone on purpose. Everything after it still fails
+      # red, so an emulator that boots and then fails a test is a real
+      # failure and reads as one. This never converts a test result into a
+      # warning, only the absence of a machine to run it on.
       - name: Can this runner host a hypervisor
+        id: hypervisor
         if: matrix.name == 'android-arm64'
+        continue-on-error: true
         run: |
           hv=$(sysctl -n kern.hv_support 2>&1 || true)
           cpu=$(sysctl -n machdep.cpu.brand_string 2>&1 || true)
           echo "  kern.hv_support: $hv"
           echo "  cpu: $cpu"
           if [ "$hv" != "1" ]; then
-            echo "::error::No hypervisor here: kern.hv_support is '$hv' on"
-            echo "::error::'$cpu'. Apple silicon exposes nested virtualisation"
-            echo "::error::from M3 on, and this runner is virtualised, so the"
-            echo "::error::arm64 emulator cannot start. There is no other host"
-            echo "::error::to move to: the emulator requires the image and the"
-            echo "::error::host to share an architecture, refusing an arm64 AVD"
-            echo "::error::on x86_64 outright, and macOS is the only arm64 host"
-            echo "::error::Google ships an emulator for at all."
-            echo "::error::Real coverage needs arm64 hardware CI does not"
-            echo "::error::have. See issue #1 for the measurements."
+            echo "::warning::No hypervisor here: kern.hv_support is '$hv' on"
+            echo "::warning::'$cpu'. Apple silicon exposes nested virtualisation"
+            echo "::warning::from M3 on, and this runner is virtualised, so the"
+            echo "::warning::arm64 emulator cannot start. There is no other host"
+            echo "::warning::to move to: the emulator requires the image and the"
+            echo "::warning::host to share an architecture, refusing an arm64 AVD"
+            echo "::warning::on x86_64 outright, and macOS is the only arm64 host"
+            echo "::warning::Google ships an emulator for at all."
+            echo "::warning::Real coverage needs arm64 hardware CI does not"
+            echo "::warning::have. See issue #1 for the measurements."
             exit 1
           fi
+
+      # In the run summary, not just the step log. A warning annotation is easy
+      # to miss on a green run, and the whole reason this is yellow rather than
+      # red is that someone reads it and knows arm64 was not covered.
+      - name: Say that arm64 went untested
+        if: matrix.name == 'android-arm64' && steps.hypervisor.outcome == 'failure'
+        run: |
+          {
+            echo "### android-arm64 untested"
+            echo
+            echo "No hypervisor on \`$(sysctl -n machdep.cpu.brand_string 2>&1 || true)\`,"
+            echo "so the arm64 emulator could not start and the suite did not run"
+            echo "on this target. Not a test failure, and not fixable here:"
+            echo "it needs arm64 hardware CI does not offer. See issue #1."
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Let the emulator use KVM
         if: startsWith(matrix.name, 'android') && runner.os == 'Linux'
@@ -896,7 +925,10 @@ jobs:
           fi
 
       - name: Run on an Android emulator
+        # outcome is 'skipped' for every other target, so only a real probe
+        # failure holds this back.
         if: startsWith(matrix.name, 'android')
+          && steps.hypervisor.outcome != 'failure'
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: ${{ matrix.api }}
