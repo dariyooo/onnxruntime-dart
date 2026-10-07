@@ -60,7 +60,14 @@ jobs:
     name: ${{ matrix.id }}
     needs: plan
     runs-on: ${{ matrix.runner }}
-    timeout-minutes: 180
+    # Six hours, GitHub's per-job ceiling. 180 was enough for every build that
+    # restored its artifact cache and for none that did not: the WebAssembly
+    # WebGPU+WebNN configuration takes under two minutes warm and over three
+    # hours cold, and was cancelled mid-build on 2026-09-19 for exactly that
+    # reason. A limit that only trips on a cold cache trips precisely when the
+    # build has to finish, so it is not doing the job a timeout is for. Kept as
+    # a backstop against a genuine hang, which is what the ceiling is.
+    timeout-minutes: 360
     strategy:
       # One configuration failing must not hide the state of the others.
       fail-fast: false

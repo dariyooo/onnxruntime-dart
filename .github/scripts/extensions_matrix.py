@@ -40,6 +40,22 @@ COMMON = (
 )
 
 
+# Visual Studio 2026's STL turns using <experimental/coroutine> into a hard
+# error, STL1011, rather than the deprecation warning 2022 emitted. The pinned
+# extensions tree still includes it in ocos_operators, so every arm64 build
+# stopped there when GitHub moved windows-11-arm to VS 2026.
+#
+# This is the escape hatch the error message itself names. Passed on both
+# Windows targets, not just arm64: it is a no-op under 2022, and x64 only
+# escapes today because it is pinned to a windows-2022 runner that will not
+# exist forever.
+#
+# Remove when the submodule moves to <coroutine>.
+_MSVC = (
+    "-DCMAKE_CXX_FLAGS=/D_SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS",
+)
+
+
 @dataclasses.dataclass(frozen=True)
 class Build:
     """One extensions library."""
@@ -143,13 +159,21 @@ BUILDS: tuple[Build, ...] = (
         id="linux-arm64", platform="linux", arch="arm64", runner="ubuntu-24.04-arm"
     ),
     Build(
-        id="windows-x64", platform="windows", arch="x86_64", runner="windows-2022"
+        id="windows-x64",
+        platform="windows",
+        arch="x86_64",
+        runner="windows-2022",
+        args=_MSVC,
     ),
     Build(
         id="windows-arm64",
         platform="windows",
         arch="arm64",
+        # The only arm64 Windows label GitHub offers. It carried Visual Studio
+        # 2022 until October 2026 and carries 2026 now, which is what _MSVC is
+        # for.
         runner="windows-11-arm",
+        args=_MSVC,
     ),
 )
 

@@ -32,6 +32,49 @@ DEPS_CACHE = (
 )
 
 
+# build.py picks a Visual Studio generator from the OS alone, and it picks the
+# one that was current when that code was written. GitHub moved the
+# windows-11-arm image from VS 2022 to VS 2026 in October 2026, and every arm64
+# build stopped at `project()` with "could not find any instance of Visual
+# Studio" fifteen seconds in.
+#
+# So ask the machine instead of assuming. vswhere ships with every VS installer
+# and reports what is actually there, which keeps this working through the next
+# image bump in either direction.
+_VS_GENERATORS = {
+    "17": "Visual Studio 17 2022",
+    "18": "Visual Studio 18 2026",
+}
+
+
+def _windows_generator() -> str:
+    """The generator for the Visual Studio this machine actually has."""
+    vswhere = (
+        pathlib.Path(os.environ.get("ProgramFiles(x86)", r"C:\Program Files (x86)"))
+        / "Microsoft Visual Studio" / "Installer" / "vswhere.exe"
+    )
+    if not vswhere.is_file():
+        raise SystemExit(
+            f"{vswhere} is missing, so which Visual Studio is installed cannot "
+            "be determined. It ships with every Visual Studio installer, so a "
+            "runner without it has no Visual Studio either."
+        )
+    found = subprocess.run(
+        [str(vswhere), "-latest", "-property", "installationVersion"],
+        capture_output=True, text=True, check=True,
+    ).stdout.strip()
+    major = found.split(".")[0]
+    generator = _VS_GENERATORS.get(major)
+    if generator is None:
+        raise SystemExit(
+            f"Visual Studio {found} is installed, and build.py accepts only "
+            f"{sorted(_VS_GENERATORS.values())}. Add the new generator here and "
+            "check the pinned submodule's build_args.py accepts it."
+        )
+    print(f"  Visual Studio {found} -> {generator}", flush=True)
+    return generator
+
+
 def main() -> None:
     build(ort_matrix.by_id(os.environ["MATRIX_ID"]))
 
@@ -64,6 +107,9 @@ def build(config: ort_matrix.Config) -> None:
         "--cmake_extra_defines", "CMAKE_POLICY_VERSION_MINIMUM=3.5",
         *args,
     ]
+
+    if config.platform == "windows":
+        command += ["--cmake_generator", _windows_generator()]
 
     if config.platform == "android":
         ndk = os.environ.get("ANDROID_NDK_HOME") or os.environ.get("ANDROID_NDK_ROOT")
